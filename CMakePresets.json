@@ -1,0 +1,64 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": { "major": 3, "minor": 25, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "installDir": "${sourceDir}/build/${presetName}/stage"
+    },
+    {
+      "name": "windows-release",
+      "displayName": "Windows (Release)",
+      "description": "The build that goes into Setup.exe. Run from a Visual Studio developer prompt (build-windows.bat does this for you).",
+      "inherits": "base",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "CMAKE_C_COMPILER": "cl", "CMAKE_CXX_COMPILER": "cl" },
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows" }
+    },
+    {
+      "name": "windows-debug",
+      "displayName": "Windows (Debug)",
+      "description": "Slower, with extra checks. For developers.",
+      "inherits": "base",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug", "CMAKE_C_COMPILER": "cl", "CMAKE_CXX_COMPILER": "cl" },
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows" }
+    },
+    {
+      "name": "linux-debug",
+      "displayName": "Linux (Debug)",
+      "description": "Developer build on Linux.",
+      "inherits": "base",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" },
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Linux" }
+    },
+    {
+      "name": "linux-rtsan",
+      "displayName": "Linux (RealtimeSanitizer tests)",
+      "description": "Tests only, built with Clang 20's RealtimeSanitizer to catch audio-thread rule violations.",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_COMPILER": "clang-20",
+        "CMAKE_CXX_COMPILER": "clang++-20",
+        "AETHER_RTSAN": "ON",
+        "AETHER_BUILD_APP": "OFF"
+      },
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Linux" }
+    }
+  ],
+  "buildPresets": [
+    { "name": "windows-release", "configurePreset": "windows-release" },
+    { "name": "windows-debug",   "configurePreset": "windows-debug" },
+    { "name": "linux-debug",     "configurePreset": "linux-debug" },
+    { "name": "linux-rtsan",     "configurePreset": "linux-rtsan" }
+  ],
+  "testPresets": [
+    { "name": "base-test", "hidden": true, "output": { "outputOnFailure": true }, "execution": { "noTestsAction": "error" } },
+    { "name": "windows-release", "inherits": "base-test", "configurePreset": "windows-release" },
+    { "name": "windows-debug",   "inherits": "base-test", "configurePreset": "windows-debug" },
+    { "name": "linux-debug",     "inherits": "base-test", "configurePreset": "linux-debug" },
+    { "name": "linux-rtsan",     "inherits": "base-test", "configurePreset": "linux-rtsan" }
+  ]
+}

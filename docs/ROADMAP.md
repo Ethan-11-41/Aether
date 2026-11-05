@@ -1,0 +1,58 @@
+# Aether roadmap
+
+Aether is built one milestone at a time. After every milestone the app compiles, runs, passes
+its automated tests, and comes with a checklist of things to try (in `docs/testing/`).
+
+Rough estimate: about 6 months to version 1.0 at a steady pace (anywhere from 4 to 10),
+re-estimated after M2.
+
+## Phase 0: foundations
+
+| # | Milestone | You can… |
+|---|---|---|
+| **M0** | Skeleton & pipeline | Install Aether from Setup.exe, choose your sound device, sample rate and buffer size, see latency, play a test tone, see your microphone level |
+
+## Phase 1: core
+
+| # | Milestone | You can… |
+|---|---|---|
+| M1 | Project document | Add/rename/delete/reorder/colour tracks, undo/redo everything, save/load, recover after a crash, pick recent projects on a start screen |
+| M2 | Time & transport | Play/stop, loop, set BPM and time signature, add tempo changes (jumps and ramps), use the metronome with count-in |
+| M3 | Arrangement & audio clips | Drag audio files in, see waveforms, zoom/scroll, move/trim/split/duplicate/fade/loop clips, snap to grid, nudge by grid or ms |
+| M4 | Mixer | Volume, pan, mute, solo, meters, buses, sends, master, insert slots (two temporary basic effects until M13), delay compensation |
+| M5 | Recording | Record from any input with monitoring, count-in, punch in/out, loop-record multiple takes, automatic latency compensation + calibration |
+| M6 | MIDI tracks | Record and play MIDI from a keyboard, the on-screen keyboard or your computer keyboard; a starter synth; basic MIDI file import |
+| M7 | Export | Export the mix and per-track stems to WAV, FLAC and MP3 |
+| M8 | Phase 1 hardening | Standard shortcuts, tooltips and drag-and-drop everywhere, a 50-track performance test, bug fixing |
+
+## Phase 2: making music
+
+| # | Milestone |
+|---|---|
+| M9 | Piano roll: draw notes, velocity, length, quantize (strength, swing), humanize, scale highlighting |
+| M10 | Subtractive synth |
+| M11 | Drum sampler + step sequencer; patterns on the timeline; custom kits (per-pad tune, volume, pan, envelope, choke groups) |
+| M12 | Multi-sample sampler (key zones, velocity layers, ADSR) |
+| M13 | Effects: EQ, compressor, limiter, reverb, delay, chorus, distortion, filter, gate, with presets |
+| M14 | Automation lanes for any parameter, including plug-ins |
+| M15 | VST3 hosting: safe scanning, blacklist, browser, favourites, presets |
+| M16 | MIDI learn for any knob |
+| M17 | Built-in sound library v1 (procedurally generated kits, one-shots, loops, presets) |
+| M18 | Full MIDI file and stem import/export |
+
+## Phase 3: pro features
+
+| # | Milestone |
+|---|---|
+| M19 | Time-stretching and pitch-shifting |
+| M20 | Warp markers, tempo detection, loops that follow the project tempo |
+| M21 | Take comping and crossfades |
+| M22 | Groove templates and sidechain routing |
+| M23 | Sound library browser: tags, search, previews, drag to timeline |
+| M24 | Project templates (beat making, band recording, podcast) |
+| M25 | Shortcut editor, dark/light themes, UI scaling |
+| M26 | DAWproject import/export |
+| M27 | Reaper `.rpp` and LMMS `.mmp` import (best effort); guide for FL Studio and GarageBand |
+| M28 | CLAP plug-in hosting |
+| M29 | Stretch goals (experimental): multi-core processing, disk streaming, plug-in sandboxing |
+| M30 | Version 1.0: final installer, user guide, optional code signing |
