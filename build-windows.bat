@@ -57,6 +57,10 @@ rem --- 3. Collect everything that gets installed into one folder --------------
 if exist "%STAGE_DIR%" rmdir /s /q "%STAGE_DIR%"
 cmake --install "build\%PRESET%" --prefix "%STAGE_DIR%" --component Aether
 if errorlevel 1 goto :fail
+if not exist "%STAGE_DIR%\Aether.exe" (
+    echo ERROR: Aether.exe is missing from the install folder.
+    goto :fail
+)
 
 rem --- 4. Make Setup.exe with Inno Setup ---------------------------------------
 echo.
