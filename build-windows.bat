@@ -33,8 +33,8 @@ if not defined VSINSTALL goto :no_visual_studio
 
 echo Using Visual Studio at: %VSINSTALL%
 call "%VSINSTALL%\Common7\Tools\VsDevCmd.bat" -arch=x64 -host_arch=x64 -no_logo
-if errorlevel 1 goto :fail
-
+rem VsDevCmd sometimes reports harmless errors, so check for the tools we need instead.
+where cl >nul 2>nul || goto :no_visual_studio
 where cmake >nul 2>nul || goto :no_cmake
 
 rem --- 2. Configure, build and test ------------------------------------------
