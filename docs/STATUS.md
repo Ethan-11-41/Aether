@@ -4,7 +4,7 @@ An honest list of what works. Updated at the end of every milestone.
 
 **Legend:** ✅ Working · 🟡 Partial · 🧪 Stub/placeholder · ⬜ Not started
 
-Current version: **0.2.0** (Milestone 1)
+Current version: **0.2.1** (Milestone 1)
 
 ## Milestone 0: skeleton and build pipeline
 

@@ -2,7 +2,7 @@
 
 About 15 minutes. Note anything that doesn't match "you should see".
 
-Install **Aether-Setup-0.2.0.exe** from the newest green run on the
+Install **Aether-Setup-0.2.1.exe** from the newest green run on the
 [Actions page](https://github.com/Ethan-11-41/aether/actions) (under **Artifacts**). It installs
 over the old version.
 

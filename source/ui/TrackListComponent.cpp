@@ -47,20 +47,20 @@ public:
 
     void paint (juce::Graphics& g) override
     {
-        const auto& theme = owner.theme;
+        const auto& t = owner.theme;
         const auto selected = owner.selectedTrackId == track.getId();
         auto bounds = getLocalBounds();
 
-        g.setColour (selected ? theme.panelRaised : theme.panel);
+        g.setColour (selected ? t.panelRaised : t.panel);
         g.fillRect (bounds);
 
         if (selected)
         {
-            g.setColour (theme.accent.withAlpha (0.6f));
+            g.setColour (t.accent.withAlpha (0.6f));
             g.drawRect (bounds, 1);
         }
 
-        g.setColour (theme.outline);
+        g.setColour (t.outline);
         g.drawHorizontalLine (getHeight() - 1, 0.0f, (float) getWidth());
 
         g.setColour (track.getColour());
@@ -68,7 +68,7 @@ public:
 
         if (editor == nullptr)
         {
-            g.setColour (theme.text);
+            g.setColour (t.text);
             g.setFont (juce::FontOptions (15.0f, juce::Font::bold));
             g.drawText (track.getName(), getNameArea(), juce::Justification::centredLeft, true);
         }

@@ -55,7 +55,7 @@ if errorlevel 1 goto :fail
 
 rem --- 3. Collect everything that gets installed into one folder ---------------
 if exist "%STAGE_DIR%" rmdir /s /q "%STAGE_DIR%"
-cmake --install "build\%PRESET%" --prefix "%STAGE_DIR%"
+cmake --install "build\%PRESET%" --prefix "%STAGE_DIR%" --component Aether
 if errorlevel 1 goto :fail
 
 rem --- 4. Make Setup.exe with Inno Setup ---------------------------------------

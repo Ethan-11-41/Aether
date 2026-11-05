@@ -91,9 +91,10 @@ if(AETHER_BUILD_APP)
     target_link_libraries(AetherApp PRIVATE aether_ui aether_warnings
                                             $<$<PLATFORM_ID:Windows>:Dbghelp>)   # crash reports
 
-    # "cmake --install" copies the finished program into a staging folder, which the
-    # installer script (installer/aether.iss) then packages into Setup.exe.
-    install(TARGETS AetherApp RUNTIME DESTINATION . BUNDLE DESTINATION .)
-    install(FILES "${PROJECT_SOURCE_DIR}/LICENSE"    DESTINATION . RENAME LICENSE.txt)
-    install(FILES "${PROJECT_SOURCE_DIR}/CREDITS.md" DESTINATION . RENAME CREDITS.txt)
+    # "cmake --install <build> --component Aether" copies the finished program into a staging
+    # folder, which the installer script (installer/aether.iss) packages into Setup.exe.
+    # The "Aether" component keeps out the developer files JUCE installs (headers, build tools).
+    install(TARGETS AetherApp RUNTIME DESTINATION . BUNDLE DESTINATION . COMPONENT Aether)
+    install(FILES "${PROJECT_SOURCE_DIR}/LICENSE"    DESTINATION . RENAME LICENSE.txt COMPONENT Aether)
+    install(FILES "${PROJECT_SOURCE_DIR}/CREDITS.md" DESTINATION . RENAME CREDITS.txt COMPONENT Aether)
 endif()

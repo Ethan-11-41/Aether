@@ -55,6 +55,12 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
+[InstallDelete]
+; Versions before 0.2.1 accidentally installed JUCE's developer files; remove them when updating.
+Type: filesandordirs; Name: "{app}\include"
+Type: filesandordirs; Name: "{app}\lib"
+Type: filesandordirs; Name: "{app}\bin"
+
 [Files]
 Source: "{#StageDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 

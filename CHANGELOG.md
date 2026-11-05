@@ -6,6 +6,12 @@ follow [Semantic Versioning](https://semver.org/) (0.x while Aether is in early 
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-05
+
+### Fixed
+- The installer no longer copies JUCE's developer files (about 4,000 C++ headers and build
+  tools) into Aether's install folder. Updating removes them from earlier installs.
+
 ## [0.2.0] - 2026-11-05 - Milestone 1: projects, tracks, undo, autosave and crash recovery
 
 ### Added
