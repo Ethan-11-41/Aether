@@ -5,11 +5,16 @@ add_executable(aether_tests
     unit/AudioDeviceServiceTests.cpp
     unit/AudioEngineTests.cpp
     unit/LatencyInfoTests.cpp
+    unit/ProjectFileTests.cpp
+    unit/ProjectModelTests.cpp
+    unit/ProjectSessionTests.cpp
     unit/SpscQueueTests.cpp
     unit/TestToneGeneratorTests.cpp
+    unit/TrackListComponentTests.cpp
     realtime/RealtimeSafetyTests.cpp)
 
-target_link_libraries(aether_tests PRIVATE aether_core aether_warnings Catch2::Catch2WithMain)
+target_link_libraries(aether_tests PRIVATE aether_ui aether_warnings Catch2::Catch2WithMain)
+target_compile_definitions(aether_tests PRIVATE AETHER_TEST_FIXTURES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures")
 
 # PRE_TEST discovery lists the tests when ctest runs rather than during the build.
 catch_discover_tests(aether_tests DISCOVERY_MODE PRE_TEST)

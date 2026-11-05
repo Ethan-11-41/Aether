@@ -1,5 +1,5 @@
 // Aether - Copyright (C) 2026 The Aether authors. Licensed under the GNU AGPLv3 or later.
-#include "MainComponent.h"
+#include "AudioSettingsComponent.h"
 
 #include "ui/AetherLookAndFeel.h"
 
@@ -26,7 +26,7 @@ namespace
     }
 }
 
-MainComponent::MainComponent (AudioDeviceService& deviceService, AudioEngine& audioEngine, const ui::Theme& themeToUse)
+AudioSettingsComponent::AudioSettingsComponent (AudioDeviceService& deviceService, AudioEngine& audioEngine, const ui::Theme& themeToUse)
     : devices (deviceService),
       engine (audioEngine),
       theme (themeToUse),
@@ -35,13 +35,13 @@ MainComponent::MainComponent (AudioDeviceService& deviceService, AudioEngine& au
       latencyPanel (theme)
 {
     // Header ---------------------------------------------------------------------------------
-    titleLabel.setText ("Aether", juce::dontSendNotification);
-    titleLabel.setFont (juce::FontOptions (26.0f, juce::Font::bold));
+    titleLabel.setText ("Audio settings", juce::dontSendNotification);
+    titleLabel.setFont (juce::FontOptions (22.0f, juce::Font::bold));
     titleLabel.setColour (juce::Label::textColourId, theme.text);
     titleLabel.setBorderSize ({});
     addAndMakeVisible (titleLabel);
 
-    subtitleLabel.setText ("Milestone 0: audio setup. Check that sound comes out and goes in.", juce::dontSendNotification);
+    subtitleLabel.setText ("Choose your sound device, and check that sound comes out and goes in.", juce::dontSendNotification);
     styleHint (subtitleLabel, theme);
     subtitleLabel.setJustificationType (juce::Justification::centredLeft);
     addAndMakeVisible (subtitleLabel);
@@ -147,20 +147,20 @@ MainComponent::MainComponent (AudioDeviceService& deviceService, AudioEngine& au
     setSize (1100, 720);
 }
 
-MainComponent::~MainComponent()
+AudioSettingsComponent::~AudioSettingsComponent()
 {
     stopTimer();
     engine.setTestToneEnabled (false);
 }
 
-void MainComponent::updateTestToneButton()
+void AudioSettingsComponent::updateTestToneButton()
 {
     const auto on = engine.isTestToneEnabled();
     testToneButton.setToggleState (on, juce::dontSendNotification);
     testToneButton.setButtonText (on ? "Stop test tone" : "Play test tone");
 }
 
-juce::String MainComponent::describeDeviceType (const juce::String& typeName)
+juce::String AudioSettingsComponent::describeDeviceType (const juce::String& typeName)
 {
     if (typeName.containsIgnoreCase ("Exclusive"))
         return "Exclusive Mode: lowest delay, and you can choose the buffer size. Other programs go silent "
@@ -178,7 +178,7 @@ juce::String MainComponent::describeDeviceType (const juce::String& typeName)
            "Windows chooses the buffer size (usually 10 ms). For less delay, try \"Exclusive Mode\".";
 }
 
-void MainComponent::updateStatus()
+void AudioSettingsComponent::updateStatus()
 {
     const auto description = devices.describeCurrentDevice();
     const auto error = devices.getStartupError();
@@ -213,7 +213,7 @@ void MainComponent::updateStatus()
                       juce::dontSendNotification);
 }
 
-void MainComponent::timerCallback()
+void AudioSettingsComponent::timerCallback()
 {
     const auto now = juce::Time::getMillisecondCounterHiRes() * 0.001;
     const auto elapsed = static_cast<float> (juce::jlimit (0.0, 0.5, now - lastTimerSeconds));
@@ -227,7 +227,7 @@ void MainComponent::timerCallback()
     updateStatus();
 }
 
-void MainComponent::paint (juce::Graphics& g)
+void AudioSettingsComponent::paint (juce::Graphics& g)
 {
     g.fillAll (theme.background);
 
@@ -241,7 +241,7 @@ void MainComponent::paint (juce::Graphics& g)
     g.drawHorizontalLine (statusBar.getY(), 0.0f, (float) getWidth());
 }
 
-void MainComponent::resized()
+void AudioSettingsComponent::resized()
 {
     constexpr int margin = 16;
     constexpr int cardPadding = 16;
@@ -260,7 +260,7 @@ void MainComponent::resized()
     // Header
     {
         auto header = area.removeFromTop (40);
-        titleLabel.setBounds (header.removeFromLeft (120));
+        titleLabel.setBounds (header.removeFromLeft (180));
         versionLabel.setBounds (header.removeFromRight (160));
         subtitleLabel.setBounds (header);
         area.removeFromTop (margin);

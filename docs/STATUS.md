@@ -4,7 +4,7 @@ An honest list of what works. Updated at the end of every milestone.
 
 **Legend:** ✅ Working · 🟡 Partial · 🧪 Stub/placeholder · ⬜ Not started
 
-Current version: **0.1.1** (Milestone 0)
+Current version: **0.2.0** (Milestone 1)
 
 ## Milestone 0: skeleton and build pipeline
 
@@ -24,11 +24,27 @@ Current version: **0.1.1** (Milestone 0)
 | Real-time safety checks (RealtimeSanitizer) | ✅ | Linux only (the sanitizer doesn't exist for Windows' compiler). |
 | MIDI device settings | ⬜ | M6 |
 
+## Milestone 1: projects, tracks, undo, autosave, crash recovery
+
+| Feature | Status | Notes |
+|---|---|---|
+| Start screen: new project, recent projects | ✅ | Templates come in M24. |
+| Project files: versioned JSON, upgrade system, safe saving, backups | ✅ | Format version 1. See docs/FILE_FORMAT.md. |
+| Tracks: add (audio/MIDI), rename, colour, reorder (drag or keys), delete | ✅ | Tracks don't play anything yet: playback comes with M2/M3. |
+| Undo/redo for every edit, with named steps | ✅ | Selection and scrolling are deliberately not undo steps. |
+| Unsaved-changes prompts, title `*`, status bar | ✅ | |
+| Autosave (every 60 s, background) and crash recovery | ✅ | |
+| Crash reports (minidumps) | 🟡 | Windows only; written, but nothing reads them yet (send them to the developer). |
+| Menus and keyboard shortcuts | ✅ | Shortcut editor comes in M25. |
+| Open `.aether` files by double-clicking | ✅ | Registered by the installer. |
+| Selecting several tracks at once | ⬜ | Later (with the arrangement view, M3). |
+| Track mute/solo/volume, record arm | ⬜ | M4 (mixer) and M5 (recording). |
+| Timeline | 🧪 | Placeholder area with grid lines; real timeline in M2/M3. |
+
 ## Everything else
 
 | Area | Status | Milestone |
 |---|---|---|
-| Projects, undo/redo, autosave, crash recovery, start screen | ⬜ | M1 |
 | Transport, tempo map, metronome | ⬜ | M2 |
 | Arrangement view and audio clips | ⬜ | M3 |
 | Mixer | ⬜ | M4 |

@@ -46,6 +46,8 @@ PrivilegesRequired=admin
 PrivilegesRequiredOverridesAllowed=dialog
 ; Ask to close Aether if it is running while updating.
 CloseApplications=yes
+; Double-clicking a .aether project file opens it in Aether.
+ChangesAssociations=yes
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -59,6 +61,13 @@ Source: "{#StageDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs c
 [Icons]
 Name: "{autoprograms}\Aether"; Filename: "{app}\Aether.exe"
 Name: "{autodesktop}\Aether"; Filename: "{app}\Aether.exe"; Tasks: desktopicon
+
+[Registry]
+; "HKA" = for all users when installed for everyone, or just this user otherwise.
+Root: HKA; Subkey: "Software\Classes\.aether"; ValueType: string; ValueName: ""; ValueData: "Aether.Project"; Flags: uninsdeletevalue
+Root: HKA; Subkey: "Software\Classes\Aether.Project"; ValueType: string; ValueName: ""; ValueData: "Aether project"; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\Aether.Project\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\Aether.exe,0"
+Root: HKA; Subkey: "Software\Classes\Aether.Project\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\Aether.exe"" ""%1"""
 
 [Run]
 Filename: "{app}\Aether.exe"; Description: "{cm:LaunchProgram,Aether}"; Flags: nowait postinstall skipifsilent

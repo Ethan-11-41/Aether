@@ -96,7 +96,11 @@ Separate process:   plug-in scanner
   reports them as parameter changes (most do).
 
 ### Project files
+- Full details: [FILE_FORMAT.md](FILE_FORMAT.md).
 - A project is a folder: `Song.aether` (JSON) plus `Audio/`, `Backups/` and `Autosave/`.
+- The project tree is written generically: each node is `{ "_type": ..., properties...,
+  "_children": [...] }`, so new data needs no extra save/load code, only a format version bump
+  and an upgrade step when existing data changes shape.
 - The JSON begins with `formatVersion`. Loading an older file runs it through a chain of upgrade
   steps (v1 → v2 → v3 …). A test file from every version is kept in `tests/fixtures/` forever.
 - Files from a newer Aether version are refused with a clear message instead of being damaged.
@@ -104,9 +108,13 @@ Separate process:   plug-in scanner
   project; rolling backups are kept in `Backups/`.
 
 ### Autosave and crash recovery
-- Autosave every 60 seconds (if something changed), written on a background thread.
-- A lock file detects an unclean exit; the next launch offers to recover.
-- A crash report (minidump) is written to help find the cause.
+- Autosave every 60 seconds (if something changed): the project is turned into text on the UI
+  thread and written on a background thread (`io/Autosaver`).
+- While a project is open, its path is noted in the settings; a clean close removes the note.
+  If the note is still there at the next start, Aether didn't close properly, and if the
+  autosave is newer than the project file, recovery is offered (`io/ProjectSession`).
+- Choosing "Don't save" deletes the autosave, so discarded changes are never offered back.
+- A crash report (Windows minidump) is written to `%LOCALAPPDATA%\Aether\CrashReports`.
 
 ### User interface
 - JUCE components with Aether's own look and feel. All colours come from a `Theme`
@@ -142,8 +150,10 @@ tests/
 
 Build targets:
 - `aether_juce`: the JUCE modules, compiled once as a static library.
-- `aether_core`: everything except the user interface (a library, so the tests can use it).
-- `AetherApp`: the program (`Aether.exe`).
+- `aether_core`: everything except the user interface: model, io, devices, engine (a library,
+  so the tests can use it).
+- `aether_ui`: reusable interface pieces in `source/ui/` (also testable without a window).
+- `AetherApp`: the program (`Aether.exe`): `source/app/`.
 - `aether_tests`: the automated tests.
 
 ## Third-party code

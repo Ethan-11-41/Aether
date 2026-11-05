@@ -1,0 +1,31 @@
+{
+  "format": "aether-project",
+  "formatVersion": 1,
+  "savedWith": "Aether 0.2.0",
+  "savedAt": "2026-11-05T22:00:00.000Z",
+  "project": {
+    "_type": "Project",
+    "name": "Fixture Song",
+    "_children": [
+      {
+        "_type": "Tracks",
+        "_children": [
+          {
+            "_type": "Track",
+            "id": "{3f2b8c1e-0000-4000-8000-000000000001}",
+            "kind": "audio",
+            "name": "Vocals",
+            "colour": "#EF6B73"
+          },
+          {
+            "_type": "Track",
+            "id": "{3f2b8c1e-0000-4000-8000-000000000002}",
+            "kind": "midi",
+            "name": "Piano",
+            "colour": "#7C9CFF"
+          }
+        ]
+      }
+    ]
+  }
+}

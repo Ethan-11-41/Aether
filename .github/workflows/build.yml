@@ -54,14 +54,24 @@ jobs:
         shell: cmd
         run: build-windows.bat
 
-      - name: Take a screenshot of Aether running on Windows
+      - name: Take screenshots of Aether running on Windows
         shell: pwsh
         continue-on-error: true
         run: |
-          $out = Join-Path $PWD "aether-windows.png"
-          $p = Start-Process -FilePath "build\windows-release\stage\Aether.exe" -ArgumentList "--screenshot", "`"$out`"" -PassThru
-          if (-not $p.WaitForExit(60000)) { $p.Kill(); throw "Aether did not finish within 60 seconds" }
-          if ($p.ExitCode -ne 0) { throw "Aether exited with code $($p.ExitCode)" }
+          # The start screen, then a project with two tracks (a copy of the test project).
+          $demo = Join-Path $env:RUNNER_TEMP "Fixture Song"
+          New-Item -ItemType Directory -Force -Path $demo | Out-Null
+          Copy-Item "tests\fixtures\projects\v1-basic.aether" (Join-Path $demo "Fixture Song.aether")
+          $runs = @(
+            @{ Out = "aether-windows.png";         Args = @() },
+            @{ Out = "aether-windows-project.png"; Args = @("`"$(Join-Path $demo 'Fixture Song.aether')`"") }
+          )
+          foreach ($run in $runs) {
+            $out = Join-Path $PWD $run.Out
+            $p = Start-Process -FilePath "build\windows-release\stage\Aether.exe" -ArgumentList ($run.Args + @("--screenshot", "`"$out`"")) -PassThru
+            if (-not $p.WaitForExit(60000)) { $p.Kill(); throw "Aether did not finish within 60 seconds" }
+            if ($p.ExitCode -ne 0) { throw "Aether exited with code $($p.ExitCode)" }
+          }
 
       # Uploaded without zipping, so it downloads directly as Aether-Setup-<version>.exe
       - name: Upload Setup.exe
@@ -71,12 +81,12 @@ jobs:
           archive: false
           if-no-files-found: error
 
-      - name: Upload screenshot
+      - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          path: aether-windows.png
-          archive: false
+          name: screenshots-windows
+          path: aether-windows*.png
           if-no-files-found: ignore
 
   linux:
@@ -101,18 +111,21 @@ jobs:
           cmake --build --preset linux-debug
           ctest --preset linux-debug
 
-      - name: Take a screenshot of Aether running on Linux
+      - name: Take screenshots of Aether running on Linux
         continue-on-error: true
         run: |
-          xvfb-run -a -s "-screen 0 1400x900x24" \
-            build/linux-debug/source/AetherApp_artefacts/Debug/Aether --screenshot "$PWD/aether-linux.png"
+          app=build/linux-debug/source/AetherApp_artefacts/Debug/Aether
+          demo="$RUNNER_TEMP/Fixture Song"
+          mkdir -p "$demo" && cp tests/fixtures/projects/v1-basic.aether "$demo/Fixture Song.aether"
+          xvfb-run -a -s "-screen 0 1400x900x24" "$app" --screenshot "$PWD/aether-linux.png"
+          xvfb-run -a -s "-screen 0 1400x900x24" "$app" "$demo/Fixture Song.aether" --screenshot "$PWD/aether-linux-project.png"
 
-      - name: Upload screenshot
+      - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          path: aether-linux.png
-          archive: false
+          name: screenshots-linux
+          path: aether-linux*.png
           if-no-files-found: ignore
 
       - name: Real-time safety tests (RealtimeSanitizer)

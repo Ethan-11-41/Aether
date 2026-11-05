@@ -14,17 +14,15 @@
 namespace aether
 {
 
-/** The contents of Aether's main window.
-
-    Milestone 0: audio device setup, a test tone, input/output meters, latency and CPU readouts.
-    This screen will become the "Audio settings" dialog once the real arrangement view arrives.
+/** The "Audio settings" window: sound device choice, a test tone, input/output meters,
+    latency and CPU readouts.
 */
-class MainComponent final : public juce::Component,
+class AudioSettingsComponent final : public juce::Component,
                             private juce::Timer
 {
 public:
-    MainComponent (AudioDeviceService& devices, AudioEngine& engine, const ui::Theme& theme);
-    ~MainComponent() override;
+    AudioSettingsComponent (AudioDeviceService& devices, AudioEngine& engine, const ui::Theme& theme);
+    ~AudioSettingsComponent() override;
 
     void paint (juce::Graphics&) override;
     void resized() override;
@@ -60,7 +58,7 @@ private:
     juce::Rectangle<int> deviceCard, soundCard, latencyCard, statusBar;
     double lastTimerSeconds = 0.0;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainComponent)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AudioSettingsComponent)
 };
 
 } // namespace aether

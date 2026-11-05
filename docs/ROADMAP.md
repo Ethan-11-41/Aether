@@ -10,13 +10,13 @@ re-estimated after M2.
 
 | # | Milestone | You can… |
 |---|---|---|
-| **M0** | Skeleton & pipeline | Install Aether from Setup.exe, choose your sound device, sample rate and buffer size, see latency, play a test tone, see your microphone level |
+| ✅ **M0** | Skeleton & pipeline | Install Aether from Setup.exe, choose your sound device, sample rate and buffer size, see latency, play a test tone, see your microphone level |
 
 ## Phase 1: core
 
 | # | Milestone | You can… |
 |---|---|---|
-| M1 | Project document | Add/rename/delete/reorder/colour tracks, undo/redo everything, save/load, recover after a crash, pick recent projects on a start screen |
+| ✅ **M1** | Project document | Add/rename/delete/reorder/colour tracks, undo/redo everything, save/load, recover after a crash, pick recent projects on a start screen |
 | M2 | Time & transport | Play/stop, loop, set BPM and time signature, add tempo changes (jumps and ramps), use the metronome with count-in |
 | M3 | Arrangement & audio clips | Drag audio files in, see waveforms, zoom/scroll, move/trim/split/duplicate/fade/loop clips, snap to grid, nudge by grid or ms |
 | M4 | Mixer | Volume, pan, mute, solo, meters, buses, sends, master, insert slots (two temporary basic effects until M13), delay compensation |

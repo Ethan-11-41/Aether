@@ -6,6 +6,38 @@ follow [Semantic Versioning](https://semver.org/) (0.x while Aether is in early 
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-05 - Milestone 1: projects, tracks, undo, autosave and crash recovery
+
+### Added
+- Start screen: create a new project (name and folder), or open a recent one. Recent projects
+  can be removed from the list or shown in File Explorer.
+- Projects are folders (`My Song/My Song.aether` plus `Audio`, `Backups` and `Autosave`), saved as
+  versioned JSON (format version 1, documented in docs/FILE_FORMAT.md) with an upgrade system so
+  old projects always open. Files from newer versions are refused without being changed.
+- Safe saving: the old file is kept in `Backups/` (newest 10), and the new file replaces it in one
+  step so a crash mid-save can't damage the project.
+- Tracks: add audio and MIDI tracks, rename (double-click or F2), change colour, reorder (drag, or
+  Ctrl+Up/Down), delete, select with the arrow keys, right-click menu.
+- Undo and redo for every change (Ctrl+Z, Ctrl+Y / Ctrl+Shift+Z), with named steps
+  ("Undo Rename track").
+- Unsaved-changes prompt (Save / Don't save / Cancel) when closing, quitting, opening or starting
+  another project; `*` in the title bar and "Unsaved changes" in the status bar.
+- Autosave every 60 seconds to the project's `Autosave/` folder, in the background.
+- Crash recovery: if Aether didn't close properly, the next start offers to recover the unsaved
+  work, or to open the last saved version. Help > Test crash recovery crashes on purpose to try it.
+- Crash reports (Windows minidumps) in `%LOCALAPPDATA%\Aether\CrashReports`.
+- Menus (File, Edit, Track, Settings, Help) with keyboard shortcuts; toolbar buttons show their
+  shortcut in their tooltip.
+- File > Save as (copies the project folder's audio too), Show project folder, Open recent.
+- Double-clicking a `.aether` file opens it in Aether (the installer registers the file type).
+- Help > About, with the licence and a link to the source code.
+- The main window remembers its size and position.
+- Automated tests for the project model, undo/redo, saving/loading, format upgrades, backups,
+  autosave, crash recovery, recent projects, and the track list (renaming, dragging).
+
+### Changed
+- The Milestone 0 screen is now Settings > Audio settings (Ctrl+,), in its own window.
+
 ## [0.1.1] - 2026-11-05 - Milestone 0 fixes from first test
 
 ### Fixed

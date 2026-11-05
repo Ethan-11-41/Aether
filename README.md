@@ -4,8 +4,9 @@ A free, open-source digital audio workstation (DAW) for Windows: record, arrange
 music, in the spirit of GarageBand, FL Studio, LMMS and Reaper. Beginner-friendly on the surface,
 with deep customisation underneath.
 
-> **Status: early development (Milestone 0 of 30).** Right now Aether can only set up your sound
-> device, play a test tone and show your microphone level. See [docs/STATUS.md](docs/STATUS.md)
+> **Status: early development (Milestone 1 of 30).** Aether can create, save and open projects,
+> add and organise tracks with full undo/redo, autosave, and recover your work after a crash. It
+> can't play or record music yet (that's milestones M2 to M5). See [docs/STATUS.md](docs/STATUS.md)
 > for exactly what works, and [docs/ROADMAP.md](docs/ROADMAP.md) for what's coming.
 
 ---
@@ -25,6 +26,23 @@ Finished milestones are also published on the [Releases page](https://github.com
 
 **Requirements:** 64-bit Windows 10 (version 1607 or newer) or Windows 11. Nothing else needs to
 be installed.
+
+**Where your work is saved:** each project is a folder, by default in
+`Documents\Aether Projects\<project name>\`. It holds the project file (`.aether`), its audio,
+the 10 previous versions (`Backups`) and an automatic copy for crash recovery (`Autosave`).
+See [docs/FILE_FORMAT.md](docs/FILE_FORMAT.md).
+
+**Keyboard shortcuts:**
+
+| Action | Keys |
+|---|---|
+| New / open / save / save as / close project | Ctrl+N / Ctrl+O / Ctrl+S / Ctrl+Shift+S / Ctrl+W |
+| Undo / redo | Ctrl+Z / Ctrl+Y (or Ctrl+Shift+Z) |
+| Add audio track / MIDI track | Ctrl+T / Ctrl+Shift+T |
+| Rename / delete the selected track | F2 / Delete |
+| Move the selected track up / down | Ctrl+Up / Ctrl+Down |
+| Select the track above / below | Up / Down |
+| Audio settings | Ctrl+, |
 
 **Tips for sound:**
 - Use wired headphones or speakers. Bluetooth headphones add a delay of roughly 0.1 to 0.3 seconds,
@@ -109,12 +127,14 @@ xvfb-run -a build/linux-debug/source/AetherApp_artefacts/Debug/Aether --screensh
 
 | Folder | What's in it |
 |---|---|
-| `source/app/` | Program start-up and the main window |
+| `source/app/` | Program start-up, main window, start screen, menus and shortcuts |
+| `source/model/` | The project data: tracks, and the undoable edit commands |
+| `source/io/` | Saving and loading, the file format, autosave, crash recovery, recent projects |
 | `source/devices/` | Sound card setup and latency |
 | `source/engine/` | The audio engine (everything that runs on the audio thread) |
 | `source/engine/rt/` | Real-time tools: lock-free queues, audio-thread annotations |
-| `source/ui/` | Look and feel, meters and other interface pieces |
-| `tests/` | Automated tests (`unit/`, `realtime/`) |
+| `source/ui/` | Interface pieces: track list, meters, look and feel |
+| `tests/` | Automated tests (`unit/`, `realtime/`, and `fixtures/`: sample files, kept forever) |
 | `installer/` | The Inno Setup script that makes Setup.exe |
 | `docs/` | Architecture, roadmap, status, test checklists |
 | `resources/` | Icons (later: themes, templates, sounds) |

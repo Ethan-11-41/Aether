@@ -1,41 +1,53 @@
 // Aether - Copyright (C) 2026 The Aether authors. Licensed under the GNU AGPLv3 or later.
 //
-// Program entry point: creates the settings, audio engine, audio device and main window.
+// Program entry point: creates the settings, audio engine, audio device, project session and
+// main window, and handles the command line.
+
+#include <optional>
 
 #include <juce_gui_basics/juce_gui_basics.h>
 
+#include "AppContext.h"
 #include "AppSettings.h"
-#include "MainComponent.h"
+#include "CrashReporter.h"
+#include "MainWindow.h"
 #include "devices/AudioDeviceService.h"
 #include "engine/AudioEngine.h"
+#include "io/ProjectFormat.h"
+#include "io/ProjectSession.h"
+#include "io/RecentProjects.h"
 #include "ui/AetherLookAndFeel.h"
 
 namespace aether
 {
 
-//==============================================================================
-class MainWindow final : public juce::DocumentWindow
+namespace
 {
-public:
-    MainWindow (AudioDeviceService& devices, AudioEngine& engine, const ui::Theme& theme)
-        : DocumentWindow ("Aether", theme.background, DocumentWindow::allButtons)
+    constexpr const char* lastLaunchKey = "lastLaunchTime";
+
+    /** A project file named on the command line, e.g. when double-clicking a .aether file. */
+    std::optional<juce::File> findProjectFileArgument (const juce::String& commandLine)
     {
-        setUsingNativeTitleBar (true);
-        setContentOwned (new MainComponent (devices, engine, theme), true);
-        setResizable (true, true);
-        setResizeLimits (860, 600, 10000, 10000);
-        centreWithSize (getWidth(), getHeight());
-        setVisible (true);
+        for (const auto& arg : juce::StringArray::fromTokens (commandLine, true))
+        {
+            const auto path = arg.unquoted();
+
+            if (path.endsWithIgnoreCase (projectformat::fileExtension))
+            {
+                const auto file = juce::File::isAbsolutePath (path) ? juce::File (path)
+                                                                    : juce::File::getCurrentWorkingDirectory().getChildFile (path);
+                return file;
+            }
+        }
+
+        return std::nullopt;
     }
 
-    void closeButtonPressed() override
+    bool isScreenshotMode (const juce::String& commandLine)
     {
-        juce::JUCEApplication::getInstance()->systemRequestedQuit();
+        return commandLine.contains ("--screenshot");
     }
-
-private:
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainWindow)
-};
+}
 
 //==============================================================================
 class AetherApplication final : public juce::JUCEApplication
@@ -47,19 +59,37 @@ public:
     bool moreThanOneInstanceAllowed() override
     {
         // Screenshot mode (used by automated checks) may run alongside a normal instance.
-        return getCommandLineParameters().contains ("--screenshot");
+        return isScreenshotMode (getCommandLineParameters());
     }
 
     void initialise (const juce::String& commandLine) override
     {
+        crashreporter::install();
         juce::LookAndFeel::setDefaultLookAndFeel (&lookAndFeel);
 
         settings = std::make_unique<AppSettings>();
+        auto& props = settings->get();
+
+        // When did Aether last start? Used to spot crash reports from the previous run.
+        const auto previousLaunch = juce::Time (props.getValue (lastLaunchKey, "0").getLargeIntValue());
+        props.setValue (lastLaunchKey, juce::String (juce::Time::currentTimeMillis()));
+
         engine = std::make_unique<AudioEngine>();
-        devices = std::make_unique<AudioDeviceService> (settings->get());
+        devices = std::make_unique<AudioDeviceService> (props);
         devices->addAudioCallback (engine.get());
 
-        mainWindow = std::make_unique<MainWindow> (*devices, *engine, lookAndFeel.getTheme());
+        recentProjects = std::make_unique<RecentProjects> (props);
+        session = std::make_unique<ProjectSession> (props, *recentProjects);
+        commandManager = std::make_unique<juce::ApplicationCommandManager>();
+
+        context = std::make_unique<AppContext> (AppContext { lookAndFeel.getTheme(), *settings, *engine, *devices,
+                                                             *recentProjects, *session, *commandManager });
+        mainWindow = std::make_unique<MainWindow> (*context);
+
+        if (const auto file = findProjectFileArgument (commandLine))
+            mainWindow->getMainContent().openProjectFile (*file);
+        else if (! isScreenshotMode (commandLine))
+            mainWindow->getMainContent().checkForRecoveryAtStartup (previousLaunch);
 
         handleScreenshotOption (commandLine);
     }
@@ -67,11 +97,15 @@ public:
     void shutdown() override
     {
         mainWindow = nullptr;
+        context = nullptr;
+        commandManager = nullptr;
+        session = nullptr;          // a normal exit: no longer counts as "left open"
+        recentProjects = nullptr;
 
         if (devices != nullptr)
         {
             devices->removeAudioCallback (engine.get());
-            devices = nullptr;   // also saves the device choice
+            devices = nullptr;      // also saves the device choice
         }
 
         engine = nullptr;
@@ -85,14 +119,23 @@ public:
 
     void systemRequestedQuit() override
     {
-        quit();
+        // Ask about unsaved changes first (the main window calls quit() when it's OK).
+        if (mainWindow != nullptr && ! screenshotMode)
+            mainWindow->getMainContent().requestQuit();
+        else
+            quit();
     }
 
-    void anotherInstanceStarted (const juce::String&) override
+    void anotherInstanceStarted (const juce::String& commandLine) override
     {
-        // The user launched Aether again while it was already running: bring this window forward.
-        if (mainWindow != nullptr)
-            mainWindow->toFront (true);
+        // Aether was started again (e.g. by double-clicking a project) while already running.
+        if (mainWindow == nullptr)
+            return;
+
+        mainWindow->toFront (true);
+
+        if (const auto file = findProjectFileArgument (commandLine))
+            mainWindow->getMainContent().openProjectFile (*file);
     }
 
 private:
@@ -106,9 +149,10 @@ private:
         if (index < 0)
             return;
 
+        screenshotMode = true;
+        const auto name = args[index + 1].unquoted();
         const auto target = juce::File::getCurrentWorkingDirectory()
-                                .getChildFile (args[index + 1].unquoted().isNotEmpty() ? args[index + 1].unquoted()
-                                                                                        : "aether-screenshot.png");
+                                .getChildFile (name.isNotEmpty() ? name : juce::String ("aether-screenshot.png"));
 
         juce::Timer::callAfterDelay (1500, [this, target]
         {
@@ -133,7 +177,12 @@ private:
     std::unique_ptr<AppSettings> settings;
     std::unique_ptr<AudioEngine> engine;
     std::unique_ptr<AudioDeviceService> devices;
+    std::unique_ptr<RecentProjects> recentProjects;
+    std::unique_ptr<ProjectSession> session;
+    std::unique_ptr<juce::ApplicationCommandManager> commandManager;
+    std::unique_ptr<AppContext> context;
     std::unique_ptr<MainWindow> mainWindow;
+    bool screenshotMode = false;
 };
 
 } // namespace aether
