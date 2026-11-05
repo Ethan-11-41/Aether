@@ -8,6 +8,11 @@
 
 #include "RealtimeAnnotations.h"
 
+#if defined(_MSC_VER)
+ #pragma warning (push)
+ #pragma warning (disable: 4324)   // "structure was padded due to alignment": that's the point
+#endif
+
 namespace aether::rt
 {
 
@@ -95,3 +100,7 @@ private:
 };
 
 } // namespace aether::rt
+
+#if defined(_MSC_VER)
+ #pragma warning (pop)
+#endif

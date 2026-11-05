@@ -14,9 +14,9 @@ with deep customisation underneath.
 
 1. Open the [Actions page](https://github.com/Ethan-11-41/aether/actions) and click the newest run
    that has a green tick.
-2. Scroll to **Artifacts** at the bottom and download **Aether-Setup-…** (you need to be signed in
-   to GitHub). It downloads as a `.zip` file: open it and take out `Aether-Setup-<version>.exe`.
-3. Run `Aether-Setup-<version>.exe`.
+2. Scroll to **Artifacts** at the bottom and download **Aether-Setup-<version>.exe** (you need to
+   be signed in to GitHub).
+3. Run the downloaded `Aether-Setup-<version>.exe`.
    - Windows may say **"Windows protected your PC"**, because the installer isn't signed with a
      paid certificate yet. Click **More info**, then **Run anyway**.
 4. Start Aether from the Start menu.

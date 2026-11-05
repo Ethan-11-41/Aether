@@ -28,9 +28,11 @@ jobs:
     name: Windows - build, test, Setup.exe
     runs-on: windows-2025
     timeout-minutes: 90
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - name: Get the code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Read version number
         id: version
@@ -61,19 +63,20 @@ jobs:
           if (-not $p.WaitForExit(60000)) { $p.Kill(); throw "Aether did not finish within 60 seconds" }
           if ($p.ExitCode -ne 0) { throw "Aether exited with code $($p.ExitCode)" }
 
+      # Uploaded without zipping, so it downloads directly as Aether-Setup-<version>.exe
       - name: Upload Setup.exe
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
-          name: Aether-Setup-${{ steps.version.outputs.version }}
-          path: build/installer/*.exe
+          path: build/installer/Aether-Setup-${{ steps.version.outputs.version }}.exe
+          archive: false
           if-no-files-found: error
 
       - name: Upload screenshot
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
-          name: screenshot-windows
           path: aether-windows.png
+          archive: false
           if-no-files-found: ignore
 
   linux:
@@ -82,7 +85,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Get the code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install build tools
         run: |
@@ -106,10 +109,10 @@ jobs:
 
       - name: Upload screenshot
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
-          name: screenshot-linux
           path: aether-linux.png
+          archive: false
           if-no-files-found: ignore
 
       - name: Real-time safety tests (RealtimeSanitizer)
@@ -127,14 +130,13 @@ jobs:
       contents: write
     steps:
       - name: Download Setup.exe
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
-          pattern: Aether-Setup-*
-          merge-multiple: true
+          name: Aether-Setup-${{ needs.windows.outputs.version }}.exe
           path: dist
 
       - name: Create the GitHub release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: dist/*.exe
           generate_release_notes: true

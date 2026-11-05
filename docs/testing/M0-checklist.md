@@ -4,9 +4,8 @@ About 10 minutes. Tick each item, and note anything that doesn't match "what you
 
 ## 1. Install
 
-1. Download **Aether-Setup-0.1.0** from the newest green run on the
-   [Actions page](https://github.com/Ethan-11-41/aether/actions) (under **Artifacts**), unzip it,
-   and run `Aether-Setup-0.1.0.exe`.
+1. Download **Aether-Setup-0.1.0.exe** from the newest green run on the
+   [Actions page](https://github.com/Ethan-11-41/aether/actions) (under **Artifacts**) and run it.
 2. If Windows says "Windows protected your PC": click **More info → Run anyway**.
 3. Finish the installer and tick "Launch Aether".
 
