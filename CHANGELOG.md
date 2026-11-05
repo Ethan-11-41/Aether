@@ -6,6 +6,24 @@ follow [Semantic Versioning](https://semver.org/) (0.x while Aether is in early 
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-05 - Milestone 0 fixes from first test
+
+### Fixed
+- Choosing a device setting that can't be opened (for example a built-in microphone in
+  Exclusive Mode) no longer leaves Aether with no sound device at all: it goes back to the last
+  setting that worked.
+
+### Added
+- A warning banner that explains in plain language why a device couldn't be opened and what to
+  try (another program using it, Windows' "exclusive control" setting, or using "Windows Audio").
+- The hint under "Audio device" now explains the selected mode, including why the buffer size
+  can't be changed in "Windows Audio" mode (Windows chooses it).
+- Latency shows "No input selected" instead of "0 samples" when no microphone is chosen.
+- Tests for the device fallback, using a fake sound card.
+
+### Changed
+- Pop-up messages have a cleaner design (small round icon instead of a large cut-off triangle).
+
 ## [0.1.0] - 2026-11-05 - Milestone 0: skeleton and build pipeline
 
 ### Added

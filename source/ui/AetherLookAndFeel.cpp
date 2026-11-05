@@ -43,6 +43,10 @@ AetherLookAndFeel::AetherLookAndFeel (const Theme& themeToUse)
     setColour (juce::TooltipWindow::textColourId, theme.text);
     setColour (juce::TooltipWindow::outlineColourId, theme.outline);
 
+    setColour (juce::AlertWindow::backgroundColourId, theme.panel);
+    setColour (juce::AlertWindow::textColourId, theme.text);
+    setColour (juce::AlertWindow::outlineColourId, theme.outline);
+
     setColour (juce::ToggleButton::textColourId, theme.text);
     setColour (juce::ToggleButton::tickColourId, theme.accent);
     setColour (juce::ToggleButton::tickDisabledColourId, theme.textDim);
@@ -74,6 +78,41 @@ void AetherLookAndFeel::drawButtonBackground (juce::Graphics& g, juce::Button& b
     g.fillRoundedRectangle (bounds, 6.0f);
     g.setColour (button.getToggleState() ? colour : theme.outline);
     g.drawRoundedRectangle (bounds, 6.0f, 1.0f);
+}
+
+void AetherLookAndFeel::drawAlertBox (juce::Graphics& g, juce::AlertWindow& alert,
+                                      const juce::Rectangle<int>&, juce::TextLayout& textLayout)
+{
+    constexpr int iconColumnWidth = 80;   // must match the space JUCE reserves when laying out the text
+    auto bounds = alert.getLocalBounds().toFloat();
+
+    g.setColour (theme.panel);
+    g.fillRoundedRectangle (bounds, 8.0f);
+    g.setColour (theme.outline);
+    g.drawRoundedRectangle (bounds.reduced (0.5f), 8.0f, 1.0f);
+
+    auto textLeft = 24;
+
+    if (alert.getAlertType() != juce::MessageBoxIconType::NoIcon)
+    {
+        const auto isWarning = alert.getAlertType() == juce::MessageBoxIconType::WarningIcon;
+        const auto symbol = isWarning ? "!" : (alert.getAlertType() == juce::MessageBoxIconType::InfoIcon ? "i" : "?");
+        juce::Rectangle<float> icon (24.0f, 28.0f, 36.0f, 36.0f);
+
+        g.setColour (isWarning ? theme.warning : theme.accent);
+        g.fillEllipse (icon);
+        g.setColour (theme.accentText);
+        g.setFont (juce::FontOptions (22.0f, juce::Font::bold));
+        g.drawText (symbol, icon, juce::Justification::centred);
+
+        textLeft = iconColumnWidth;
+    }
+
+    g.setColour (theme.text);
+    const juce::Rectangle<float> textBounds ((float) textLeft, 30.0f,
+                                             bounds.getWidth() - (float) textLeft - 16.0f,
+                                             bounds.getHeight() - (float) getAlertWindowButtonHeight() - 20.0f);
+    textLayout.draw (g, textBounds);
 }
 
 } // namespace aether::ui

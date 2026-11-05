@@ -35,9 +35,13 @@ void LatencyPanel::setLatency (const LatencyInfo& info)
     else
     {
         rows[0].value = LatencyInfo::formatSamplesAndMs (info.bufferSizeSamples, info.sampleRate);
-        rows[1].value = LatencyInfo::formatSamplesAndMs (info.outputLatencySamples, info.sampleRate);
-        rows[2].value = LatencyInfo::formatSamplesAndMs (info.inputLatencySamples, info.sampleRate);
-        rows[3].value = LatencyInfo::formatSamplesAndMs (info.roundTripSamples(), info.sampleRate);
+        rows[1].value = info.hasOutput ? LatencyInfo::formatSamplesAndMs (info.outputLatencySamples, info.sampleRate)
+                                       : juce::String ("No output selected");
+        rows[2].value = info.hasInput ? LatencyInfo::formatSamplesAndMs (info.inputLatencySamples, info.sampleRate)
+                                      : juce::String ("No input selected");
+        rows[3].value = (info.hasInput && info.hasOutput)
+                            ? juce::String (LatencyInfo::formatSamplesAndMs (info.roundTripSamples(), info.sampleRate))
+                            : juce::String ("Needs an input and an output");
     }
 
     repaint();

@@ -57,13 +57,16 @@ MainComponent::MainComponent (AudioDeviceService& deviceService, AudioEngine& au
     styleHeading (deviceHeading, theme);
     addAndMakeVisible (deviceHeading);
 
-    deviceHint.setText ("\"Windows Audio\" works with any sound device. \"Exclusive Mode\" has less delay, "
-                        "but other programs go silent while Aether uses the device. "
-                        "\"ASIO\" is for audio interfaces that come with an ASIO driver.",
-                        juce::dontSendNotification);
     styleHint (deviceHint, theme);
     deviceHint.setTooltip ("Choose where Aether plays and records sound. Your choice is remembered next time.");
     addAndMakeVisible (deviceHint);
+
+    problemBanner.onDismiss = [this]
+    {
+        devices.dismissProblemMessage();
+        updateStatus();
+    };
+    addChildComponent (problemBanner);
 
     deviceSelector = std::make_unique<juce::AudioDeviceSelectorComponent> (
         devices.getDeviceManager(),
@@ -157,10 +160,40 @@ void MainComponent::updateTestToneButton()
     testToneButton.setButtonText (on ? "Stop test tone" : "Play test tone");
 }
 
+juce::String MainComponent::describeDeviceType (const juce::String& typeName)
+{
+    if (typeName.containsIgnoreCase ("Exclusive"))
+        return "Exclusive Mode: lowest delay, and you can choose the buffer size. Other programs go silent "
+               "while Aether uses the device, and some built-in microphones can't be used in this mode.";
+
+    if (typeName.containsIgnoreCase ("Low Latency"))
+        return "Low Latency Mode: like \"Windows Audio\", but uses smaller buffers if your sound driver "
+               "supports it. Many built-in sound cards don't, so the buffer size may stay the same.";
+
+    if (typeName.containsIgnoreCase ("ASIO"))
+        return "ASIO: for audio interfaces with their own driver. Change the buffer size in the driver's "
+               "Control Panel.";
+
+    return "\"Windows Audio\" works with every sound device and lets other programs play at the same time. "
+           "Windows chooses the buffer size (usually 10 ms). For less delay, try \"Exclusive Mode\".";
+}
+
 void MainComponent::updateStatus()
 {
     const auto description = devices.describeCurrentDevice();
-    const auto error = devices.getLastError();
+    const auto error = devices.getStartupError();
+
+    const auto hint = describeDeviceType (devices.getCurrentDeviceTypeName());
+    if (deviceHint.getText() != hint)
+        deviceHint.setText (hint, juce::dontSendNotification);
+
+    const auto problem = devices.getProblemMessage();
+    if (problem != problemBanner.getMessage() || problem.isEmpty() == problemBanner.isVisible())
+    {
+        problemBanner.setMessage (problem);
+        problemBanner.setVisible (problem.isNotEmpty());
+        resized();
+    }
 
     if (description.isNotEmpty())
     {
@@ -244,6 +277,13 @@ void MainComponent::resized()
         deviceHeading.setBounds (inner.removeFromTop (24));
         deviceHint.setBounds (inner.removeFromTop (54));
         inner.removeFromTop (8);
+
+        if (problemBanner.isVisible())
+        {
+            problemBanner.setBounds (inner.removeFromTop (problemBanner.getIdealHeight (inner.getWidth())));
+            inner.removeFromTop (8);
+        }
+
         deviceViewport.setBounds (inner);
 
         const auto selectorWidth = inner.getWidth() - deviceViewport.getScrollBarThickness();

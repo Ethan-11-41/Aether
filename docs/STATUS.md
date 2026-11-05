@@ -4,7 +4,7 @@ An honest list of what works. Updated at the end of every milestone.
 
 **Legend:** ✅ Working · 🟡 Partial · 🧪 Stub/placeholder · ⬜ Not started
 
-Current version: **0.1.0** (Milestone 0)
+Current version: **0.1.1** (Milestone 0)
 
 ## Milestone 0: skeleton and build pipeline
 
@@ -14,6 +14,9 @@ Current version: **0.1.0** (Milestone 0)
 | Audio device choice (Windows Audio shared/exclusive/low-latency, ASIO) | ✅ | Uses JUCE's standard device panel. ASIO compiles but hasn't been tested with a real ASIO interface yet. |
 | Sample rate and buffer size choice, remembered between runs | ✅ | |
 | Latency display (buffer, input, output, round trip) | ✅ | Figures are what the driver reports; real measurement comes in M5. |
+| Going back to the last working setting when a device fails to open | ✅ | Added in 0.1.1. JUCE's own error pop-up still appears first. |
+| Exclusive Mode with a built-in microphone | 🟡 | Failed on the first test PC; likely a Windows setting or another program using the mic (see the banner text). Use "Windows Audio" meanwhile. |
+| Aether's own beginner-friendly device settings panel | ⬜ | Currently JUCE's standard panel (shows extras like "Output channel 3 + 4"). Planned with MIDI settings in M6. |
 | Test tone | ✅ | |
 | Output and input level meters, audio CPU meter | ✅ | |
 | Setup.exe installer | ✅ | Unsigned, so Windows SmartScreen shows a warning. |

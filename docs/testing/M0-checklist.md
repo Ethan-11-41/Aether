@@ -4,7 +4,7 @@ About 10 minutes. Tick each item, and note anything that doesn't match "what you
 
 ## 1. Install
 
-1. Download **Aether-Setup-0.1.0.exe** from the newest green run on the
+1. Download **Aether-Setup-0.1.1.exe** from the newest green run on the
    [Actions page](https://github.com/Ethan-11-41/aether/actions) (under **Artifacts**) and run it.
 2. If Windows says "Windows protected your PC": click **More info → Run anyway**.
 3. Finish the installer and tick "Launch Aether".
@@ -56,6 +56,18 @@ size that sounds clean.
 
 **You should see:** no crash. Starting it a second time brings the existing window to the front
 instead of opening another copy.
+
+## 7. A device that won't open (added in 0.1.1)
+
+1. Choose **Windows Audio (Exclusive Mode)**, then pick your microphone under **Input**.
+2. If an error pops up, click **OK**.
+
+**You should see:** your previous settings come back by themselves (speakers still selected, test
+tone still works) and an orange box explaining what probably went wrong, with a **Got it** button.
+
+Optional: try the fix the orange box suggests (close other programs using the mic, and tick
+"Allow applications to take exclusive control of this device" for the microphone in Windows Sound
+settings), then try step 1 again and tell me whether it worked.
 
 ## Reporting back
 

@@ -8,6 +8,7 @@
 #include "engine/AudioEngine.h"
 #include "ui/LatencyPanel.h"
 #include "ui/LevelMeter.h"
+#include "ui/MessageBanner.h"
 #include "ui/Theme.h"
 
 namespace aether
@@ -32,6 +33,7 @@ private:
     void timerCallback() override;
     void updateTestToneButton();
     void updateStatus();
+    static juce::String describeDeviceType (const juce::String& typeName);
 
     AudioDeviceService& devices;
     AudioEngine& engine;
@@ -42,6 +44,7 @@ private:
     juce::Label titleLabel, subtitleLabel, versionLabel;
 
     juce::Label deviceHeading, deviceHint;
+    ui::MessageBanner problemBanner { theme };
     juce::Viewport deviceViewport;
     std::unique_ptr<juce::AudioDeviceSelectorComponent> deviceSelector;
 

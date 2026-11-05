@@ -43,6 +43,8 @@ if(AETHER_BUILD_APP)
         ui/LatencyPanel.h
         ui/LevelMeter.cpp
         ui/LevelMeter.h
+        ui/MessageBanner.cpp
+        ui/MessageBanner.h
         ui/Theme.h)
 
     target_link_libraries(AetherApp PRIVATE aether_core aether_warnings)

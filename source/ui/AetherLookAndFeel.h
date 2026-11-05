@@ -22,6 +22,10 @@ public:
     void drawButtonBackground (juce::Graphics&, juce::Button&, const juce::Colour& backgroundColour,
                                bool isMouseOverButton, bool isButtonDown) override;
 
+    /** Pop-up message boxes: a small round icon instead of JUCE's large, cut-off triangle. */
+    void drawAlertBox (juce::Graphics&, juce::AlertWindow&, const juce::Rectangle<int>& textArea,
+                       juce::TextLayout&) override;
+
 private:
     Theme theme;
 };

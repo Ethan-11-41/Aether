@@ -19,6 +19,8 @@ struct LatencyInfo
     int bufferSizeSamples = 0;
     int inputLatencySamples = 0;
     int outputLatencySamples = 0;
+    bool hasInput = true;    // false when no input (e.g. microphone) is selected
+    bool hasOutput = true;   // false when no output is selected
 
     bool isValid() const noexcept { return sampleRate > 0.0; }
 
