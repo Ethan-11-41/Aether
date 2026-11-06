@@ -8,6 +8,7 @@ add_executable(aether_tests
     unit/ClipEditTests.cpp
     unit/ClipPlaybackTests.cpp
     unit/DiagnosticsTests.cpp
+    unit/ExportTests.cpp
     unit/GridTests.cpp
     unit/LatencyInfoTests.cpp
     unit/MidiEngineTests.cpp
@@ -31,7 +32,9 @@ add_executable(aether_tests
     realtime/RealtimeSafetyTests.cpp)
 
 target_link_libraries(aether_tests PRIVATE aether_ui aether_warnings Catch2::Catch2WithMain)
-target_compile_definitions(aether_tests PRIVATE AETHER_TEST_FIXTURES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures")
+target_compile_definitions(aether_tests PRIVATE AETHER_TEST_FIXTURES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures"
+                                                AETHER_TEST_MP3LAME="$<TARGET_FILE:mp3lame>")
+add_dependencies(aether_tests mp3lame)   # the MP3 export tests load the LAME library
 
 # PRE_TEST discovery lists the tests when ctest runs rather than during the build.
 catch_discover_tests(aether_tests DISCOVERY_MODE PRE_TEST)

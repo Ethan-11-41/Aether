@@ -17,6 +17,8 @@ add_library(aether_core STATIC
     engine/AudioFileCache.cpp
     engine/AudioFileCache.h
     engine/AudioEngine.h
+    engine/Exporter.cpp
+    engine/Exporter.h
     engine/LatencyProbe.cpp
     engine/LatencyProbe.h
     engine/Metronome.cpp
@@ -49,6 +51,8 @@ add_library(aether_core STATIC
     io/JsonValueTree.cpp
     io/MidiImport.cpp
     io/MidiImport.h
+    io/Mp3Encoder.cpp
+    io/Mp3Encoder.h
     io/JsonValueTree.h
     io/ProjectFiles.cpp
     io/ProjectFiles.h
@@ -162,6 +166,11 @@ if(AETHER_BUILD_APP)
     # "cmake --install <build> --component Aether" copies the finished program into a staging
     # folder, which the installer script (installer/aether.iss) packages into Setup.exe.
     # The "Aether" component keeps out the developer files JUCE installs (headers, build tools).
+    # The MP3 encoder goes next to the program, so running it straight from the build works too.
+    add_dependencies(AetherApp mp3lame)
+    add_custom_command(TARGET AetherApp POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:mp3lame>" "$<TARGET_FILE_DIR:AetherApp>")
+
     install(TARGETS AetherApp RUNTIME DESTINATION . COMPONENT Aether
                               BUNDLE  DESTINATION . COMPONENT Aether)
     install(FILES "${PROJECT_SOURCE_DIR}/LICENSE"    DESTINATION . RENAME LICENSE.txt COMPONENT Aether)
