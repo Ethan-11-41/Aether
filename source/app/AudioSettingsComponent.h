@@ -6,6 +6,7 @@
 
 #include "devices/AudioDeviceService.h"
 #include "engine/AudioEngine.h"
+#include "ui/DeviceSettingsPanel.h"
 #include "ui/LatencyPanel.h"
 #include "ui/LevelMeter.h"
 #include "ui/MessageBanner.h"
@@ -31,7 +32,6 @@ private:
     void timerCallback() override;
     void updateTestToneButton();
     void updateStatus();
-    static juce::String describeDeviceType (const juce::String& typeName);
 
     AudioDeviceService& devices;
     AudioEngine& engine;
@@ -41,10 +41,11 @@ private:
 
     juce::Label titleLabel, subtitleLabel, versionLabel;
 
-    juce::Label deviceHeading, deviceHint;
+    juce::Label deviceHeading;
     ui::MessageBanner problemBanner { theme };
     juce::Viewport deviceViewport;
-    std::unique_ptr<juce::AudioDeviceSelectorComponent> deviceSelector;
+    std::unique_ptr<ui::DeviceSettingsPanel> devicePanel;
+    void layOutDevicePanel();
 
     juce::Label soundHeading, outputLabel, inputLabel, inputHint;
     juce::TextButton testToneButton;

@@ -7,6 +7,7 @@ add_executable(aether_tests
     unit/AudioFileTests.cpp
     unit/ClipEditTests.cpp
     unit/ClipPlaybackTests.cpp
+    unit/DeviceSettingsPanelTests.cpp
     unit/DiagnosticsTests.cpp
     unit/ExportTests.cpp
     unit/GridTests.cpp
