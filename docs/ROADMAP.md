@@ -23,9 +23,9 @@ months to version 1.0** at this pace. It will keep being updated.
 | ✅ **M3** | Arrangement & audio clips | Drag audio files in, see waveforms, zoom/scroll, move/trim/split/duplicate/fade/loop clips, snap to grid, nudge by grid or ms |
 | ✅ **M4** | Mixer | Volume, pan, mute, solo, meters, buses, sends, master, insert slots (two temporary basic effects until M13). (Delay compensation moved to M15, where plug-ins first add delay.) |
 | ✅ **M5** | Recording | Record from any input with monitoring, count-in, punch in/out, loop-record multiple takes, automatic latency compensation + calibration |
-| M6 | MIDI tracks | Record and play MIDI from a keyboard, the on-screen keyboard or your computer keyboard; a starter synth; basic MIDI file import |
+| ✅ **M6** | MIDI tracks | Record and play MIDI from a keyboard, the on-screen keyboard or your computer keyboard; a starter synth; basic MIDI file import |
 | M7 | Export | Export the mix and per-track stems to WAV, FLAC and MP3 |
-| M8 | Phase 1 hardening | Standard shortcuts, tooltips and drag-and-drop everywhere, a 50-track performance test, bug fixing |
+| M8 | Phase 1 hardening | Standard shortcuts, tooltips and drag-and-drop everywhere, Aether's own beginner-friendly audio/MIDI settings panel, a 50-track performance test, bug fixing |
 
 ## Phase 2: making music
 

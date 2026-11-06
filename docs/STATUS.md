@@ -4,26 +4,26 @@ An honest list of what works. Updated at the end of every milestone.
 
 **Legend:** ✅ Working · 🟡 Partial · 🧪 Stub/placeholder · ⬜ Not started
 
-Current version: **0.6.0** (Milestone 5)
+Current version: **0.7.0** (Milestone 6)
 
 ## Milestone 0: skeleton and build pipeline
 
 | Feature | Status | Notes |
 |---|---|---|
-| App window, dark theme, tooltips | ✅ | |
+| App window, dark theme, tooltips | ✅ | Tooltips only appeared in the Audio settings window until 0.7.0 (fixed). |
 | Audio device choice (Windows Audio shared/exclusive/low-latency, ASIO) | ✅ | Uses JUCE's standard device panel. ASIO compiles but hasn't been tested with a real ASIO interface yet. |
 | Sample rate and buffer size choice, remembered between runs | ✅ | |
 | Latency display (buffer, input, output, round trip) | ✅ | Driver figures, plus the measured round trip (since 0.6.0). |
 | Going back to the last working setting when a device fails to open | ✅ | Added in 0.1.1. JUCE's own error pop-up still appears first. |
 | Exclusive Mode with a built-in microphone | 🟡 | Fails on the first test PC. Since 0.2.2 the message shows the exact Windows error, to find out why. Use "Windows Audio" meanwhile. |
 | Log file (Help > Open log folder) | ✅ | Added in 0.2.2. |
-| Aether's own beginner-friendly device settings panel | ⬜ | Currently JUCE's standard panel (shows extras like "Output channel 3 + 4"). Planned with MIDI settings in M6. |
+| Aether's own beginner-friendly device settings panel | ⬜ | Currently JUCE's standard panel (shows extras like "Output channel 3 + 4"). Moved to M8 (Phase 1 hardening). |
 | Test tone | ✅ | |
 | Output and input level meters, audio CPU meter | ✅ | |
 | Setup.exe installer | ✅ | Unsigned, so Windows SmartScreen shows a warning. |
 | Automated Windows + Linux builds on GitHub | ✅ | |
 | Real-time safety checks (RealtimeSanitizer) | ✅ | Linux only (the sanitizer doesn't exist for Windows' compiler). |
-| MIDI device settings | ⬜ | M6 |
+| MIDI device settings | ✅ | MIDI inputs listed in Audio settings, switched on automatically (0.7.0). |
 
 ## Milestone 1: projects, tracks, undo, autosave, crash recovery
 
@@ -31,7 +31,7 @@ Current version: **0.6.0** (Milestone 5)
 |---|---|---|
 | Start screen: new project, recent projects | ✅ | Templates come in M24. |
 | Project files: versioned JSON, upgrade system, safe saving, backups | ✅ | Format version 1. See docs/FILE_FORMAT.md. |
-| Tracks: add (audio/MIDI), rename, colour, reorder (drag or keys), delete | ✅ | Tracks don't play anything yet: playback comes with M2/M3. |
+| Tracks: add (audio/MIDI), rename, colour, reorder (drag or keys), delete | ✅ | |
 | Undo/redo for every edit, with named steps | ✅ | Selection and scrolling are deliberately not undo steps. |
 | Unsaved-changes prompts, title `*`, status bar | ✅ | |
 | Autosave (every 60 s, background) and crash recovery | ✅ | |
@@ -71,7 +71,7 @@ Current version: **0.6.0** (Milestone 5)
 | Selecting several clips | 🟡 | Ctrl+click and Ctrl+A. Dragging a selection rectangle isn't there yet. |
 | Copy / cut / paste | ⬜ | Use Duplicate for now. Coming with M8 (hardening). |
 | Overlapping clips on one track | 🟡 | Both play (mixed). Crossfades and take comping come in M21. |
-| Clips on MIDI tracks | ⬜ | M6. |
+| Clips on MIDI tracks | ✅ | Since 0.7.0. |
 | Mouse editing of clips | 🟡 | The edits and commands are tested automatically; dragging is checked by hand (see the M3 checklist). |
 
 ## Milestone 4: mixer
@@ -89,7 +89,7 @@ Current version: **0.6.0** (Milestone 5)
 | Smooth (click-free) volume, pan and mute changes | ✅ | |
 | Delay compensation | ⬜ | Moved to M15 (plug-in hosting). Aether's own effects add no delay, so there is nothing to compensate yet; it matters when plug-ins arrive. |
 | Mixer automation | ⬜ | M14. |
-| MIDI tracks' strips | 🟡 | They're there, but stay silent until instruments arrive (M6). |
+| MIDI tracks' strips | ✅ | Their instrument plays through them (0.7.0). |
 | Mouse handling of the mixer | 🟡 | The settings, sound and group edits are tested automatically; the mouse itself is checked by hand (see the M4 checklist). |
 
 ## Milestone 5: recording
@@ -105,18 +105,33 @@ Current version: **0.6.0** (Milestone 5)
 | Punch in/out (on the loop region) | ✅ | |
 | Loop recording into takes, choosing takes, splitting to combine takes | 🟡 | Simple version. Proper take lanes and comping come in M21. A pass you stopped in less than a quarter of the way through isn't offered as a take. |
 | New recordings replace what was under them | ✅ | Undo brings the old clips back. |
-| Recording MIDI | ⬜ | M6. |
+| Recording MIDI | ✅ | Since 0.7.0. |
 | Mixer strips: record arm | ⬜ | Arm tracks on their headers for now. |
 | Closing a project while recording | 🟡 | The recording stops and its WAV file is kept in the Audio folder, but no clip is added: stop recording first. |
 | Recording with a real sound card | 🟡 | The whole path is tested automatically with a simulated sound card; real devices are checked by hand (see the M5 checklist). |
+
+## Milestone 6: MIDI tracks
+
+| Feature | Status | Notes |
+|---|---|---|
+| Starter synth with six presets and its own settings | 🟡 | Deliberately simple (one tone at a time, 16 notes at once). A fuller synth is M10, sampled instruments M12. |
+| MIDI keyboards over USB, switched on automatically (also when plugged in later) | ✅ | Bluetooth MIDI isn't supported yet (Windows needs a different system for it): use USB. |
+| Playing through the selected / armed / "play through" MIDI track | ✅ | |
+| Sustain pedal and pitch bend | ✅ | Other controllers (mod wheel, expression) are ignored for now. |
+| On-screen keyboard, computer-keyboard playing | ✅ | |
+| MIDI light in the toolbar | ✅ | |
+| Recording MIDI (count-in, punch, loop overdub, latency correction) | ✅ | The sustain pedal is recorded as longer notes, not as pedal movements. |
+| MIDI clips: shown with notes; move, trim, split, duplicate, delete, rename | ✅ | No note editing yet: the piano roll is M9. Notes that start before a clip's left edge don't play (as in most DAWs). |
+| MIDI file import (.mid) | 🟡 | Notes only (with the sustain pedal as note lengths); the first tempo is used for a new project. Tempo changes, time signatures and other controllers in the file are ignored. MIDI export is M18. |
+| Choosing which MIDI keyboard plays which track | ⬜ | Every keyboard plays the selected/armed tracks. Per-track MIDI inputs come later. |
+| Mouse playing on the on-screen keyboard, real keyboards | 🟡 | Automatic tests use simulated keyboards; real ones are checked by hand (see the M6 checklist). |
 
 ## Everything else
 
 | Area | Status | Milestone |
 |---|---|---|
-| MIDI tracks, MIDI input | ⬜ | M6 |
 | Export (WAV/FLAC/MP3, stems) | ⬜ | M7 |
 | Piano roll, step sequencer, instruments, effects, automation | ⬜ | M9–M14 |
 | VST3 / CLAP plug-ins | ⬜ | M15 / M28 |
 | Sound library | ⬜ | M17, M23 |
-| Import/export with other DAWs | ⬜ | M6, M18, M26, M27 |
+| Import/export with other DAWs | 🟡 | MIDI file import since 0.7.0; the rest in M18, M26, M27 |
