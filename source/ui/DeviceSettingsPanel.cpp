@@ -365,7 +365,9 @@ void DeviceSettingsPanel::driverChosen()
 
     if (name.isNotEmpty() && name != manager.getCurrentAudioDeviceType())
     {
-        manager.setCurrentAudioDeviceType (name, true);
+        // Tries the usual setting, then without the microphone or at another sample rate, and
+        // explains any change (see AudioDeviceService::switchDriverType).
+        devices.switchDriverType (name);
         refresh();
     }
 }
