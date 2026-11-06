@@ -568,8 +568,6 @@ public:
         const auto rowHeight = TrackListComponent::rowHeight;
         const auto scrollY = owner.trackViewport.getViewPositionY();
         const auto& proj = owner.project;
-        const auto selectedTrack = owner.trackList.getSelectedTrackId();
-
         for (int i = 0; i < proj.getNumTracks(); ++i)
         {
             const auto y = i * rowHeight - scrollY;
@@ -578,8 +576,17 @@ public:
 
             const auto track = proj.getTrack (i);
             juce::Rectangle<int> row (0, y, getWidth(), rowHeight);
-            g.setColour (track.getId() == selectedTrack ? colours.panelRaised.withAlpha (0.55f) : colours.panel.withAlpha (0.35f));
+            g.setColour (owner.trackList.isTrackSelected (track.getId()) ? colours.panelRaised.withAlpha (0.55f) : colours.panel.withAlpha (0.35f));
             g.fillRect (row);
+
+            if (track.isBus())
+            {
+                // Buses have no clips: say so, faintly.
+                g.setColour (colours.textDim.withAlpha (0.45f));
+                g.setFont (juce::FontOptions (12.0f));
+                g.drawText ("Bus: other tracks play into it (choose its tracks' Output in the mixer or by right-clicking them)",
+                            row.reduced (12, 0), juce::Justification::centredLeft, true);
+            }
         }
 
         owner.drawGrid (g, getLocalBounds(), false);
@@ -624,7 +631,7 @@ public:
         drag = {};
 
         if (juce::isPositiveAndBelow (row, owner.project.getNumTracks()))
-            owner.trackList.selectTrack (owner.project.getTrack (row).getId());
+            owner.trackList.focusTrack (owner.project.getTrack (row).getId());
 
         if (e.mods.isPopupMenu())
         {

@@ -80,12 +80,18 @@ target_compile_definitions(aether_core PUBLIC AETHER_VERSION_STRING="${PROJECT_V
 add_library(aether_ui STATIC
     ui/AetherLookAndFeel.cpp
     ui/AetherLookAndFeel.h
+    ui/EffectEditor.cpp
+    ui/EffectEditor.h
     ui/IconButton.cpp
     ui/IconButton.h
     ui/LatencyPanel.cpp
     ui/LatencyPanel.h
     ui/LevelMeter.cpp
     ui/LevelMeter.h
+    ui/MixerComponent.cpp
+    ui/MixerComponent.h
+    ui/MixerControls.cpp
+    ui/MixerControls.h
     ui/MessageBanner.cpp
     ui/MessageBanner.h
     ui/NumberDragField.cpp

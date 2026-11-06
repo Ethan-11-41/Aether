@@ -37,6 +37,7 @@ namespace commands
         deleteTrack         = 0x3004,
         moveTrackUp         = 0x3005,
         moveTrackDown       = 0x3006,
+        addBus              = 0x3007,
 
         // Clips
         importAudio         = 0x3101,
@@ -56,6 +57,7 @@ namespace commands
         zoomIn              = 0x6006,
         zoomOut             = 0x6007,
         toggleSnap          = 0x6008,
+        toggleMixer         = 0x6009,
 
         // Settings & help
         audioSettings       = 0x4001,
