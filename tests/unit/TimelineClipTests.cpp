@@ -168,3 +168,16 @@ TEST_CASE ("Dropped files go on the track and at the position under the mouse", 
     f.timeline->filesDropped ({ loop }, 10, ui::TimelineComponent::headerHeight + 500);
     CHECK (droppedTrack.isEmpty());
 }
+
+TEST_CASE ("Going to the start scrolls the timeline back to the start", "[ui][timeline]")
+{
+    Fixture f;
+    f.timeline->getView().setViewStart (40 * q);   // scrolled well into the song
+    f.engine.locate (44 * q);
+    f.timeline->updatePlayhead();
+    CHECK (f.timeline->getView().getViewStart() == 40 * q);   // the playhead is in view: no scrolling
+
+    f.engine.locate (0);                                       // Go to start (Home)
+    f.timeline->updatePlayhead();
+    CHECK (f.timeline->getView().getViewStart() == 0);
+}

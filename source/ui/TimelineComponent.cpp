@@ -1499,11 +1499,20 @@ int TimelineComponent::playheadX() const
 
 void TimelineComponent::timerCallback()
 {
+    updatePlayhead();
+}
+
+void TimelineComponent::updatePlayhead()
+{
     const auto status = engine.getTransportStatus();
     auto x = playheadX();
 
-    // Follow the playhead while playing: when it reaches the right edge, turn the page.
-    if (status.playing && (x > getWidth() - 30 || x < 0))
+    // Follow the playhead while playing: when it reaches the right edge, turn the page. And when
+    // it jumps while stopped (Go to start, Home, nudging) to somewhere off screen, scroll there.
+    const auto jumped = ! status.playing && status.position != lastPlayheadPosition;
+    lastPlayheadPosition = status.position;
+
+    if ((status.playing || jumped) && (x > getWidth() - 30 || x < 0))
     {
         view.setViewStart (std::max<Tick> (0, status.position - view.ticksForWidth (getWidth() * 0.1)));
         x = playheadX();
