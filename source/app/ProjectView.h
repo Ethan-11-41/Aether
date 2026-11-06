@@ -11,6 +11,7 @@
 #include "model/Project.h"
 #include "ui/KeyboardPanel.h"
 #include "ui/MixerComponent.h"
+#include "ui/PianoRoll.h"
 #include "ui/TimelineComponent.h"
 #include "ui/TrackListComponent.h"
 #include "ui/TransportBar.h"
@@ -54,6 +55,10 @@ public:
 
     /** Asks which audio files to import, then imports them at `position` on `trackId`. */
     void chooseFilesToImport (const juce::String& trackId, Tick position);
+
+    /** Opens (or brings forward) the piano roll window, showing a MIDI clip's notes. */
+    void showPianoRoll (const juce::String& clipId);
+    ui::PianoRoll* getPianoRoll() noexcept            { return pianoRoll; }
 
     static constexpr const char* gridKey = "gridSize";
     static constexpr const char* mixerVisibleKey = "mixerVisible";
@@ -132,6 +137,8 @@ private:
     bool mixerVisible = false;
     int mixerHeight = 340, heightAtDragStart = 340;
     double lastMeterTime = 0.0;
+    std::unique_ptr<juce::DocumentWindow> pianoRollWindow;   // its own window (closes with the project)
+    ui::PianoRoll* pianoRoll = nullptr;                      // inside pianoRollWindow
     juce::ComboBox gridBox;
     juce::Rectangle<int> toolbarArea, laneHeaderArea;
     std::unique_ptr<juce::FileChooser> fileChooser;

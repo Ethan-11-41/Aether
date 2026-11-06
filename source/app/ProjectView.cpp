@@ -9,6 +9,7 @@
 #include "io/FileTypes.h"
 #include "io/MidiImport.h"
 #include "model/TimelineEdits.h"
+#include "ui/DelayedTooltipWindow.h"
 
 namespace aether
 {
@@ -60,6 +61,7 @@ ProjectView::ProjectView (AppContext& context, Project& projectToShow)
     };
     timeline->onImportRequested = [this] (const juce::String& trackId, Tick position) { chooseFilesToImport (trackId, position); };
     timeline->onClipSelectionChanged = [this] { ctx.commands.commandStatusChanged(); };
+    timeline->onEditNotes = [this] (const juce::String& clipId) { showPianoRoll (clipId); };
 
     // The snap grid, remembered between sessions.
     for (size_t i = 0; i < allGridSizes.size(); ++i)
@@ -358,9 +360,81 @@ void ProjectView::chooseFilesToImport (const juce::String& trackId, Tick positio
     });
 }
 
+namespace
+{
+    /** The piano roll's window: it doesn't block the main window, and Aether's shortcuts
+        (Space, Ctrl+Z...) work in it too. */
+    class PianoRollWindow final : public juce::DocumentWindow
+    {
+    public:
+        PianoRollWindow (juce::Colour background, std::function<void()> whenClosed)
+            : juce::DocumentWindow ("Piano roll", background, juce::DocumentWindow::allButtons),
+              onClosed (std::move (whenClosed))
+        {
+        }
+
+        void closeButtonPressed() override   { onClosed(); }
+
+    private:
+        std::function<void()> onClosed;
+        ui::DelayedTooltipWindow tooltips { this };
+    };
+}
+
+void ProjectView::showPianoRoll (const juce::String& clipId)
+{
+    if (pianoRollWindow == nullptr)
+    {
+        juce::Component::SafePointer<ProjectView> safeThis (this);
+        auto window = std::make_unique<PianoRollWindow> (ctx.theme.background, [safeThis]
+        {
+            // Closed a moment later, not from inside the window's own callback.
+            juce::MessageManager::callAsync ([safeThis]
+            {
+                if (safeThis != nullptr)
+                {
+                    safeThis->pianoRoll = nullptr;
+                    safeThis->pianoRollWindow = nullptr;
+                }
+            });
+        });
+
+        auto roll = std::make_unique<ui::PianoRoll> (ctx.theme, project, ctx.engine);
+        pianoRoll = roll.get();
+        pianoRoll->onClipChanged = [safeThis]
+        {
+            if (safeThis == nullptr || safeThis->pianoRoll == nullptr || safeThis->pianoRollWindow == nullptr)
+                return;
+
+            const auto clip = clips::findClip (safeThis->project, safeThis->pianoRoll->getClipId());
+            safeThis->pianoRollWindow->setName (clip.isValid() ? "Piano roll - " + clip.getName() : juce::String ("Piano roll"));
+        };
+
+        window->setUsingNativeTitleBar (true);
+        window->setResizable (true, false);
+        window->setResizeLimits (720, 420, 8000, 6000);
+        window->setContentOwned (roll.release(), true);
+        window->addKeyListener (ctx.commands.getKeyMappings());
+        window->centreAroundComponent (this, window->getWidth(), window->getHeight());
+        window->setVisible (true);
+        pianoRollWindow = std::move (window);
+    }
+
+    pianoRoll->setClip (clipId);
+
+    // The keyboard and the on-screen keyboard play the same instrument as the notes being edited.
+    if (const auto clip = clips::findClip (project, clipId); clip.isValid())
+        trackList.focusTrack (clip.getTrackState()[ids::id].toString());
+
+    pianoRollWindow->toFront (true);
+    pianoRoll->grabKeyboardFocus();
+}
+
 ProjectView::~ProjectView()
 {
     stopTimer();
+    pianoRoll = nullptr;
+    pianoRollWindow = nullptr;
     recorder = nullptr;   // a recording still running is stopped (its files are kept)
     timeline->liveRecording = nullptr;
     trackList.onSelectionChanged = nullptr;
