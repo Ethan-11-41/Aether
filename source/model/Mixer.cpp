@@ -173,9 +173,17 @@ juce::ValueTree findInsert (const Project& project, const juce::String& insertId
             return insert;
 
     for (int i = 0; i < project.getNumTracks(); ++i)
-        for (const auto& insert : insertsOf (project, project.getTrack (i).getId()))
+    {
+        const auto track = project.getTrack (i);
+
+        for (const auto& insert : insertsOf (project, track.getId()))
             if (insert[ids::id].toString() == insertId)
                 return insert;
+
+        // A MIDI track's instrument has settings like an effect's.
+        if (auto instrument = track.getState().getChildWithName (ids::Instrument); instrument[ids::id].toString() == insertId)
+            return instrument;
+    }
 
     return {};
 }

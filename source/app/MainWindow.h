@@ -86,6 +86,9 @@ private:
     juce::MenuBarComponent menuBar;
     juce::Label statusLabel;
 
+    /** Shows each control's tooltip (its name and what it does) when the mouse rests on it. */
+    juce::TooltipWindow tooltipWindow { this, 600 };
+
     juce::ScopedMessageBox messageBox;
     std::unique_ptr<juce::FileChooser> fileChooser;
     juce::Component::SafePointer<juce::DialogWindow> audioSettingsWindow;

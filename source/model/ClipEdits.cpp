@@ -4,6 +4,7 @@
 #include <cmath>
 #include <limits>
 
+#include "MidiClips.h"
 #include "TimelineEdits.h"
 
 namespace aether
@@ -100,6 +101,9 @@ juce::Array<Clip> clips::allClips (const Project& project)
 
 juce::int64 clips::minimumLength (const Clip& clip)
 {
+    if (clip.isMidi())
+        return midi::minimumClipLength;
+
     return std::max<juce::int64> (1, (juce::int64) (clip.getSourceRate() * 0.01));
 }
 
@@ -146,8 +150,8 @@ bool edit::setClipPosition (Project& project, const juce::String& clipId, Tick n
     if (! clip.isValid() || ! targetTrack.isValid())
         return false;
 
-    // Audio clips only go on audio tracks.
-    if (Track (targetTrack).getKind() != TrackKind::audio)
+    // Audio clips only go on audio tracks, MIDI clips on MIDI tracks.
+    if (Track (targetTrack).getKind() != (clip.isMidi() ? TrackKind::midi : TrackKind::audio))
         targetTrack = clip.getTrackState();
 
     newStart = std::max<Tick> (0, newStart);
@@ -171,12 +175,82 @@ bool edit::setClipPosition (Project& project, const juce::String& clipId, Tick n
     return true;
 }
 
+namespace
+{
+    // MIDI clips: everything is in ticks, and the notes stay where they are in time.
+    bool trimMidiClipStart (Project& project, Clip& clip, Tick newStart, bool newUndoStep)
+    {
+        newStart = std::clamp<Tick> (newStart, 0, clip.getEnd ({}) - midi::minimumClipLength);
+        const auto delta = newStart - clip.getStart();
+
+        if (delta == 0)
+            return false;
+
+        startStep (project, "Trim clip", newUndoStep);
+        set (project, clip, ids::contentStart, (juce::int64) (clip.getContentStart() + delta));
+        set (project, clip, ids::length, (juce::int64) (clip.getLengthTicks() - delta));
+        set (project, clip, ids::start, (juce::int64) newStart);
+        return true;
+    }
+
+    bool trimMidiClipEnd (Project& project, Clip& clip, Tick newEnd, bool newUndoStep)
+    {
+        const auto newLength = std::max (midi::minimumClipLength, newEnd - clip.getStart());
+
+        if (newLength == clip.getLengthTicks())
+            return false;
+
+        startStep (project, "Trim clip", newUndoStep);
+        set (project, clip, ids::length, (juce::int64) newLength);
+        return true;
+    }
+
+    juce::String splitMidiClip (Project& project, Clip& clip, Tick position, bool newUndoStep)
+    {
+        const auto leftLength = position - clip.getStart();
+
+        if (leftLength < midi::minimumClipLength || leftLength > clip.getLengthTicks() - midi::minimumClipLength)
+            return {};
+
+        startStep (project, "Split clip", newUndoStep);
+        auto& undo = project.getUndoManager();
+        const auto cut = clip.getContentStart() + leftLength;   // where the cut is, in the notes
+
+        // The right-hand part: a copy holding the notes that start after the cut.
+        auto rightState = clip.getState().createCopy();
+        const auto rightId = juce::Uuid().toString();
+        rightState.setProperty (ids::id, rightId, nullptr);
+        rightState.setProperty (ids::start, (juce::int64) position, nullptr);
+        rightState.setProperty (ids::contentStart, (juce::int64) cut, nullptr);
+        rightState.setProperty (ids::length, (juce::int64) (clip.getLengthTicks() - leftLength), nullptr);
+
+        for (int i = rightState.getNumChildren(); --i >= 0;)
+            if (rightState.getChild (i).hasType (ids::Note) && (Tick) (juce::int64) rightState.getChild (i)[ids::tick] < cut)
+                rightState.removeChild (i, nullptr);
+
+        // The left-hand part keeps the notes that start before it.
+        auto left = clip.getState();
+        for (int i = left.getNumChildren(); --i >= 0;)
+            if (left.getChild (i).hasType (ids::Note) && (Tick) (juce::int64) left.getChild (i)[ids::tick] >= cut)
+                left.removeChild (i, &undo);
+
+        set (project, clip, ids::length, (juce::int64) leftLength);
+
+        auto clipsNode = left.getParent();
+        clipsNode.addChild (rightState, clipsNode.indexOf (left) + 1, &undo);
+        return rightId;
+    }
+}
+
 bool edit::trimClipStart (Project& project, const juce::String& clipId, Tick newStart, bool newUndoStep)
 {
     auto clip = clips::findClip (project, clipId);
 
     if (! clip.isValid())
         return false;
+
+    if (clip.isMidi())
+        return trimMidiClipStart (project, clip, newStart, newUndoStep);
 
     const auto tempo = timeline::buildTempoMap (project);
     const auto rate = clip.getSourceRate();
@@ -219,6 +293,9 @@ bool edit::trimClipEnd (Project& project, const juce::String& clipId, Tick newEn
     if (! clip.isValid())
         return false;
 
+    if (clip.isMidi())
+        return trimMidiClipEnd (project, clip, newEnd, newUndoStep);
+
     const auto tempo = timeline::buildTempoMap (project);
     const auto rate = clip.getSourceRate();
     auto newDuration = (juce::int64) std::llround ((tempo.ticksToSeconds (newEnd) - clip.getStartSeconds (tempo)) * rate);
@@ -246,6 +323,9 @@ juce::String edit::splitClip (Project& project, const juce::String& clipId, Tick
 
     if (! clip.isValid())
         return {};
+
+    if (clip.isMidi())
+        return splitMidiClip (project, clip, position, newUndoStep);
 
     const auto tempo = timeline::buildTempoMap (project);
     const auto rate = clip.getSourceRate();

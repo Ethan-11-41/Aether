@@ -24,22 +24,36 @@ struct EffectParameter
     juce::String format (float value) const;
 };
 
-/** A kind of effect Aether has built in. */
+/** The most parameters any built-in effect or instrument has (the engine keeps them in a
+    fixed-size array). */
+constexpr int maxEffectParameters = 16;
+using EffectParameterValues = std::array<float, maxEffectParameters>;
+
+/** A named set of settings, e.g. the synth's "Electric piano". */
+struct EffectPreset
+{
+    juce::String name;
+    std::vector<float> values;    // in the order of the type's parameters
+};
+
+/** A kind of effect (or instrument) Aether has built in. */
 struct EffectType
 {
     juce::String id;              // stored in project files: never rename
     juce::String name;
     juce::String description;
     std::vector<EffectParameter> parameters;
+    bool isInstrument = false;    // plays notes (on a MIDI track) rather than changing sound
+    std::vector<EffectPreset> presets;
 };
 
-/** The most parameters any built-in effect has (the engine keeps them in a fixed-size array). */
-constexpr int maxEffectParameters = 8;
-using EffectParameterValues = std::array<float, maxEffectParameters>;
-
-/** Every built-in effect. Milestone 4 has two simple temporary ones (Reverb and Delay); the full
-    set of effects arrives in M13. */
+/** Every built-in effect and instrument. Milestone 4 has two simple temporary effects (Reverb
+    and Delay), the full set arrives in M13; Milestone 6 adds the starter synth ("synth"). */
 const std::vector<EffectType>& effectTypes();
+
+/** The instrument new MIDI tracks get, and its starting preset. */
+inline const juce::String defaultInstrument { "synth" };
+inline const juce::String defaultInstrumentPreset { "Electric piano" };
 
 /** The effect type with this id, or null. */
 const EffectType* findEffectType (const juce::String& id);

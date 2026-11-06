@@ -3,6 +3,7 @@
 
 #include <cmath>
 
+#include "MidiClips.h"
 #include "TimelineEdits.h"
 
 namespace aether
@@ -197,13 +198,14 @@ bool edit::clearRange (Project& project, const juce::String& trackId, Tick from,
     for (const auto& clip : clips::clipsOnTrack (track.getState()))
     {
         const auto start = clip.getStartSeconds (tempo);
-        const auto end = start + clip.getDurationSeconds();
+        const auto end = clip.isMidi() ? tempo.ticksToSeconds (clip.getEnd (tempo)) : start + clip.getDurationSeconds();
 
         if (end <= fromSeconds || start >= toSeconds)
             continue;   // not in the range
 
         // How much would be left on each side; slivers shorter than the minimum go too.
-        const auto minimum = (double) clips::minimumLength (clip) / clip.getSourceRate();
+        const auto minimum = clip.isMidi() ? tempo.ticksToSeconds (clip.getStart() + midi::minimumClipLength) - start
+                                           : (double) clips::minimumLength (clip) / clip.getSourceRate();
         const auto keepLeft = fromSeconds - start >= minimum;
         const auto keepRight = end - toSeconds >= minimum;
         const auto id = clip.getId();

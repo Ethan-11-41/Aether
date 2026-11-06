@@ -1,8 +1,10 @@
 // Aether - Copyright (C) 2026 The Aether authors. Licensed under the GNU AGPLv3 or later.
 #include "EditCommands.h"
 
+#include "MidiClips.h"
 #include "Mixer.h"
 #include "TrackColours.h"
+#include "dsp/EffectTypes.h"
 
 namespace aether::edit
 {
@@ -71,6 +73,9 @@ Track addTrack (Project& project, TrackKind kind, int insertIndex, bool newUndoS
     track.setProperty (ids::name, name.trim().isNotEmpty() ? name.trim() : nextTrackName (project, kind), nullptr);
     track.setProperty (ids::colour, Track::colourToString (nextTrackColour (project)), nullptr);
     track.appendChild (juce::ValueTree (ids::Clips), nullptr);
+
+    if (kind == TrackKind::midi)
+        track.appendChild (midi::makeInstrument (dsp::defaultInstrument, dsp::defaultInstrumentPreset), nullptr);
 
     auto tracks = project.getTracksNode();
     const auto index = (insertIndex < 0 || insertIndex > tracks.getNumChildren()) ? -1 : insertIndex;

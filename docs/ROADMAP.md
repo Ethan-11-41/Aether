@@ -46,7 +46,7 @@ months to version 1.0** at this pace. It will keep being updated.
 
 | # | Milestone |
 |---|---|
-| M19 | Time-stretching and pitch-shifting |
+| M19 | Time-stretching and pitch-shifting, and pitch correction ("auto-tune": as an effect, and on recorded clips) |
 | M20 | Warp markers, tempo detection, loops that follow the project tempo |
 | M21 | Take comping and crossfades |
 | M22 | Groove templates and sidechain routing |

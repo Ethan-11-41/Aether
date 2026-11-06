@@ -1,6 +1,9 @@
 // Aether - Copyright (C) 2026 The Aether authors. Licensed under the GNU AGPLv3 or later.
 #include "Project.h"
 
+#include "MidiClips.h"
+#include "dsp/EffectTypes.h"
+
 namespace aether
 {
 
@@ -97,6 +100,10 @@ void Project::ensureStructure()
         // Every track has a (possibly empty) list of clips.
         if (track.hasType (ids::Track) && ! track.getChildWithName (ids::Clips).isValid())
             track.appendChild (juce::ValueTree (ids::Clips), nullptr);
+
+        // Every MIDI track has an instrument (projects from before Milestone 6 get the default).
+        if (track.hasType (ids::Track) && track[ids::kind].toString() == "midi" && ! track.getChildWithName (ids::Instrument).isValid())
+            track.appendChild (midi::makeInstrument (dsp::defaultInstrument, dsp::defaultInstrumentPreset), nullptr);
     }
 }
 

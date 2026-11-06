@@ -55,7 +55,8 @@ bool reaches (const Project& project, const juce::String& fromId, const juce::St
 std::vector<juce::ValueTree> sendsOf (const Project& project, const juce::String& channelId);
 std::vector<juce::ValueTree> insertsOf (const Project& project, const juce::String& channelId);
 
-/** A send or insert anywhere in the project, by id (invalid if not found). */
+/** A send or insert anywhere in the project, by id (invalid if not found). findInsert also finds
+    MIDI tracks' instruments, whose settings work the same way. */
 juce::ValueTree findSend (const Project& project, const juce::String& sendId);
 juce::ValueTree findInsert (const Project& project, const juce::String& insertId);
 

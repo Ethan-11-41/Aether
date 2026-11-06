@@ -49,6 +49,11 @@ public:
     juce::String getFile() const             { return state[ids::file].toString(); }
 
     Tick getStart() const                    { return (Tick) (juce::int64) state[ids::start]; }
+
+    /** A MIDI clip holds notes (see MidiClips.h); otherwise it plays part of an audio file. */
+    bool isMidi() const                      { return state[ids::kind].toString() == "midi"; }
+    Tick getLengthTicks() const              { return std::max<Tick> (1, (Tick) (juce::int64) state[ids::length]); }   // MIDI
+    Tick getContentStart() const             { return (Tick) (juce::int64) state[ids::contentStart]; }                 // MIDI
     double getSourceRate() const             { const auto r = (double) state[ids::sourceRate]; return r > 0.0 ? r : 48000.0; }
     juce::int64 getSourceLength() const      { return (juce::int64) state[ids::sourceLength]; }
     juce::int64 getOffset() const            { return (juce::int64) state[ids::offset]; }
@@ -73,6 +78,9 @@ public:
     /** Where the clip ends on the timeline. */
     Tick getEnd (const TempoMap& tempo) const
     {
+        if (isMidi())
+            return getStart() + getLengthTicks();
+
         return tempo.secondsToTicks (getStartSeconds (tempo) + getDurationSeconds());
     }
 
