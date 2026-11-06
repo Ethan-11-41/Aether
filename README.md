@@ -4,12 +4,13 @@ A free, open-source digital audio workstation (DAW) for Windows: record, arrange
 music, in the spirit of GarageBand, FL Studio, LMMS and Reaper. Beginner-friendly on the surface,
 with deep customisation underneath.
 
-> **Status: early development (Milestone 6 of 30).** Aether can create, save and open projects
+> **Status: early development (Milestone 7 of 30).** Aether can create, save and open projects
 > with full undo/redo, autosave and crash recovery; play with tempo changes, time signatures,
 > looping and a metronome; record audio (with latency compensation, punch in/out and loop
 > takes) and MIDI from a keyboard (or the on-screen one) into MIDI tracks played by a starter
 > synth; import, arrange and edit audio and MIDI clips on a snap grid; import MIDI files; and mix
-> with volume, pan, mute, solo, buses, sends and two simple effects. Next: export (M7). See [docs/STATUS.md](docs/STATUS.md)
+> with volume, pan, mute, solo, buses, sends and two simple effects; and export the mix and stems
+> to WAV, FLAC or MP3. Next: Phase 1 hardening (M8). See [docs/STATUS.md](docs/STATUS.md)
 > for exactly what works, and [docs/ROADMAP.md](docs/ROADMAP.md) for what's coming.
 
 ---
@@ -41,6 +42,7 @@ See [docs/FILE_FORMAT.md](docs/FILE_FORMAT.md).
 |---|---|
 | New / open / save / save as / close project | Ctrl+N / Ctrl+O / Ctrl+S / Ctrl+Shift+S / Ctrl+W |
 | Undo / redo | Ctrl+Z / Ctrl+Y (or Ctrl+Shift+Z) |
+| Export audio (WAV, FLAC, MP3, stems) | Ctrl+E |
 | Add audio track / MIDI track / bus | Ctrl+T / Ctrl+Shift+T / Ctrl+Shift+B |
 | Show/hide the mixer / the on-screen keyboard | F9 / Ctrl+K |
 | Play notes with the computer keys (click the on-screen keyboard first) | A W S E D F T G Y H U J K; Z / X: octave |

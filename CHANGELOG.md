@@ -6,6 +6,34 @@ follow [Semantic Versioning](https://semver.org/) (0.x while Aether is in early 
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-06 - Milestone 7: export
+
+### Added
+- **Export audio** (File > Export audio, Ctrl+E): the mix as one file, and/or **stems** (one
+  file per track, each as you'd hear it soloed, with its effects, sends and the master; played
+  together they add up to the mix).
+- Formats: **WAV** (16-bit, 24-bit, 32-bit floating point), **FLAC** (16 or 24-bit: smaller than
+  WAV, same quality) and **MP3** (128 to 320 kbps). Sample rates 44.1, 48, 88.2 and 96 kHz (MP3:
+  44.1 or 48 kHz).
+- The whole song (to the end of the last clip) or just the loop region; effect tails (reverb,
+  echoes, released notes) ring out at the end until silent; optional normalizing of the mix to
+  -1 dB; 16-bit files are dithered.
+- Exporting runs in the background with a progress bar and Cancel, from a copy of the project,
+  so you can keep working. Files go in the project's Exports folder (or one you choose) and are
+  never overwritten. A warning appears if the mix clipped (went over 0 dB).
+- MP3 encoding uses LAME 3.100 (LGPL), built from its official source and shipped as a
+  separate library next to Aether.exe (libmp3lame.dll).
+- MIDI import: when the project already has music in it, Aether asks whether to use the MIDI
+  file's tempo (from your M6 feedback). A MIDI file with one part, dropped on a MIDI track, goes
+  onto that track.
+- Automated tests: exports match the engine sample for sample; tails; other sample rates; WAV
+  and FLAC at every bit depth read back to their precision; MP3 encodes and decodes at the same
+  loudness; stems add up to the mix (with a reverb send); clipping warnings and normalizing;
+  MIDI tracks; cancelling (226 tests).
+
+### Changed
+- The roadmap's time estimate: roughly 3 to 6 weeks to version 1.0 at the current pace.
+
 ## [0.7.0] - 2026-11-06 - Milestone 6: MIDI tracks
 
 ### Added
