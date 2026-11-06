@@ -48,8 +48,14 @@ list(TRANSFORM AETHER_LAME_SOURCES PREPEND "${lame_SOURCE_DIR}/libmp3lame/")
 
 add_library(mp3lame MODULE ${AETHER_LAME_SOURCES})
 
+# What the DLL exports: LAME's own list, minus the MP3 *decoder* functions (lame_decode..., hip_...),
+# which are only built with LAME's optional mpglib decoder, not needed for exporting.
+file(READ "${lame_SOURCE_DIR}/include/lame.def" AETHER_LAME_DEF)
+string(REGEX REPLACE "\n(lame_decode|hip_)[^\n]*" "" AETHER_LAME_DEF "${AETHER_LAME_DEF}")
+file(WRITE "${AETHER_LAME_CONFIG_DIR}/lame.def" "${AETHER_LAME_DEF}")
+
 if(WIN32)
-    target_sources(mp3lame PRIVATE "${lame_SOURCE_DIR}/include/lame.def")   # what the DLL exports
+    target_sources(mp3lame PRIVATE "${AETHER_LAME_CONFIG_DIR}/lame.def")
 endif()
 
 target_include_directories(mp3lame PRIVATE

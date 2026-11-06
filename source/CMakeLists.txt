@@ -150,6 +150,8 @@ if(AETHER_BUILD_APP)
         app/AudioSettingsComponent.cpp
         app/AudioSettingsComponent.h
         app/CrashReporter.cpp
+        app/ExportDialog.cpp
+        app/ExportDialog.h
         app/CrashReporter.h
         app/Main.cpp
         app/MainWindow.cpp
