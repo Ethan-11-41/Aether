@@ -9,6 +9,7 @@ add_library(aether_core STATIC
     devices/LatencyInfo.h
     dsp/Effect.h
     dsp/Effects.cpp
+    dsp/FastMath.h
     dsp/Instrument.h
     dsp/StarterSynth.cpp
     dsp/EffectTypes.cpp

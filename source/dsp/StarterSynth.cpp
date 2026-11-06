@@ -3,6 +3,7 @@
 // The starter synth (Milestone 6): a small polyphonic synthesizer so MIDI tracks make a sound.
 // A fuller synth is milestone M10.
 
+#include "FastMath.h"
 #include "Instrument.h"
 
 #include <algorithm>
@@ -43,7 +44,7 @@ namespace
                 v -= polyBlep (std::fmod (phase + 0.5, 1.0), dt);
                 return v;
             }
-            default:       return std::sin (twoPi * phase);
+            default:       return sin2pi (phase);
         }
     }
 
@@ -61,7 +62,7 @@ namespace
         double filterEnv = 0.0, fmEnv = 0.0;
         double phase1 = 0.0, phase2 = 0.0, subPhase = 0.0, modPhase = 0.0;
         double ic1 = 0.0, ic2 = 0.0;     // filter state
-        double g = 0.0, k = 2.0;         // filter coefficients (updated every 16 samples)
+        double a1 = 1.0, a2 = 0.0, a3 = 0.0;   // filter coefficients (updated every 16 samples)
         int sinceCoefficients = 0;
 
         void start (int notePitch, float noteVelocity, bool isClip, std::int64_t length, std::uint64_t now) noexcept AETHER_NONBLOCKING
@@ -247,6 +248,7 @@ namespace
                 const auto dt = std::min (0.45, frequency / sampleRate);
                 const auto loudness = (1.0 - touchAmount) + touchAmount * std::pow ((double) v.velocity, 1.6);
                 const auto baseCutoff = (double) p[cutoff];
+                const auto gain = loudness * outputGain;
 
                 for (int i = 0; i < numSamples; ++i)
                 {
@@ -295,8 +297,8 @@ namespace
                     {
                         // Two-operator FM: a bright, bell-like start that mellows, like an electric piano's tines.
                         const auto index = (0.6 + 2.4 * v.velocity) * v.fmEnv + 0.15;
-                        const auto modulator = std::sin (twoPi * v.modPhase);
-                        sample = std::sin (twoPi * v.phase1 + index * modulator);
+                        const auto modulator = sin2pi (v.modPhase);
+                        sample = sin2pi (v.phase1 + index * modulator * (1.0 / twoPi));
                         v.modPhase += dt;
                         if (v.modPhase >= 1.0) v.modPhase -= 1.0;
                     }
@@ -314,7 +316,7 @@ namespace
 
                     if (subLevel > 0.0)
                     {
-                        sample += subLevel * std::sin (twoPi * v.subPhase);
+                        sample += subLevel * sin2pi (v.subPhase);
                         v.subPhase += dt * 0.5;
                         if (v.subPhase >= 1.0) v.subPhase -= 1.0;
                     }
@@ -327,21 +329,21 @@ namespace
                     {
                         const auto open = envAmount * v.filterEnv * (0.5 + 0.5 * v.velocity);
                         const auto fc = std::clamp (baseCutoff * std::pow (2.0, open * 6.0), 20.0, sampleRate * 0.45);
-                        v.g = std::tan (juce::MathConstants<double>::pi * fc / sampleRate);
-                        v.k = 2.0 - 1.9 * res;
+                        const auto g = std::tan (juce::MathConstants<double>::pi * fc / sampleRate);
+                        const auto k = 2.0 - 1.9 * res;
+                        v.a1 = 1.0 / (1.0 + g * (g + k));
+                        v.a2 = g * v.a1;
+                        v.a3 = g * v.a2;
                         v.sinceCoefficients = 16;
                     }
 
-                    const auto a1 = 1.0 / (1.0 + v.g * (v.g + v.k));
-                    const auto a2 = v.g * a1;
-                    const auto a3 = v.g * a2;
                     const auto v3 = sample - v.ic2;
-                    const auto v1 = a1 * v.ic1 + a2 * v3;
-                    const auto v2 = v.ic2 + a2 * v.ic1 + a3 * v3;
+                    const auto v1 = v.a1 * v.ic1 + v.a2 * v3;
+                    const auto v2 = v.ic2 + v.a2 * v.ic1 + v.a3 * v3;
                     v.ic1 = 2.0 * v1 - v.ic1;
                     v.ic2 = 2.0 * v2 - v.ic2;
 
-                    const auto out = (float) (v2 * v.level * loudness * outputGain);
+                    const auto out = (float) (v2 * v.level * gain);
                     left[i] += out;
                     right[i] += out;
                 }

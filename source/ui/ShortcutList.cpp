@@ -39,7 +39,7 @@ public:
 
     void paint (juce::Graphics& g) override
     {
-        const auto& theme = owner.theme;
+        const auto& colours = owner.theme;
         const auto keysWidth = juce::jlimit (150, 260, getWidth() * 38 / 100);
         int y = 8;
         juce::String category;
@@ -47,7 +47,7 @@ public:
 
         if (owner.shown.empty())
         {
-            g.setColour (theme.textDim);
+            g.setColour (colours.textDim);
             g.setFont (juce::FontOptions (14.0f));
             g.drawText ("No shortcuts match.", getLocalBounds().reduced (16, 12), juce::Justification::topLeft);
             return;
@@ -58,7 +58,7 @@ public:
             if (entry.category != category)
             {
                 category = entry.category;
-                g.setColour (theme.text);
+                g.setColour (colours.text);
                 g.setFont (juce::FontOptions (15.0f, juce::Font::bold));
                 g.drawText (category, 12, y + 10, getWidth() - 24, headingHeight - 10, juce::Justification::centredLeft);
                 y += headingHeight;
@@ -69,18 +69,18 @@ public:
 
             if (shade)
             {
-                g.setColour (theme.panelRaised.withAlpha (0.45f));
+                g.setColour (colours.panelRaised.withAlpha (0.45f));
                 g.fillRect (row);
             }
 
             shade = ! shade;
 
-            g.setColour (theme.text);
+            g.setColour (colours.text);
             g.setFont (juce::FontOptions (14.0f));
             g.drawFittedText (entry.action, row.withTrimmedLeft (12).withTrimmedRight (keysWidth + 12),
                               juce::Justification::centredLeft, 1, 0.9f);
 
-            g.setColour (theme.accent);
+            g.setColour (colours.accent);
             g.setFont (juce::FontOptions (14.0f, juce::Font::bold));
             g.drawFittedText (entry.keys, row.removeFromRight (keysWidth + 12).withTrimmedRight (12),
                               juce::Justification::centredLeft, 1, 0.9f);
