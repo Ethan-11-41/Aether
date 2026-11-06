@@ -69,13 +69,17 @@ private:
     };
 
     /** The bar between the timeline and the mixer: drag it to change the mixer's height. */
-    struct Divider final : public juce::Component
+    struct Divider final : public juce::Component, public juce::SettableTooltipClient
     {
         std::function<void (int)> onDrag;   // how far the mouse has moved up since the drag began
         std::function<void()> onDragStart;
         const ui::Theme* theme = nullptr;
 
-        Divider()   { setMouseCursor (juce::MouseCursor::UpDownResizeCursor); }
+        Divider()
+        {
+            setMouseCursor (juce::MouseCursor::UpDownResizeCursor);
+            setTooltip ("Drag up or down to make the mixer taller or shorter.");
+        }
         void mouseDown (const juce::MouseEvent&) override   { if (onDragStart) onDragStart(); }
         void mouseDrag (const juce::MouseEvent& e) override { if (onDrag) onDrag (-e.getDistanceFromDragStartY()); }
         void paint (juce::Graphics& g) override

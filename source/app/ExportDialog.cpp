@@ -79,6 +79,19 @@ ExportDialog::ExportDialog (const ui::Theme& themeToUse, const Project& projectT
     formatBox.setItemEnabled (3, Mp3Encoder::isAvailable());
     formatBox.onChange = [this] { updateChoices(); };
 
+    rangeBox.setTooltip ("Which part of the song to export: all of it, or just the loop region (the bars "
+                         "marked in the strip above the timeline).");
+    formatBox.setTooltip ("The kind of file. WAV for the best quality (e.g. to send to someone who'll mix it), "
+                          "MP3 for sharing and listening, FLAC for full quality in a smaller file.");
+    qualityBox.setTooltip ("WAV and FLAC: how precisely the sound is stored (24-bit is plenty). "
+                           "MP3: kilobits per second; higher sounds better and makes a bigger file.");
+    rateBox.setTooltip ("Samples per second. 44.1 kHz is CD and most streaming; 48 kHz is video. "
+                        "If unsure, use the rate your project plays at.");
+    chooseFolderButton.setTooltip ("Choose the folder the files are saved in (normally the project's Exports folder).");
+    exportButton.setTooltip ("Start exporting. You can keep working in Aether while it runs.");
+    closeButton.setTooltip ("Close this window (while exporting: stop the export).");
+    showButton.setTooltip ("Open the folder with the exported files.");
+
     for (auto* toggle : { &mixToggle, &stemsToggle, &normalizeToggle, &tailToggle })
         addAndMakeVisible (toggle);
 

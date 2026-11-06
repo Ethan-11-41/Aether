@@ -72,6 +72,7 @@ namespace commands
         about               = 0x5001,
         testCrashRecovery   = 0x5002,
         openLogFolder       = 0x5003,
+        keyboardShortcuts   = 0x5004,
     };
 
     namespace categories

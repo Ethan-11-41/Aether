@@ -7,6 +7,7 @@
 #include "ExportDialog.h"
 #include "io/AppFolders.h"
 #include "io/FileTypes.h"
+#include "ui/ShortcutList.h"
 #include "model/EditCommands.h"
 #include "model/Recording.h"
 #include "model/TimelineEdits.h"
@@ -37,6 +38,8 @@ MainContent::MainContent (AppContext& context)
     statusLabel.setFont (juce::FontOptions (13.0f));
     statusLabel.setColour (juce::Label::textColourId, ctx.theme.textDim);
     statusLabel.setBorderSize ({});
+    statusLabel.setTooltip ("Whether your latest changes are saved, and when Aether last made a safety copy "
+                            "(autosave) to recover from if it closes unexpectedly.");
     addAndMakeVisible (statusLabel);
 
     showStartScreen();
@@ -417,12 +420,12 @@ void MainContent::closeExportWindow()
 
 namespace
 {
-    /** A separate window that doesn't block the main one (unlike a modal dialog). */
-    class ExportWindow final : public juce::DocumentWindow
+    /** A separate window that doesn't block the main one (unlike a modal dialog): export, shortcuts. */
+    class ToolWindow final : public juce::DocumentWindow
     {
     public:
-        ExportWindow (juce::Colour background, std::function<void()> whenClosed)
-            : juce::DocumentWindow ("Export audio", background, juce::DocumentWindow::closeButton),
+        ToolWindow (const juce::String& title, juce::Colour background, std::function<void()> whenClosed)
+            : juce::DocumentWindow (title, background, juce::DocumentWindow::closeButton),
               onClosed (std::move (whenClosed))
         {
         }
@@ -457,13 +460,38 @@ void MainContent::showExportDialog()
     auto dialog = std::make_unique<ExportDialog> (ctx.theme, *project, ctx.session.getLocation(), ctx.settings.get());
     dialog->onCloseRequested = close;
 
-    auto window = std::make_unique<ExportWindow> (ctx.theme.background, close);
+    auto window = std::make_unique<ToolWindow> ("Export audio", ctx.theme.background, close);
     window->setUsingNativeTitleBar (true);
     window->setResizable (false, false);
     window->setContentOwned (dialog.release(), true);
     window->centreAroundComponent (this, window->getWidth(), window->getHeight());
     window->setVisible (true);
     exportWindow = std::move (window);
+}
+
+void MainContent::showShortcuts()
+{
+    if (shortcutsWindow != nullptr)
+    {
+        shortcutsWindow->toFront (true);
+        return;
+    }
+
+    juce::Component::SafePointer<MainContent> safeThis (this);
+    auto window = std::make_unique<ToolWindow> ("Keyboard shortcuts", ctx.theme.background, [safeThis]
+    {
+        juce::MessageManager::callAsync ([safeThis] { if (safeThis != nullptr) safeThis->shortcutsWindow = nullptr; });
+    });
+
+    window->setUsingNativeTitleBar (true);
+    auto list = std::make_unique<ui::ShortcutList> (ctx.theme, ctx.commands);
+    list->setActionName (commands::deleteTrack, "Delete selected clips (or tracks, if no clips are selected)");
+    window->setContentOwned (list.release(), true);
+    window->setResizable (true, false);
+    window->setResizeLimits (480, 320, 1200, 2000);
+    window->centreAroundComponent (this, window->getWidth(), window->getHeight());
+    window->setVisible (true);
+    shortcutsWindow = std::move (window);
 }
 
 void MainContent::showAbout()
@@ -592,7 +620,8 @@ void MainContent::getAllCommands (juce::Array<juce::CommandID>& list)
                      commands::moveTrackUp, commands::moveTrackDown,
                      commands::playStop, commands::stop, commands::goToStart, commands::toggleLoop,
                      commands::toggleMetronome, commands::zoomIn, commands::zoomOut,
-                     commands::audioSettings, commands::about, commands::testCrashRecovery, commands::openLogFolder });
+                     commands::audioSettings, commands::about, commands::keyboardShortcuts, commands::testCrashRecovery,
+                     commands::openLogFolder });
 }
 
 void MainContent::getCommandInfo (juce::CommandID id, juce::ApplicationCommandInfo& info)
@@ -885,6 +914,12 @@ void MainContent::getCommandInfo (juce::CommandID id, juce::ApplicationCommandIn
             info.setInfo ("About Aether", "Version, licence and source code", commands::categories::help, 0);
             break;
 
+        case commands::keyboardShortcuts:
+            info.setInfo ("Keyboard shortcuts", "A list of every keyboard shortcut and mouse action, with a search box",
+                          commands::categories::help, 0);
+            info.addDefaultKeypress (KeyPress::F1Key, 0);
+            break;
+
         case commands::testCrashRecovery:
             info.setInfo ("Test crash recovery...", "Crash Aether on purpose to check that unsaved work is recovered",
                           commands::categories::help, 0);
@@ -1065,6 +1100,7 @@ bool MainContent::perform (const InvocationInfo& invocation)
         case commands::audioSettings:      showAudioSettings(); return true;
         case commands::exportAudio:        showExportDialog(); return true;
         case commands::about:              showAbout(); return true;
+        case commands::keyboardShortcuts:  showShortcuts(); return true;
         case commands::testCrashRecovery:  testCrashRecovery(); return true;
 
         case commands::openLogFolder:
@@ -1178,6 +1214,7 @@ juce::PopupMenu MainContent::getMenuForIndex (int menuIndex, const juce::String&
     }
     else if (menuIndex == 6)
     {
+        menu.addCommandItem (cm, commands::keyboardShortcuts);
         menu.addCommandItem (cm, commands::about);
         menu.addSeparator();
         menu.addCommandItem (cm, commands::openLogFolder);

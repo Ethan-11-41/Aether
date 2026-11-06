@@ -85,6 +85,7 @@ private:
     void showAudioSettings();
     void showAbout();
     void showExportDialog();
+    void showShortcuts();
     void closeExportWindow();
     void testCrashRecovery();
     void showError (const juce::String& title, const juce::String& message);
@@ -109,6 +110,7 @@ private:
     std::unique_ptr<juce::FileChooser> fileChooser;
     juce::Component::SafePointer<juce::DialogWindow> audioSettingsWindow;
     std::unique_ptr<juce::DocumentWindow> exportWindow;   // not modal: you can keep working while it exports
+    std::unique_ptr<juce::DocumentWindow> shortcutsWindow;
 
     // Last seen state, so the timer only updates things that changed.
     juce::String lastTitle;
