@@ -245,3 +245,34 @@ TEST_CASE ("Latency shows when there is no input", "[devices]")
     CHECK (latency.hasOutput);
     CHECK (latency.inputLatencySamples == 0);
 }
+
+TEST_CASE ("A measured latency is remembered for exactly the setting it was measured with", "[devices][latency]")
+{
+    juce::ScopedJuceInitialiser_GUI juce;
+    juce::PropertySet settings;
+    AudioDeviceService service (settings, fakeTypes());
+    REQUIRE (service.getDeviceManager().getCurrentAudioDevice() != nullptr);
+
+    auto latency = service.getLatencyInfo();
+    CHECK (latency.measuredRoundTripSamples == -1);
+    CHECK (latency.recordingCorrectionSamples() == latency.roundTripSamples());   // the driver's figure until measured
+
+    service.setMeasuredRoundTrip (1234);
+    CHECK (service.getLatencyInfo().measuredRoundTripSamples == 1234);
+    CHECK (service.getLatencyInfo().recordingCorrectionSamples() == 1234);
+
+    // Another buffer size has its own (unmeasured) latency...
+    const auto originalBuffer = service.getDeviceManager().getCurrentAudioDevice()->getCurrentBufferSizeSamples();
+    auto setup = service.getDeviceManager().getAudioDeviceSetup();
+    setup.bufferSize = originalBuffer == 256 ? 128 : 256;   // sizes the test device offers
+    REQUIRE (service.getDeviceManager().setAudioDeviceSetup (setup, true).isEmpty());
+    CHECK (service.getLatencyInfo().measuredRoundTripSamples == -1);
+
+    // ...and going back finds the measurement again.
+    setup.bufferSize = originalBuffer;
+    REQUIRE (service.getDeviceManager().setAudioDeviceSetup (setup, true).isEmpty());
+    CHECK (service.getLatencyInfo().measuredRoundTripSamples == 1234);
+
+    service.setMeasuredRoundTrip (-1);
+    CHECK (service.getLatencyInfo().measuredRoundTripSamples == -1);
+}
