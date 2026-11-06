@@ -232,6 +232,18 @@ TEST_CASE ("MIDI files import as tracks with clips, in one undo step", "[midi][i
         CHECK (timeline::buildTempoMap (project).tempoAt (0) == 120.0);
     }
 
+    SECTION ("A project with clips keeps its tempo (the caller asks about it)")
+    {
+        Project project;
+        const auto audio = edit::addTrack (project, TrackKind::audio).getId();
+        edit::addAudioClip (project, audio, { "Audio/a.wav", "a", 48000.0, 48000 }, 0);
+
+        const auto result = importMidiFile (project, temp, 0);
+        CHECK (std::abs (result.fileTempo - 90.0) < 0.01);
+        CHECK_FALSE (result.tempoTaken);
+        CHECK (timeline::buildTempoMap (project).tempoAt (0) == 120.0);
+    }
+
     temp.deleteFile();
 
     // Not a MIDI file.
@@ -254,4 +266,37 @@ TEST_CASE ("MIDI clips and instruments are saved and loaded", "[midi][io]")
     CHECK (clip.isMidi());
     CHECK (midi::notesOf (clip).size() == 4);
     CHECK (midi::instrumentOf (*reopened, f.keys)[ids::preset].toString() == "Organ");
+}
+
+TEST_CASE ("A one-part MIDI file dropped on a MIDI track goes onto that track", "[midi][import]")
+{
+    juce::MidiFile file;
+    file.setTicksPerQuarterNote (96);
+    juce::MidiMessageSequence track;
+    track.addEvent (juce::MidiMessage::noteOn (1, 60, (juce::uint8) 100), 0);
+    track.addEvent (juce::MidiMessage::noteOff (1, 60), 96);
+    file.addTrack (track);
+
+    const auto temp = juce::File::getSpecialLocation (juce::File::tempDirectory).getChildFile ("aether-one-part.mid");
+    {
+        temp.deleteFile();
+        juce::FileOutputStream out (temp);
+        REQUIRE (file.writeTo (out));
+    }
+
+    Project project;
+    const auto keys = edit::addTrack (project, TrackKind::midi, -1, true, "My keys").getId();
+    const auto audio = edit::addTrack (project, TrackKind::audio).getId();
+
+    auto result = importMidiFile (project, temp, 0, -1, keys);
+    CHECK (result.trackIds.isEmpty());
+    CHECK (project.getNumTracks() == 2);
+    REQUIRE (result.clipIds.size() == 1);
+    CHECK (clips::findClip (project, result.clipIds[0]).getTrackState() == project.findTrack (keys).getState());
+
+    // Dropped on an audio track: a new MIDI track instead.
+    result = importMidiFile (project, temp, 0, -1, audio);
+    CHECK (result.trackIds.size() == 1);
+    CHECK (project.getNumTracks() == 3);
+    temp.deleteFile();
 }

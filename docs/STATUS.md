@@ -4,7 +4,7 @@ An honest list of what works. Updated at the end of every milestone.
 
 **Legend:** ✅ Working · 🟡 Partial · 🧪 Stub/placeholder · ⬜ Not started
 
-Current version: **0.7.0** (Milestone 6)
+Current version: **0.8.0** (Milestone 7)
 
 ## Milestone 0: skeleton and build pipeline
 
@@ -122,15 +122,26 @@ Current version: **0.7.0** (Milestone 6)
 | MIDI light in the toolbar | ✅ | |
 | Recording MIDI (count-in, punch, loop overdub, latency correction) | ✅ | The sustain pedal is recorded as longer notes, not as pedal movements. |
 | MIDI clips: shown with notes; move, trim, split, duplicate, delete, rename | ✅ | No note editing yet: the piano roll is M9. Notes that start before a clip's left edge don't play (as in most DAWs). |
-| MIDI file import (.mid) | 🟡 | Notes only (with the sustain pedal as note lengths); the first tempo is used for a new project. Tempo changes, time signatures and other controllers in the file are ignored. MIDI export is M18. |
+| MIDI file import (.mid) | 🟡 | Notes only (with the sustain pedal as note lengths). A new project takes the file's tempo; otherwise Aether asks (0.8.0). Tempo changes, time signatures and other controllers in the file are ignored. MIDI export is M18. |
 | Choosing which MIDI keyboard plays which track | ⬜ | Every keyboard plays the selected/armed tracks. Per-track MIDI inputs come later. |
 | Mouse playing on the on-screen keyboard, real keyboards | 🟡 | Automatic tests use simulated keyboards; real ones are checked by hand (see the M6 checklist). |
+
+## Milestone 7: export
+
+| Feature | Status | Notes |
+|---|---|---|
+| Export the mix: WAV (16/24/32-bit float), FLAC (16/24-bit), MP3 (128-320 kbps) | ✅ | 44.1 to 96 kHz (MP3 up to 48 kHz). MP3 is constant bit rate, without tags (title, artist) for now. |
+| Stems (one file per track, soloed through its effects, sends and the master) | ✅ | Buses don't get stems of their own (their sound is in the stems of the tracks that play into them). Muted and empty tracks are skipped. |
+| Whole song or loop region; effect tails; normalize; dither for 16-bit | ✅ | |
+| Background export with progress and cancel; never overwrites | ✅ | |
+| Clipping warning | ✅ | |
+| Export runs faster than real time | ✅ | It depends on the number of tracks and effects. A real-time "bounce" option isn't needed: Aether's own instruments and effects work offline. |
+| Plug-ins in exports | ⬜ | Plug-ins arrive in M15; some need real-time export, which will come then. |
 
 ## Everything else
 
 | Area | Status | Milestone |
 |---|---|---|
-| Export (WAV/FLAC/MP3, stems) | ⬜ | M7 |
 | Piano roll, step sequencer, instruments, effects, automation | ⬜ | M9–M14 |
 | VST3 / CLAP plug-ins | ⬜ | M15 / M28 |
 | Sound library | ⬜ | M17, M23 |

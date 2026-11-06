@@ -61,6 +61,10 @@ if not exist "%STAGE_DIR%\Aether.exe" (
     echo ERROR: Aether.exe is missing from the install folder.
     goto :fail
 )
+if not exist "%STAGE_DIR%\libmp3lame.dll" (
+    echo ERROR: libmp3lame.dll ^(the MP3 encoder^) is missing from the install folder.
+    goto :fail
+)
 
 rem --- 4. Make Setup.exe with Inno Setup ---------------------------------------
 echo.

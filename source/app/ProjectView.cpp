@@ -265,13 +265,41 @@ void ProjectView::importFiles (const juce::Array<juce::File>& allFiles, const ju
         }
 
         const auto index = project.indexOfTrack (trackList.getSelectedTrackId());
-        const auto midiResult = importMidiFile (project, file, position, index >= 0 ? index + 1 : -1);
+        const auto midiResult = importMidiFile (project, file, position, index >= 0 ? index + 1 : -1, trackId);
         midiClips.addArray (midiResult.clipIds);
 
         if (midiResult.problem.isNotEmpty())
             midiProblems.add (midiResult.problem);
         else if (! midiResult.trackIds.isEmpty())
             trackList.selectTrack (midiResult.trackIds[0]);
+
+        // The project already had music in it, so its tempo wasn't changed: ask.
+        const auto map = timeline::buildTempoMap (project);
+        const auto current = map.tempoAt (position);
+
+        if (midiResult.problem.isEmpty() && ! midiResult.tempoTaken && midiResult.fileTempo > 0.0
+            && std::abs (midiResult.fileTempo - current) > 0.05)
+        {
+            const auto fileTempo = midiResult.fileTempo;
+            const auto point = map.tempoPointIndexAt (position);
+            juce::Component::SafePointer<ProjectView> safeThis (this);
+
+            messageBox = juce::AlertWindow::showScopedAsync (
+                juce::MessageBoxOptions()
+                    .withIconType (juce::MessageBoxIconType::QuestionIcon)
+                    .withTitle ("Use the MIDI file's tempo?")
+                    .withMessage (file.getFileName() + " was written at " + juce::String (fileTempo, 1) + " BPM; this song is at "
+                                  + juce::String (current, 1) + " BPM.\n\nThe notes keep their place in the bars either way: "
+                                  "the tempo only changes how fast everything plays (recorded audio stays as it is).")
+                    .withButton ("Use " + juce::String (fileTempo, 1) + " BPM", 1)
+                    .withButton ("Keep " + juce::String (current, 1) + " BPM", 0)
+                    .withAssociatedComponent (this),
+                [safeThis, fileTempo, point] (int result)
+                {
+                    if (safeThis != nullptr && result == 1)
+                        edit::setTempo (safeThis->project, point, fileTempo);
+                });
+        }
     }
 
     if (! midiClips.isEmpty())

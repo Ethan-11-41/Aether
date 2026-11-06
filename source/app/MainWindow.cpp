@@ -4,6 +4,7 @@
 #include "AppCommands.h"
 #include "AudioSettingsComponent.h"
 #include "CrashReporter.h"
+#include "ExportDialog.h"
 #include "io/AppFolders.h"
 #include "model/EditCommands.h"
 #include "model/Recording.h"
@@ -49,6 +50,7 @@ MainContent::~MainContent()
     if (audioSettingsWindow != nullptr)
         delete audioSettingsWindow.getComponent();
 
+    closeExportWindow();
     projectView = nullptr;
     startScreen = nullptr;
 }
@@ -64,6 +66,7 @@ juce::String MainContent::getWindowTitle() const
 //==============================================================================
 void MainContent::showStartScreen (bool focusName)
 {
+    closeExportWindow();
     projectView = nullptr;
 
     const auto savedFolder = ctx.settings.get().getValue (newProjectFolderKey);
@@ -169,6 +172,7 @@ void MainContent::createProject (const juce::File& parentFolder, const juce::Str
 {
     ctx.settings.get().setValue (newProjectFolderKey, parentFolder.getFullPathName());
 
+    closeExportWindow();
     projectView = nullptr;
     const auto result = ctx.session.createNew (parentFolder, name);
 
@@ -219,6 +223,7 @@ void MainContent::openProjectFileAfterChecks (const juce::File& file)
         return;
     }
 
+    closeExportWindow();
     projectView = nullptr;   // the view refers to the project that is about to be replaced
     const auto result = ctx.session.open (file);
 
@@ -250,6 +255,7 @@ void MainContent::offerRecovery (const juce::File& file, const juce::String& int
                 return;
 
             auto& self = *safeThis;
+            self.closeExportWindow();
             self.projectView = nullptr;
             const auto result = self.ctx.session.open (file, choice == 1);
 
@@ -371,6 +377,7 @@ void MainContent::closeProject()
         if (safeThis == nullptr)
             return;
 
+        safeThis->closeExportWindow();
         safeThis->projectView = nullptr;
         safeThis->ctx.session.close();
         safeThis->showStartScreen();
@@ -399,6 +406,37 @@ void MainContent::showAudioSettings()
     options.resizable = true;
     options.componentToCentreAround = this;
     audioSettingsWindow = options.launchAsync();
+}
+
+void MainContent::closeExportWindow()
+{
+    // The export window refers to the project, so it closes with it (cancelling an export).
+    if (exportWindow != nullptr)
+        delete exportWindow.getComponent();
+}
+
+void MainContent::showExportDialog()
+{
+    auto* project = ctx.session.getProject();
+
+    if (project == nullptr)
+        return;
+
+    if (exportWindow != nullptr)
+    {
+        exportWindow->toFront (true);
+        return;
+    }
+
+    juce::DialogWindow::LaunchOptions options;
+    options.content.setOwned (new ExportDialog (ctx.theme, *project, ctx.session.getLocation(), ctx.settings.get()));
+    options.dialogTitle = "Export audio";
+    options.dialogBackgroundColour = ctx.theme.background;
+    options.escapeKeyTriggersCloseButton = true;
+    options.useNativeTitleBar = true;
+    options.resizable = false;
+    options.componentToCentreAround = this;
+    exportWindow = options.launchAsync();
 }
 
 void MainContent::showAbout()
@@ -516,7 +554,7 @@ void MainContent::moveSelectedTrack (int delta)
 //==============================================================================
 void MainContent::getAllCommands (juce::Array<juce::CommandID>& list)
 {
-    list.addArray ({ commands::newProject, commands::openProject, commands::saveProject, commands::saveProjectAs,
+    list.addArray ({ commands::newProject, commands::openProject, commands::saveProject, commands::saveProjectAs, commands::exportAudio,
                      commands::closeProject, commands::showProjectFolder, commands::quit,
                      commands::undo, commands::redo, commands::selectAll,
                      commands::importAudio, commands::splitClips, commands::duplicateClips,
@@ -600,6 +638,13 @@ void MainContent::getCommandInfo (juce::CommandID id, juce::ApplicationCommandIn
             info.setActive (canRedo);
             break;
         }
+
+        case commands::exportAudio:
+            info.setInfo ("Export audio...", "Save the song (and/or one file per track) as WAV, FLAC or MP3",
+                          commands::categories::file, 0);
+            info.addDefaultKeypress ('e', ctrl);
+            info.setActive (hasProject);
+            break;
 
         case commands::addAudioTrack:
             info.setInfo ("Add audio track", "Add a track for recorded or imported sound", commands::categories::track, 0);
@@ -814,6 +859,7 @@ bool MainContent::perform (const InvocationInfo& invocation)
             afterUnsavedChangesAreHandled ([safeThis]
             {
                 if (safeThis == nullptr) return;
+                safeThis->closeExportWindow();
                 safeThis->projectView = nullptr;
                 safeThis->ctx.session.close();
                 safeThis->showStartScreen (true);
@@ -947,6 +993,7 @@ bool MainContent::perform (const InvocationInfo& invocation)
         case commands::addBus:             addTrack (TrackKind::bus); return true;
 
         case commands::audioSettings:      showAudioSettings(); return true;
+        case commands::exportAudio:        showExportDialog(); return true;
         case commands::about:              showAbout(); return true;
         case commands::testCrashRecovery:  testCrashRecovery(); return true;
 
@@ -994,6 +1041,8 @@ juce::PopupMenu MainContent::getMenuForIndex (int menuIndex, const juce::String&
         menu.addSeparator();
         menu.addCommandItem (cm, commands::saveProject);
         menu.addCommandItem (cm, commands::saveProjectAs);
+        menu.addSeparator();
+        menu.addCommandItem (cm, commands::exportAudio);
         menu.addCommandItem (cm, commands::closeProject);
         menu.addSeparator();
         menu.addCommandItem (cm, commands::showProjectFolder);

@@ -100,6 +100,16 @@ Separate process:   plug-in scanner
   cross-correlation), or the driver's figure until measured. Measurements are kept per device
   setting.
 
+### Export
+- `engine/Exporter`: the song is rendered by a private `AudioEngine` on a background thread,
+  faster than real time, from a copy of the project (so the person can keep working). It uses the
+  same code as playback, so an export is exactly what you hear. Audio files are loaded at the
+  export's sample rate by a private `AudioFileCache`.
+- Stems are renders of the project copy with one track soloed (solo-in-place keeps its buses,
+  sends and the master), so they add up to the mix.
+- WAV and FLAC are written by JUCE; MP3 by LAME (`io/Mp3Encoder`), a separate LGPL library loaded
+  at run time (built by `cmake/AetherLame.cmake`).
+
 ### MIDI
 - MIDI clips store notes in ticks (`model/MidiClips`); the engine snapshot lists each MIDI
   track's notes in samples (worked out through the tempo map) and its instrument

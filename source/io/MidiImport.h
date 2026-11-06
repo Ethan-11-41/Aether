@@ -32,13 +32,19 @@ MidiFileContents readMidiFile (const juce::MidiFile& midiFile, const juce::Strin
 
 struct MidiImportResult
 {
-    juce::StringArray trackIds, clipIds;
+    juce::StringArray trackIds, clipIds;   // trackIds: the new tracks (none if it went onto an existing one)
     juce::String problem;
+    double fileTempo = 0.0;                // the file's tempo (0 if it has none)
+    bool tempoTaken = false;               // true if the project's tempo was set to it
 };
 
-/** Imports a MIDI file as new MIDI tracks (one per part) with one clip each, starting at
-    `position`, in one undo step. If the project has no clips yet, it also takes the file's tempo. */
-MidiImportResult importMidiFile (Project& project, const juce::File& file, Tick position, int insertIndex = -1);
+/** Imports a MIDI file, starting at `position`, in one undo step:
+    - a file with one part dropped on a MIDI track (`targetTrackId`) goes onto that track;
+    - otherwise each part becomes a new MIDI track with one clip (inserted at `insertIndex`).
+    An empty project (no clips yet) also takes the file's tempo. A project that already has clips
+    keeps its own: the caller can ask whether to use the file's (see `fileTempo`). */
+MidiImportResult importMidiFile (Project& project, const juce::File& file, Tick position, int insertIndex = -1,
+                                 const juce::String& targetTrackId = {});
 
 /** True for .mid / .midi files. */
 bool isMidiFile (const juce::File& file);

@@ -21,6 +21,7 @@ redistribute under the licence shown. "Shipped" means it is part of the installe
 | [Opus](https://opus-codec.org) (bundled with JUCE) | 1.6.1 | BSD-3-Clause | Opus audio files | Yes |
 | [Catch2](https://github.com/catchorg/Catch2) | 3.16.1 | BSL-1.0 | Automated tests | No (tests only) |
 | [Inno Setup](https://jrsoftware.org/isinfo.php) | 6 or 7 | Inno Setup licence | Building Setup.exe | No (build tool) |
+| [LAME](https://lame.sourceforge.io) | 3.100 | LGPL-2.0-or-later | MP3 export | Yes, as a separate library (libmp3lame.dll) |
 | Clang RealtimeSanitizer (LLVM) | 20 | Apache-2.0 with LLVM exception | Real-time safety tests | No (test tool) |
 
 The complete list of code bundled inside JUCE, with exact licences, is in JUCE's
@@ -29,9 +30,17 @@ The complete list of code bundled inside JUCE, with exact licences, is in JUCE's
 The temporary Reverb effect (Milestone 4) uses JUCE's `juce::Reverb`, which is based on the
 public-domain "Freeverb" by Jezar at Dreampoint. The temporary Delay is Aether's own code.
 
+**About LAME:** Aether's MP3 export uses the LAME encoder, under the GNU Lesser General Public
+Licence (its text is installed as `licenses/LAME-LICENSE.txt`). It is built, unmodified, from the
+official LAME 3.100 source release
+(https://downloads.sourceforge.net/project/lame/lame/3.100/lame-3.100.tar.gz, SHA-256
+`ddfe36cab873794038ae2c1210557ad34857a4b6bdc515785d1da9e175b1da1e`) by `cmake/AetherLame.cmake`,
+and kept as a separate library that Aether loads only when exporting an MP3. You may replace
+`libmp3lame.dll` with your own build of LAME (any version with the same functions).
+
 Planned for later milestones (will be added to this table when actually used): VST3 SDK (MIT),
-LAME (LGPL, MP3 export), Signalsmith Stretch (MIT), CLAP SDK (MIT), r8brain-free-src (MIT),
-Inter font (SIL OFL 1.1), Lucide icons (ISC).
+Signalsmith Stretch (MIT), CLAP SDK (MIT), r8brain-free-src (MIT), Inter font (SIL OFL 1.1),
+Lucide icons (ISC).
 
 ## Sounds
 
