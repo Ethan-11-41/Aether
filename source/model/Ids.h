@@ -73,4 +73,14 @@ namespace aether::ids
     inline const juce::Identifier bypass   { "bypass" };     // an insert that is switched off
     // An insert's settings are stored as properties named after the effect's parameters
     // (see dsp/EffectTypes.cpp), e.g. "mix" or "feedback".
+
+    // Recording
+    inline const juce::Identifier armed       { "armed" };        // a track ready to record
+    inline const juce::Identifier monitor     { "monitor" };      // hear the track's input through it
+    inline const juce::Identifier input       { "input" };        // first input channel (0 = input 1); -1 = none
+    inline const juce::Identifier inputStereo { "inputStereo" };  // true: this channel and the next, as a stereo pair
+    inline const juce::Identifier punch       { "punch" };        // project: record only inside the loop region
+    inline const juce::Identifier takes       { "takes" };        // clip: how many takes its file holds (loop recording)
+    inline const juce::Identifier takeLength  { "takeLength" };   // clip: samples from one take to the next in the file
+    inline const juce::Identifier take        { "take" };         // clip: which take is playing (0 = the first)
 }

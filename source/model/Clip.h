@@ -62,6 +62,11 @@ public:
     FadeCurve getFadeInCurve() const         { return fadeCurveFromString (state[ids::fadeInCurve].toString()); }
     FadeCurve getFadeOutCurve() const        { return fadeCurveFromString (state[ids::fadeOutCurve].toString()); }
 
+    /** Loop recording keeps every pass in one file; the clip plays one of them (see Recording.h). */
+    int getNumTakes() const                  { return std::max (1, (int) state[ids::takes]); }
+    int getTake() const                      { return juce::jlimit (0, getNumTakes() - 1, (int) state[ids::take]); }
+    juce::int64 getTakeLength() const        { return (juce::int64) state[ids::takeLength]; }
+
     double getDurationSeconds() const        { return (double) getDuration() / getSourceRate(); }
     double getStartSeconds (const TempoMap& tempo) const   { return tempo.ticksToSeconds (getStart()); }
 

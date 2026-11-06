@@ -59,6 +59,8 @@ add_library(aether_core STATIC
     model/Mixer.h
     model/Project.cpp
     model/Project.h
+    model/Recording.cpp
+    model/Recording.h
     model/TimelineEdits.cpp
     model/TimelineEdits.h
     model/Track.cpp
