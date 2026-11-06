@@ -73,6 +73,10 @@ TEST_CASE ("Sample rates and buffer sizes are shown in plain language", "[device
     CHECK (DeviceSettingsPanel::friendlyTypeName ("ASIO") == "ASIO (audio interfaces)");
     CHECK (DeviceSettingsPanel::friendlyTypeName ("Windows Audio (Exclusive Mode)") == "Windows Audio (Exclusive Mode)");
     CHECK (DeviceSettingsPanel::describeType ("Windows Audio (Exclusive Mode)").contains ("buffer size"));
+
+    CHECK (DeviceSettingsPanel::describeOutputPair ("Output channel 1", "Output channel 2") == "Outputs 1 + 2");
+    CHECK (DeviceSettingsPanel::describeOutputPair ("Out 11", "Out 12") == "Outputs 11 + 12");
+    CHECK (DeviceSettingsPanel::describeOutputPair ("Left", "Right") == "Left + Right");
 }
 
 TEST_CASE ("The settings panel shows the current device and what it offers", "[devices][ui]")

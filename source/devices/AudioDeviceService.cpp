@@ -223,6 +223,122 @@ void AudioDeviceService::handleDeviceChange()
     }
 }
 
+bool AudioDeviceService::tryToOpen (const juce::AudioDeviceManager::AudioDeviceSetup& setup)
+{
+    return deviceManager.setAudioDeviceSetup (setup, true).isEmpty() && deviceManager.getCurrentAudioDevice() != nullptr;
+}
+
+void AudioDeviceService::switchDriverType (const juce::String& typeName)
+{
+    if (typeName == deviceManager.getCurrentAudioDeviceType() && deviceManager.getCurrentAudioDevice() != nullptr)
+        return;
+
+    // What the user has now: the same speakers (and microphone, or none) are wanted with the new driver.
+    const auto previous = deviceManager.getAudioDeviceSetup();
+    problemMessage.clear();
+
+    deviceManager.setCurrentAudioDeviceType (typeName, true);   // JUCE's own guess of devices
+    auto* type = deviceManager.getCurrentDeviceTypeObject();
+
+    if (type == nullptr || deviceManager.getCurrentAudioDeviceType() != typeName)
+        return;
+
+    const auto separate = type->hasSeparateInputsAndOutputs();
+    const auto outputs = type->getDeviceNames (false);
+    const auto inputs = type->getDeviceNames (true);
+
+    juce::AudioDeviceManager::AudioDeviceSetup wanted;
+    wanted.outputDeviceName = outputs.contains (previous.outputDeviceName)
+                                  ? previous.outputDeviceName
+                                  : outputs[std::max (0, type->getDefaultDeviceIndex (false))];
+
+    if (! separate)
+        wanted.inputDeviceName = wanted.outputDeviceName;
+    else if (previous.inputDeviceName.isNotEmpty())
+        wanted.inputDeviceName = inputs.contains (previous.inputDeviceName)
+                                     ? previous.inputDeviceName
+                                     : inputs[std::max (0, type->getDefaultDeviceIndex (true))];
+
+    wanted.sampleRate = previous.sampleRate;
+    wanted.useDefaultInputChannels = wanted.useDefaultOutputChannels = true;
+
+    // JUCE's guess worked and is what the user wants (it adds a microphone even if they had none).
+    if (deviceManager.getCurrentAudioDevice() != nullptr)
+    {
+        const auto now = deviceManager.getAudioDeviceSetup();
+        if (! separate || (now.outputDeviceName == wanted.outputDeviceName && now.inputDeviceName == wanted.inputDeviceName))
+            return;
+    }
+
+    if (tryToOpen (wanted))
+        return;
+
+    // That didn't open. Often one device (typically a microphone) can't be used in this mode, or
+    // the device only runs at certain sample rates in it.
+    const auto firstError = currentDriverError();
+    const auto canDropInput = separate && wanted.inputDeviceName.isNotEmpty();
+    const auto errorNote = firstError.isNotEmpty() ? "\n\n(Error code: " + firstError + ")" : juce::String();
+    juce::Logger::writeToLog ("Audio device: " + typeName + " didn't open with " + wanted.outputDeviceName + " and "
+                              + (wanted.inputDeviceName.isNotEmpty() ? wanted.inputDeviceName : juce::String ("no input"))
+                              + (firstError.isNotEmpty() ? " (" + firstError + ")" : juce::String()) + "; trying alternatives");
+
+    const auto micDropped = "Your microphone (" + wanted.inputDeviceName + ") can't be used with \"" + typeName
+                          + "\", so it's switched off and nothing can be recorded. Your speakers work in this mode. "
+                            "To record, choose \"Windows Audio\" or \"Windows Audio (Low Latency Mode)\" as the driver.";
+
+    // 1. The same, without the microphone.
+    if (canDropInput)
+    {
+        auto withoutInput = wanted;
+        withoutInput.inputDeviceName = {};
+
+        if (tryToOpen (withoutInput))
+        {
+            problemMessage = micDropped + errorNote;
+            juce::Logger::writeToLog ("Audio device: opened without the microphone");
+            return;
+        }
+    }
+
+    // 2. Other sample rates, with and then without the microphone.
+    const auto triedRate = wanted.sampleRate > 0.0 ? wanted.sampleRate : 48000.0;
+
+    for (const auto rate : { 48000.0, 44100.0, 96000.0, 88200.0 })
+    {
+        if (std::abs (rate - triedRate) < 0.5)
+            continue;
+
+        auto atRate = wanted;
+        atRate.sampleRate = rate;
+
+        const auto kHz = juce::String (rate / 1000.0, rate == 44100.0 || rate == 88200.0 ? 1 : 0);
+        const auto rateNote = wanted.outputDeviceName + " only works at " + kHz + " kHz with \"" + typeName
+                            + "\", so Aether switched to that rate.";
+
+        if (tryToOpen (atRate))
+        {
+            problemMessage = rateNote + errorNote;
+            juce::Logger::writeToLog ("Audio device: opened at " + juce::String (rate) + " Hz");
+            return;
+        }
+
+        if (canDropInput)
+        {
+            atRate.inputDeviceName = {};
+
+            if (tryToOpen (atRate))
+            {
+                problemMessage = rateNote + "\n\n" + micDropped + errorNote;
+                juce::Logger::writeToLog ("Audio device: opened at " + juce::String (rate) + " Hz without the microphone");
+                return;
+            }
+        }
+    }
+
+    // 3. Nothing worked: back to the previous setting, with an explanation.
+    restoreLastWorkingConfig (typeName, firstError);
+}
+
 void AudioDeviceService::setDriverErrorSource (std::function<juce::String()> source)
 {
     driverErrorSource = std::move (source);

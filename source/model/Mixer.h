@@ -91,6 +91,10 @@ bool setSendPreFader (Project& project, const juce::String& sendId, bool preFade
 /** Adds an effect (e.g. "reverb") at the end of a channel's inserts. Returns the new insert's id,
     or empty if the type is unknown or the channel already has maxInsertsPerChannel. */
 juce::String addInsert (Project& project, const juce::String& channelId, const juce::String& effectType);
+
+/** Adds the same effect to several channels in one undo step (channels that already have
+    maxInsertsPerChannel are skipped). Returns the new inserts' ids, in the channels' order. */
+juce::StringArray addInsertToChannels (Project& project, const juce::StringArray& channelIds, const juce::String& effectType);
 bool removeInsert (Project& project, const juce::String& insertId);
 bool moveInsert (Project& project, const juce::String& insertId, int newIndex);
 bool setInsertBypassed (Project& project, const juce::String& insertId, bool bypassed);

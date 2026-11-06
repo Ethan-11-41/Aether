@@ -5,6 +5,8 @@
 // in Windows Exclusive Mode).
 #pragma once
 
+#include <cmath>
+
 #include <juce_audio_devices/juce_audio_devices.h>
 
 #include "devices/AudioDeviceService.h"
@@ -16,9 +18,10 @@ namespace aether::test
     class FakeDevice final : public juce::AudioIODevice
     {
     public:
-        FakeDevice (const juce::String& outputName, const juce::String& inputNameToUse)
-            : AudioIODevice (outputName.isNotEmpty() ? outputName : inputNameToUse, fakeTypeName),
-              inputName (inputNameToUse)
+        FakeDevice (const juce::String& outputName, const juce::String& inputNameToUse,
+                    const juce::String& typeNameToUse = fakeTypeName, double onlyRate = 0.0)
+            : AudioIODevice (outputName.isNotEmpty() ? outputName : inputNameToUse, typeNameToUse),
+              inputName (inputNameToUse), requiredRate (onlyRate)
         {
         }
 
@@ -33,6 +36,12 @@ namespace aether::test
             if (inputName == "Broken Mic")
             {
                 lastError = "Couldn't open the input device!";
+                return lastError;
+            }
+
+            if (requiredRate > 0.0 && std::abs (rate - requiredRate) > 0.5)
+            {
+                lastError = "This sample rate isn't supported!";
                 return lastError;
             }
 
@@ -60,6 +69,7 @@ namespace aether::test
 
     private:
         juce::String inputName, lastError;
+        double requiredRate = 0.0;   // if set, every other rate fails (like some devices in Exclusive Mode)
         juce::BigInteger activeInputs, activeOutputs;
         double sampleRate = 48000.0;
         int blockSize = 480;
@@ -69,8 +79,9 @@ namespace aether::test
     class FakeDeviceType final : public juce::AudioIODeviceType
     {
     public:
-        explicit FakeDeviceType (juce::StringArray inputsToOffer = { "Mic", "Broken Mic" })
-            : AudioIODeviceType (fakeTypeName), inputs (std::move (inputsToOffer)) {}
+        explicit FakeDeviceType (juce::StringArray inputsToOffer = { "Mic", "Broken Mic" },
+                                 const juce::String& name = fakeTypeName, double onlyRate = 0.0)
+            : AudioIODeviceType (name), inputs (std::move (inputsToOffer)), requiredRate (onlyRate) {}
 
         void scanForDevices() override {}
         juce::StringArray getDeviceNames (bool wantInputNames) const override
@@ -85,11 +96,12 @@ namespace aether::test
         bool hasSeparateInputsAndOutputs() const override                    { return true; }
         juce::AudioIODevice* createDevice (const juce::String& out, const juce::String& in) override
         {
-            return new FakeDevice (out, in);
+            return new FakeDevice (out, in, getTypeName(), requiredRate);
         }
 
     private:
         juce::StringArray inputs;
+        double requiredRate = 0.0;
     };
 
     inline AudioDeviceService::DeviceTypeList fakeTypes (juce::StringArray inputs = { "Mic", "Broken Mic" })

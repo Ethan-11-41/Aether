@@ -6,6 +6,7 @@
 
 #include "devices/AudioDeviceService.h"
 #include "engine/AudioEngine.h"
+#include "ui/DelayedTooltipWindow.h"
 #include "ui/DeviceSettingsPanel.h"
 #include "ui/LatencyPanel.h"
 #include "ui/LevelMeter.h"
@@ -37,7 +38,7 @@ private:
     AudioEngine& engine;
     const ui::Theme& theme;
 
-    juce::TooltipWindow tooltipWindow { this, 500 };
+    ui::DelayedTooltipWindow tooltipWindow { this };
 
     juce::Label titleLabel, subtitleLabel, versionLabel;
 

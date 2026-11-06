@@ -138,6 +138,18 @@ juce::String DeviceSettingsPanel::describeType (const juce::String& typeName)
     return {};
 }
 
+juce::String DeviceSettingsPanel::describeOutputPair (const juce::String& first, const juce::String& second)
+{
+    // "Output channel 1" + "Output channel 2" -> "Outputs 1 + 2"; other names are kept as they are.
+    const auto prefix = first.trimCharactersAtEnd ("0123456789");
+
+    if (prefix.isNotEmpty() && prefix != first && second.startsWith (prefix)
+        && second.substring (prefix.length()).containsOnly ("0123456789"))
+        return "Outputs " + first.substring (prefix.length()) + " + " + second.substring (prefix.length());
+
+    return first + " + " + second;
+}
+
 juce::String DeviceSettingsPanel::formatRate (double sampleRate)
 {
     const auto kHz = sampleRate / 1000.0;
@@ -254,7 +266,7 @@ void DeviceSettingsPanel::refresh()
     outputPairBox.clear (juce::dontSendNotification);
 
     for (int first = 0; first + 1 < outputChannelNames.size(); first += 2)
-        outputPairBox.addItem (outputChannelNames[first] + " + " + outputChannelNames[first + 1], first / 2 + 1);
+        outputPairBox.addItem (describeOutputPair (outputChannelNames[first], outputChannelNames[first + 1]), first / 2 + 1);
 
     if (device != nullptr)
         outputPairBox.setSelectedId (std::max (0, device->getActiveOutputChannels().findNextSetBit (0)) / 2 + 1,
@@ -270,7 +282,7 @@ void DeviceSettingsPanel::refresh()
 
     bool sameInputs = (int) inputToggles.size() == inputChannelNames.size();
     for (int i = 0; sameInputs && i < inputChannelNames.size(); ++i)
-        sameInputs = inputToggles[(size_t) i]->getButtonText() == inputChannelNames[i];
+        sameInputs = inputToggles[(size_t) i]->getButtonText() == inputChannelNames[i].replace ("Input channel ", "Input ");
 
     if (! sameInputs)
     {
@@ -278,7 +290,7 @@ void DeviceSettingsPanel::refresh()
 
         for (int i = 0; i < inputChannelNames.size(); ++i)
         {
-            auto toggle = std::make_unique<juce::ToggleButton> (inputChannelNames[i]);
+            auto toggle = std::make_unique<juce::ToggleButton> (inputChannelNames[i].replace ("Input channel ", "Input "));
             toggle->setTooltip ("Tick the inputs you want to record from. Each track then chooses one of them "
                                 "(or a pair, for stereo) in its Input menu.");
             toggle->onClick = [this, i, t = toggle.get()] { inputToggled (i, t->getToggleState()); };
@@ -365,7 +377,9 @@ void DeviceSettingsPanel::driverChosen()
 
     if (name.isNotEmpty() && name != manager.getCurrentAudioDeviceType())
     {
-        manager.setCurrentAudioDeviceType (name, true);
+        // Tries the usual setting, then without the microphone or at another sample rate, and
+        // explains any change (see AudioDeviceService::switchDriverType).
+        devices.switchDriverType (name);
         refresh();
     }
 }

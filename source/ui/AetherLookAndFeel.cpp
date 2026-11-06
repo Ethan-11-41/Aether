@@ -1,6 +1,8 @@
 // Aether - Copyright (C) 2026 The Aether authors. Licensed under the GNU AGPLv3 or later.
 #include "AetherLookAndFeel.h"
 
+#include "AetherFonts.h"
+
 namespace aether::ui
 {
 
@@ -123,6 +125,53 @@ void AetherLookAndFeel::drawAlertBox (juce::Graphics& g, juce::AlertWindow& aler
                                              bounds.getWidth() - (float) textLeft - 16.0f,
                                              bounds.getHeight() - (float) getAlertWindowButtonHeight() - 20.0f);
     textLayout.draw (g, textBounds);
+}
+
+juce::Rectangle<int> AetherLookAndFeel::getTooltipBounds (const juce::String& tipText, juce::Point<int> screenPos,
+                                                         juce::Rectangle<int> parentArea)
+{
+    const auto size = LookAndFeel_V4::getTooltipBounds (tipText, screenPos, parentArea);
+    const auto w = size.getWidth(), h = size.getHeight();
+    constexpr int gap = 6;
+
+    // `screenPos` is the mouse position, in the tooltip's own coordinates (the window it's in).
+    // The control under the mouse is in screen coordinates; this is the difference.
+    const auto mouseSource = juce::Desktop::getInstance().getMainMouseSource();
+    const auto offset = screenPos - mouseSource.getScreenPosition().roundToInt();
+
+    // Below a button-sized control; for big areas (the timeline...), just below the pointer.
+    juce::Rectangle<int> avoid (screenPos.x, screenPos.y - 2, 1, 22);
+
+    if (auto* control = mouseSource.getComponentUnderMouse(); control != nullptr && control->getHeight() <= 80)
+        avoid = control->getScreenBounds() + offset;
+
+    auto x = screenPos.x - 12;
+    auto y = avoid.getBottom() + gap;
+
+    if (y + h > parentArea.getBottom())
+        y = avoid.getY() - gap - h;   // no room below: above it instead
+
+    x = juce::jlimit (parentArea.getX(), std::max (parentArea.getX(), parentArea.getRight() - w), x);
+    y = juce::jlimit (parentArea.getY(), std::max (parentArea.getY(), parentArea.getBottom() - h), y);
+    return { x, y, w, h };
+}
+
+juce::Typeface::Ptr AetherLookAndFeel::getTypefaceForFont (const juce::Font& font)
+{
+    // Text that doesn't ask for a particular font family uses Inter.
+    if (font.getTypefaceName() == juce::Font::getDefaultSansSerifFontName())
+    {
+        if (regular == nullptr)
+        {
+            regular = juce::Typeface::createSystemTypefaceFor (AetherFonts::InterRegular_ttf, (size_t) AetherFonts::InterRegular_ttfSize);
+            semiBold = juce::Typeface::createSystemTypefaceFor (AetherFonts::InterSemiBold_ttf, (size_t) AetherFonts::InterSemiBold_ttfSize);
+        }
+
+        if (auto face = font.isBold() ? semiBold : regular)
+            return face;
+    }
+
+    return LookAndFeel_V4::getTypefaceForFont (font);
 }
 
 } // namespace aether::ui

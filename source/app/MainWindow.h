@@ -8,6 +8,7 @@
 #include "AppContext.h"
 #include "ProjectView.h"
 #include "StartScreen.h"
+#include "ui/DelayedTooltipWindow.h"
 
 namespace aether
 {
@@ -104,7 +105,7 @@ private:
     juce::Label statusLabel;
 
     /** Shows each control's tooltip (its name and what it does) when the mouse rests on it. */
-    juce::TooltipWindow tooltipWindow { this, 600 };
+    ui::DelayedTooltipWindow tooltipWindow { this };
 
     juce::ScopedMessageBox messageBox;
     std::unique_ptr<juce::FileChooser> fileChooser;

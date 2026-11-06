@@ -49,7 +49,10 @@ public:
     /** A sentence or two explaining a driver type. */
     static juce::String describeType (const juce::String& typeName);
 
-    /** "48 kHz", "44.1 kHz". */
+    /** "Outputs 1 + 2" (from "Output channel 1" and "Output channel 2"). */
+    static juce::String describeOutputPair (const juce::String& first, const juce::String& second);
+
+        /** "48 kHz", "44.1 kHz". */
     static juce::String formatRate (double sampleRate);
 
     /** "256 samples (5.3 ms)". */

@@ -71,6 +71,8 @@ KeyboardPanel::KeyboardPanel (const Theme& themeToUse, std::function<void (const
     setOctave (4);
 }
 
+juce::MidiKeyboardComponent& KeyboardPanel::getKeys() noexcept   { return *keys; }
+
 KeyboardPanel::~KeyboardPanel()
 {
     state.removeListener (this);
@@ -127,8 +129,20 @@ void KeyboardPanel::resized()
     hint.setBounds (top);
 
     area.removeFromTop (4);
-    keys->setBounds (area);
-    keys->setKeyWidth (std::max (14.0f, (float) area.getWidth() / 52.0f));   // about 7 octaves across
+    // Keys keep their size: a wider window shows more of them (all 88 fit from about 1250 pixels,
+    // and are then centred) instead of stretching them.
+    keys->setKeyWidth (keyWidth);
+
+    int whiteKeys = 0;
+    for (int note = keys->getRangeStart(); note <= keys->getRangeEnd(); ++note)
+        if (! juce::MidiMessage::isMidiNoteBlack (note))
+            ++whiteKeys;
+
+    const auto allKeys = (int) std::ceil ((float) whiteKeys * keyWidth);
+    keys->setBounds (area.withSizeKeepingCentre (std::min (area.getWidth(), allKeys), area.getHeight()));
+
+    if (area.getWidth() >= allKeys)
+        keys->setLowestVisibleKey (keys->getRangeStart());   // everything fits: no scrolling
 }
 
 } // namespace aether::ui

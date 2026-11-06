@@ -47,6 +47,7 @@ private:
 
     void create();
     void openSelected();
+    void askToDelete (const juce::File& projectFile);
     void chooseFolder();
     void updateLocationText();
 
@@ -67,6 +68,7 @@ private:
 
     juce::Rectangle<int> newCard, recentCard;
     std::unique_ptr<juce::FileChooser> chooser;
+    juce::ScopedMessageBox messageBox;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (StartScreen)
 };

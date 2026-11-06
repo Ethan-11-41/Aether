@@ -191,3 +191,101 @@ TEST_CASE ("A measured latency is remembered for exactly the setting it was meas
     service.setMeasuredRoundTrip (-1);
     CHECK (service.getLatencyInfo().measuredRoundTripSamples == -1);
 }
+
+namespace
+{
+    /** Two drivers, like "Windows Audio" and its Exclusive Mode. */
+    AudioDeviceService::DeviceTypeList sharedAndExclusive (juce::StringArray exclusiveInputs, double exclusiveOnlyRate = 0.0)
+    {
+        AudioDeviceService::DeviceTypeList list;
+        list.push_back (std::make_unique<FakeDeviceType> (juce::StringArray { "Mic" }, "Fake Shared"));
+        list.push_back (std::make_unique<FakeDeviceType> (std::move (exclusiveInputs), "Fake Exclusive", exclusiveOnlyRate));
+        return list;
+    }
+}
+
+TEST_CASE ("Switching driver drops a microphone that can't be used in that mode", "[devices]")
+{
+    juce::ScopedJuceInitialiser_GUI juce;
+    juce::PropertySet settings;
+    AudioDeviceService service (settings, sharedAndExclusive ({ "Broken Mic" }));
+    runImmediately (service);
+    auto& manager = service.getDeviceManager();
+    REQUIRE (manager.getCurrentAudioDeviceType() == "Fake Shared");
+
+    service.switchDriverType ("Fake Exclusive");
+
+    REQUIRE (manager.getCurrentAudioDevice() != nullptr);
+    CHECK (manager.getCurrentAudioDeviceType() == "Fake Exclusive");
+    CHECK (manager.getAudioDeviceSetup().inputDeviceName.isEmpty());
+    CHECK (service.getProblemMessage().contains ("Broken Mic"));
+    CHECK (service.getProblemMessage().contains ("nothing can be recorded"));
+}
+
+TEST_CASE ("Switching driver tries another sample rate if the device needs one", "[devices]")
+{
+    juce::ScopedJuceInitialiser_GUI juce;
+    juce::PropertySet settings;
+    AudioDeviceService service (settings, sharedAndExclusive ({ "Mic" }, 44100.0));
+    runImmediately (service);
+    auto& manager = service.getDeviceManager();
+    REQUIRE (manager.getCurrentAudioDevice()->getCurrentSampleRate() == 48000.0);
+
+    service.switchDriverType ("Fake Exclusive");
+
+    REQUIRE (manager.getCurrentAudioDevice() != nullptr);
+    CHECK (manager.getCurrentAudioDeviceType() == "Fake Exclusive");
+    CHECK (manager.getCurrentAudioDevice()->getCurrentSampleRate() == 44100.0);
+    CHECK (manager.getAudioDeviceSetup().inputDeviceName == "Mic");   // the microphone still works
+    CHECK (service.getProblemMessage().contains ("44.1 kHz"));
+}
+
+TEST_CASE ("Switching driver goes back to the previous one if nothing works", "[devices]")
+{
+    juce::ScopedJuceInitialiser_GUI juce;
+    juce::PropertySet settings;
+    AudioDeviceService service (settings, sharedAndExclusive ({ "Mic" }, 32000.0));   // a rate Aether never tries
+    runImmediately (service);
+    auto& manager = service.getDeviceManager();
+    service.handleDeviceChange();   // remember the working shared setting
+
+    service.switchDriverType ("Fake Exclusive");
+
+    REQUIRE (manager.getCurrentAudioDevice() != nullptr);
+    CHECK (manager.getCurrentAudioDeviceType() == "Fake Shared");
+    CHECK (service.getProblemMessage().contains ("went back to your previous settings"));
+}
+
+TEST_CASE ("Switching to a driver that works needs no explanation", "[devices]")
+{
+    juce::ScopedJuceInitialiser_GUI juce;
+    juce::PropertySet settings;
+    AudioDeviceService service (settings, sharedAndExclusive ({ "Mic" }));
+    runImmediately (service);
+
+    service.switchDriverType ("Fake Exclusive");
+
+    CHECK (service.getDeviceManager().getCurrentAudioDeviceType() == "Fake Exclusive");
+    CHECK (service.getDeviceManager().getAudioDeviceSetup().inputDeviceName == "Mic");
+    CHECK (service.getProblemMessage().isEmpty());
+}
+
+TEST_CASE ("Switching driver keeps \"no microphone\" if that was chosen", "[devices]")
+{
+    juce::ScopedJuceInitialiser_GUI juce;
+    juce::PropertySet settings;
+    AudioDeviceService service (settings, sharedAndExclusive ({ "Mic" }));
+    runImmediately (service);
+    auto& manager = service.getDeviceManager();
+
+    auto setup = manager.getAudioDeviceSetup();
+    setup.inputDeviceName = {};
+    REQUIRE (manager.setAudioDeviceSetup (setup, true).isEmpty());
+
+    service.switchDriverType ("Fake Exclusive");
+
+    REQUIRE (manager.getCurrentAudioDevice() != nullptr);
+    CHECK (manager.getCurrentAudioDeviceType() == "Fake Exclusive");
+    CHECK (manager.getAudioDeviceSetup().inputDeviceName.isEmpty());   // JUCE alone would add the default microphone
+    CHECK (service.getProblemMessage().isEmpty());
+}

@@ -468,28 +468,62 @@ bool setSendPreFader (Project& project, const juce::String& sendId, bool preFade
     return true;
 }
 
+namespace
+{
+    juce::String appendInsert (Project& project, const juce::String& channelId, const dsp::EffectType& type)
+    {
+        auto channel = mixer::findChannel (project, channelId);
+
+        if (! channel.isValid() || (int) mixer::insertsOf (project, channelId).size() >= mixer::maxInsertsPerChannel)
+            return {};
+
+        auto& undo = project.getUndoManager();
+        juce::ValueTree insert (ids::Insert);
+        const auto id = juce::Uuid().toString();
+        insert.setProperty (ids::id, id, nullptr);
+        insert.setProperty (ids::type, type.id, nullptr);
+        insert.setProperty (ids::bypass, false, nullptr);
+
+        for (const auto& parameter : type.parameters)
+            insert.setProperty (parameter.id, parameter.defaultValue, nullptr);
+
+        getOrCreateList (channel, ids::Inserts, undo).appendChild (insert, &undo);
+        return id;
+    }
+}
+
 juce::String addInsert (Project& project, const juce::String& channelId, const juce::String& effectType)
 {
-    auto channel = mixer::findChannel (project, channelId);
     const auto* type = dsp::findEffectType (effectType);
 
-    if (! channel.isValid() || type == nullptr || (int) mixer::insertsOf (project, channelId).size() >= mixer::maxInsertsPerChannel)
+    if (! mixer::findChannel (project, channelId).isValid() || type == nullptr
+        || (int) mixer::insertsOf (project, channelId).size() >= mixer::maxInsertsPerChannel)
         return {};
 
-    auto& undo = project.getUndoManager();
-    undo.beginNewTransaction ("Add " + type->name);
+    project.getUndoManager().beginNewTransaction ("Add " + type->name);
+    return appendInsert (project, channelId, *type);
+}
 
-    juce::ValueTree insert (ids::Insert);
-    const auto id = juce::Uuid().toString();
-    insert.setProperty (ids::id, id, nullptr);
-    insert.setProperty (ids::type, type->id, nullptr);
-    insert.setProperty (ids::bypass, false, nullptr);
+juce::StringArray addInsertToChannels (Project& project, const juce::StringArray& channelIds, const juce::String& effectType)
+{
+    const auto* type = dsp::findEffectType (effectType);
+    juce::StringArray added;
 
-    for (const auto& parameter : type->parameters)
-        insert.setProperty (parameter.id, parameter.defaultValue, nullptr);
+    if (type == nullptr)
+        return added;
 
-    getOrCreateList (channel, ids::Inserts, undo).appendChild (insert, &undo);
-    return id;
+    project.getUndoManager().beginNewTransaction (channelIds.size() == 1 ? "Add " + type->name
+                                                                         : "Add " + type->name + " to " + juce::String (channelIds.size()) + " tracks");
+
+    for (const auto& channelId : channelIds)
+        if (const auto id = appendInsert (project, channelId, *type); id.isNotEmpty())
+            added.add (id);
+
+    // Named after what actually happened (full channels are skipped).
+    if (added.size() > 1)
+        project.getUndoManager().setCurrentTransactionName ("Add " + type->name + " to " + juce::String (added.size()) + " tracks");
+
+    return added;
 }
 
 bool removeInsert (Project& project, const juce::String& insertId)

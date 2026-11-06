@@ -1,6 +1,7 @@
 // Aether - Copyright (C) 2026 The Aether authors. Licensed under the GNU AGPLv3 or later.
 #include "StartScreen.h"
 
+#include "io/ProjectFiles.h"
 #include "ui/AetherLookAndFeel.h"
 
 namespace aether
@@ -230,7 +231,57 @@ void StartScreen::listBoxItemClicked (int row, const juce::MouseEvent& e)
     menu.addItem ("Show in folder", [file] { file.revealToUser(); });
     menu.addSeparator();
     menu.addItem ("Remove from this list", [this, file] { recent.remove (file); refresh(); });
+    menu.addItem ("Delete project...", file.existsAsFile(), false, [this, file] { askToDelete (file); });
     menu.showMenuAsync (juce::PopupMenu::Options().withMousePosition());
+}
+
+void StartScreen::askToDelete (const juce::File& projectFile)
+{
+    const auto target = projectfiles::whatToDelete (projectFile);
+    const auto wholeFolder = target.isDirectory();
+    const auto name = projectFile.getFileNameWithoutExtension();
+
+    const auto message = wholeFolder
+        ? "This moves the project's folder to the Recycle Bin, with everything in it: its recordings, "
+          "backups and exports.\n\n" + target.getFullPathName() + "\n\nYou can get it back from the Recycle Bin."
+        : "This moves the project file to the Recycle Bin. Its folder also holds other files, so those "
+          "(and its recordings) are left where they are.\n\n" + target.getFullPathName()
+          + "\n\nYou can get it back from the Recycle Bin.";
+
+    juce::Component::SafePointer<StartScreen> safeThis (this);
+
+    messageBox = juce::AlertWindow::showScopedAsync (
+        juce::MessageBoxOptions()
+            .withIconType (juce::MessageBoxIconType::WarningIcon)
+            .withTitle ("Delete \"" + name + "\"?")
+            .withMessage (message)
+            .withButton ("Move to Recycle Bin", 1)
+            .withButton ("Cancel", 0)
+            .withAssociatedComponent (this),
+        [safeThis, projectFile, target, name] (int result)
+        {
+            if (safeThis == nullptr || result != 1)
+                return;
+
+            if (target.moveToTrash())
+            {
+                juce::Logger::writeToLog ("Deleted project (moved to the Recycle Bin): " + target.getFullPathName());
+                safeThis->recent.remove (projectFile);
+                safeThis->refresh();
+            }
+            else
+            {
+                safeThis->messageBox = juce::AlertWindow::showScopedAsync (
+                    juce::MessageBoxOptions()
+                        .withIconType (juce::MessageBoxIconType::WarningIcon)
+                        .withTitle ("Couldn't delete \"" + name + "\"")
+                        .withMessage ("Windows didn't allow it to be moved to the Recycle Bin. A file in it may be "
+                                      "open in another program.")
+                        .withButton ("OK", 0)
+                        .withAssociatedComponent (safeThis.getComponent()),
+                    nullptr);
+            }
+        });
 }
 
 void StartScreen::listBoxItemDoubleClicked (int row, const juce::MouseEvent&)

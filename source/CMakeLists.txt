@@ -96,11 +96,20 @@ target_link_libraries(aether_core
     PRIVATE aether_warnings)
 target_compile_definitions(aether_core PUBLIC AETHER_VERSION_STRING="${PROJECT_VERSION}")
 
+# The interface font, Inter (SIL Open Font Licence 1.1; see CREDITS.md), built into the program
+# so Aether looks the same on every PC.
+juce_add_binary_data(aether_fonts
+    HEADER_NAME AetherFonts.h
+    NAMESPACE   AetherFonts
+    SOURCES     "${PROJECT_SOURCE_DIR}/resources/fonts/Inter-Regular.ttf"
+                "${PROJECT_SOURCE_DIR}/resources/fonts/Inter-SemiBold.ttf")
+
 # aether_ui: reusable interface pieces (track list, meters, look and feel). Also a library, so
 # the tests can drive them without opening a window.
 add_library(aether_ui STATIC
     ui/AetherLookAndFeel.cpp
     ui/AetherLookAndFeel.h
+    ui/DelayedTooltipWindow.h
     ui/DeviceSettingsPanel.cpp
     ui/DeviceSettingsPanel.h
     ui/EffectEditor.cpp
@@ -134,7 +143,7 @@ add_library(aether_ui STATIC
 
 target_link_libraries(aether_ui
     PUBLIC  aether_core
-    PRIVATE aether_warnings)
+    PRIVATE aether_fonts aether_warnings)
 
 # The Aether application itself.
 if(AETHER_BUILD_APP)
@@ -184,4 +193,5 @@ if(AETHER_BUILD_APP)
                               BUNDLE  DESTINATION . COMPONENT Aether)
     install(FILES "${PROJECT_SOURCE_DIR}/LICENSE"    DESTINATION . RENAME LICENSE.txt COMPONENT Aether)
     install(FILES "${PROJECT_SOURCE_DIR}/CREDITS.md" DESTINATION . RENAME CREDITS.txt COMPONENT Aether)
+    install(FILES "${PROJECT_SOURCE_DIR}/resources/fonts/Inter-LICENSE.txt" DESTINATION licenses COMPONENT Aether)
 endif()

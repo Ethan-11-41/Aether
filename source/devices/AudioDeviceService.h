@@ -54,7 +54,13 @@ public:
 
     static constexpr const char* midiOffKey = "midiInputsSwitchedOff";
 
-    /** Latency of the currently open device (invalid if no device is open), including the
+    /** Switches to another kind of driver (e.g. "Windows Audio (Exclusive Mode)"). If the usual
+        setting doesn't open, it tries again without the microphone, then at other sample rates,
+        and keeps the first that works, explaining the change in getProblemMessage(). If nothing
+        works, it goes back to the previous setting (and explains why). */
+    void switchDriverType (const juce::String& typeName);
+
+        /** Latency of the currently open device (invalid if no device is open), including the
         measured round trip if this exact setting (driver, devices, sample rate, buffer size)
         has been measured. */
     LatencyInfo getLatencyInfo() const;
@@ -114,6 +120,8 @@ private:
     juce::String measuredLatencyKey() const;
     void rememberMidiChoices();
     void restoreLastWorkingConfig (const juce::String& failedTypeName, const juce::String& driverError);
+    bool tryToOpen (const juce::AudioDeviceManager::AudioDeviceSetup& setup);
+    juce::String currentDriverError() const   { return driverErrorSource ? driverErrorSource() : juce::String(); }
 
     juce::PropertySet& settings;
     juce::AudioDeviceManager deviceManager;
