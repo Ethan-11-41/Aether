@@ -44,6 +44,14 @@ struct LiveMidiMessage
     std::uint8_t size = 0;
 };
 
+/** A note previewed on one track (see AudioEngine::sendPreviewNote). */
+struct PreviewNote
+{
+    std::uint64_t track = 0;     // AudioEngine::hashTrackId
+    std::uint8_t pitch = 60, velocity = 100;
+    bool on = true;
+};
+
 /** A MIDI message captured while recording: `index` counts samples from the start of the
     recording (like a position in a recorded audio file). */
 struct RecordedMidiMessage
@@ -105,6 +113,13 @@ public:
 
     /** Plays a MIDI message as if from a keyboard (UI thread: the on-screen keyboard). */
     void sendLiveMidi (const juce::MidiMessage& message);
+
+    /** Plays (on = true) or stops a note on one track's instrument, e.g. while editing notes in
+        the piano roll. Unlike sendLiveMidi(), it goes only to that track and is never recorded. */
+    void sendPreviewNote (const juce::String& trackId, int pitch, int velocity, bool on);
+
+    /** How a track is recognised by sendPreviewNote() (computed when the snapshot is built). */
+    static std::uint64_t hashTrackId (const juce::String& trackId) noexcept   { return (std::uint64_t) trackId.hashCode64(); }
 
     /** Goes up by one for every MIDI message that arrives (for an activity light). */
     std::uint32_t getMidiActivity() const noexcept   { return midiActivity.load (std::memory_order_relaxed); }
@@ -223,6 +238,10 @@ private:
     rt::SpscQueue<Command> commands { 256 };
     rt::SpscQueue<LiveMidiMessage> deviceMidi { 2048 };     // from MIDI devices (JUCE calls one at a time)
     rt::SpscQueue<LiveMidiMessage> uiMidi { 512 };          // from the on-screen keyboard
+    static constexpr int maxPreviewNotes = 64;
+    rt::SpscQueue<PreviewNote> previewQueue { 256 };
+    std::array<PreviewNote, maxPreviewNotes> previewNotes {};
+    int numPreviewNotes = 0;
     rt::SpscQueue<RecordedMidiMessage> recordedMidi { 8192 };
     std::atomic<std::uint32_t> midiActivity { 0 };
     std::atomic<bool> metronomeEnabled { false };

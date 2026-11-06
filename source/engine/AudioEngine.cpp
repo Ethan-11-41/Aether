@@ -130,6 +130,12 @@ void AudioEngine::sendLiveMidi (const juce::MidiMessage& message)
         uiMidi.tryPush (toLive (message));
 }
 
+void AudioEngine::sendPreviewNote (const juce::String& trackId, int pitch, int velocity, bool on)
+{
+    previewQueue.tryPush ({ hashTrackId (trackId), (std::uint8_t) juce::jlimit (0, 127, pitch),
+                            (std::uint8_t) juce::jlimit (1, 127, velocity), on });
+}
+
 void AudioEngine::handleIncomingMidiMessage (juce::MidiInput*, const juce::MidiMessage& message)
 {
     midiActivity.fetch_add (1, std::memory_order_relaxed);
@@ -645,6 +651,10 @@ void AudioEngine::collectLiveMidi (int numSamples) noexcept AETHER_NONBLOCKING
     while (uiMidi.tryPop (m))
         add (m, 0);
 
+    numPreviewNotes = 0;
+    for (PreviewNote p; numPreviewNotes < maxPreviewNotes && previewQueue.tryPop (p);)
+        previewNotes[(size_t) numPreviewNotes++] = p;
+
     // In time order (insertion sort: a handful of messages, no allocation).
     for (int i = 1; i < numLiveEvents; ++i)
         for (int j = i; j > 0 && liveEvents[(size_t) j].offset < liveEvents[(size_t) j - 1].offset; --j)
@@ -701,7 +711,23 @@ void AudioEngine::playInstruments (const TimelineSnapshot& timeline, int chunkSt
             }
         }
 
-        // What's being played live.
+        // Notes previewed on this track (at the start of the block).
+        if (chunkStart == 0)
+            for (int i = 0; i < numPreviewNotes; ++i)
+            {
+                const auto& p = previewNotes[(size_t) i];
+
+                if (p.track == track.idHash)
+                {
+                    dsp::NoteEvent e;
+                    e.type = p.on ? dsp::NoteEvent::Type::noteOn : dsp::NoteEvent::Type::noteOff;
+                    e.pitch = p.pitch;
+                    e.velocity = p.velocity;
+                    add (e);
+                }
+            }
+
+                // What's being played live.
         if (track.liveInput)
             for (int i = 0; i < numLiveEvents; ++i)
             {

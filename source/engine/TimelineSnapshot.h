@@ -152,6 +152,7 @@ struct TrackPlayback
     dsp::EffectParameterValues instrumentParameters {};
     std::vector<NotePlayback> notes;                       // every note of its clips, sorted by start
     bool liveInput = false;                                // plays what's played on a MIDI keyboard
+    std::uint64_t idHash = 0;                              // the track's id, for notes previewed on it
 };
 
 /** Everything about the project that the audio thread needs, as one read-only object. A new

@@ -288,6 +288,7 @@ TEST_CASE ("MIDI playback, the synth, live MIDI and MIDI recording are real-time
         engine.handleIncomingMidiMessage (nullptr, juce::MidiMessage::controllerEvent (1, 64, block % 2 == 0 ? 127 : 0));
         engine.handleIncomingMidiMessage (nullptr, juce::MidiMessage::pitchWheel (1, 8192 + block));
         engine.sendLiveMidi (juce::MidiMessage::noteOff (1, 40 + (block + 25) % 50));
+        engine.sendPreviewNote (pad, 50 + block % 30, 100, block % 3 != 0);   // the piano roll
 
         if (block == 200) engine.stop();
         if (block == 250) { engine.locate (0); engine.play(); }

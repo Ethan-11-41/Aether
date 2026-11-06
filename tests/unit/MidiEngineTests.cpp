@@ -15,6 +15,7 @@
 #include "model/ClipEdits.h"
 #include "model/EditCommands.h"
 #include "model/MidiClips.h"
+#include "model/Mixer.h"
 #include "model/Recording.h"
 #include "model/TimelineEdits.h"
 
@@ -298,4 +299,28 @@ TEST_CASE ("The synth's fast sine matches std::sin", "[dsp][synth]")
     CHECK (dsp::sin2pi (0.0) == 0.0);
     CHECK (std::abs (dsp::sin2pi (0.25) - 1.0) < 1.0e-7);
     CHECK (std::abs (dsp::sin2pi (-0.25) + 1.0) < 1.0e-7);
+}
+
+TEST_CASE ("A previewed note plays only on its own track, and isn't recorded", "[midi][engine][preview]")
+{
+    Fixture f;
+    const auto other = edit::addTrack (f.project, TrackKind::midi, -1, true, "Other").getId();
+    edit::setArmed (f.project, { other }, true);   // armed: would pick up live notes
+    edit::setVolume (f.project, other, mixer::silentDb);   // so anything heard is from "Keys"
+    f.update (other);
+
+    f.engine.sendPreviewNote (f.keys, 60, 100, true);
+    const auto playing = f.render (4800);
+    CHECK (Fixture::loudest (playing, 0, 4800) > 0.01f);
+
+    f.engine.sendPreviewNote (f.keys, 60, 100, false);
+    const auto released = f.render (48000);
+    CHECK (Fixture::loudest (released, 40000, 48000) < 1.0e-4f);   // the note was let go
+
+    // On a track with no such id, nothing happens; and nothing is left for MIDI recording.
+    f.engine.sendPreviewNote ("no such track", 60, 100, true);
+    CHECK (Fixture::loudest (f.render (4800), 0, 4800) < 1.0e-4f);
+
+    RecordedMidiMessage recorded;
+    CHECK_FALSE (f.engine.takeRecordedMidi (recorded));
 }
