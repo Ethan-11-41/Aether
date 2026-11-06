@@ -88,6 +88,10 @@ public:
         devices = std::make_unique<AudioDeviceService> (props);
         devices->setDriverErrorSource ([log = appLog.get()] { return log->getRecentDriverError(); });
         devices->addAudioCallback (engine.get());
+        devices->addMidiCallback (engine.get());
+        juce::Logger::writeToLog ("MIDI inputs: " + (devices->getEnabledMidiInputNames().isEmpty()
+                                                        ? juce::String ("none")
+                                                        : devices->getEnabledMidiInputNames().joinIntoString (", ")));
         juce::Logger::writeToLog ("Audio device: " + (devices->describeCurrentDevice().isNotEmpty()
                                                           ? devices->describeCurrentDevice()
                                                           : "none (" + devices->getStartupError() + ")"));
@@ -120,6 +124,7 @@ public:
 
         if (devices != nullptr)
         {
+            devices->removeMidiCallback (engine.get());
             devices->removeAudioCallback (engine.get());
             devices = nullptr;      // also saves the device choice
         }

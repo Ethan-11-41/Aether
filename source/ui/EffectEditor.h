@@ -26,7 +26,8 @@ private:
     const dsp::EffectParameter& parameter;
 };
 
-/** The settings of one effect (an insert), shown in a small pop-up next to the mixer slot.
+/** The settings of one effect (an insert) or instrument, shown in a small pop-up next to the
+    mixer slot or the track. Instruments also get a preset menu.
     Every change is undoable; it follows undo/redo while open, and closes itself if the effect
     is removed. */
 class EffectEditor final : public juce::Component,
@@ -57,6 +58,7 @@ private:
     juce::ValueTree projectState;
 
     ToggleBox onOff;
+    juce::ComboBox presetBox;   // instruments: their presets
     std::vector<std::unique_ptr<ParameterKnob>> knobs;
     std::vector<std::unique_ptr<juce::ComboBox>> choices;
     std::vector<const dsp::EffectParameter*> choiceParameters;

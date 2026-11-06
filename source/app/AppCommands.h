@@ -60,6 +60,7 @@ namespace commands
         toggleMixer         = 0x6009,
         record              = 0x600A,
         togglePunch         = 0x600B,
+        toggleKeyboard      = 0x600C,
 
         // Settings & help
         audioSettings       = 0x4001,

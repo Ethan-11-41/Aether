@@ -521,7 +521,7 @@ void MainContent::getAllCommands (juce::Array<juce::CommandID>& list)
                      commands::undo, commands::redo, commands::selectAll,
                      commands::importAudio, commands::splitClips, commands::duplicateClips,
                      commands::nudgeLeft, commands::nudgeRight, commands::nudgeLeftFine, commands::nudgeRightFine,
-                     commands::toggleSnap, commands::toggleMixer, commands::addBus, commands::record, commands::togglePunch,
+                     commands::toggleSnap, commands::toggleMixer, commands::addBus, commands::record, commands::togglePunch, commands::toggleKeyboard,
                      commands::addAudioTrack, commands::addMidiTrack, commands::renameTrack, commands::deleteTrack,
                      commands::moveTrackUp, commands::moveTrackDown,
                      commands::playStop, commands::stop, commands::goToStart, commands::toggleLoop,
@@ -646,8 +646,8 @@ void MainContent::getCommandInfo (juce::CommandID id, juce::ApplicationCommandIn
             break;
 
         case commands::importAudio:
-            info.setInfo ("Import audio file...", "Add audio files (WAV, AIFF, FLAC, MP3, Ogg) at the playhead, "
-                          "on the selected track. You can also drag files onto the timeline.", commands::categories::track, 0);
+            info.setInfo ("Import audio or MIDI file...", "Add audio files (WAV, AIFF, FLAC, MP3, Ogg) or MIDI files (.mid) at the "
+                          "playhead. You can also drag files onto the timeline.", commands::categories::track, 0);
             info.addDefaultKeypress ('i', ctrl);
             info.setActive (hasProject);
             break;
@@ -761,6 +761,14 @@ void MainContent::getCommandInfo (juce::CommandID id, juce::ApplicationCommandIn
             info.setInfo ("Zoom out", "Show more of the song", commands::categories::view, 0);
             info.addDefaultKeypress ('-', ctrl);
             info.setActive (hasProject);
+            break;
+
+        case commands::toggleKeyboard:
+            info.setInfo ("On-screen keyboard", "Show or hide a piano keyboard you can click, or play with your computer keys",
+                          commands::categories::view, 0);
+            info.addDefaultKeypress ('k', ctrl);
+            info.setActive (hasProject);
+            info.setTicked (hasProject && projectView->isKeyboardVisible());
             break;
 
         case commands::toggleMixer:
@@ -932,6 +940,10 @@ bool MainContent::perform (const InvocationInfo& invocation)
             if (projectView != nullptr) projectView->setMixerVisible (! projectView->isMixerVisible());
             return true;
 
+        case commands::toggleKeyboard:
+            if (projectView != nullptr) projectView->setKeyboardVisible (! projectView->isKeyboardVisible());
+            return true;
+
         case commands::addBus:             addTrack (TrackKind::bus); return true;
 
         case commands::audioSettings:      showAudioSettings(); return true;
@@ -1030,6 +1042,7 @@ juce::PopupMenu MainContent::getMenuForIndex (int menuIndex, const juce::String&
     else if (menuIndex == 4)
     {
         menu.addCommandItem (cm, commands::toggleMixer);
+        menu.addCommandItem (cm, commands::toggleKeyboard);
         menu.addSeparator();
         menu.addCommandItem (cm, commands::zoomIn);
         menu.addCommandItem (cm, commands::zoomOut);

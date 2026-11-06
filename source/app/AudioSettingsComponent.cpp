@@ -72,7 +72,7 @@ AudioSettingsComponent::AudioSettingsComponent (AudioDeviceService& deviceServic
         devices.getDeviceManager(),
         0, 2,     // input channels: none required, up to 2 (e.g. a stereo microphone)
         1, 2,     // output channels: at least 1, up to 2 (left/right)
-        false,    // MIDI inputs: added in milestone M6
+        true,     // MIDI inputs (e.g. a keyboard over USB): tick to use, untick to ignore
         false,    // MIDI output
         true,     // show channels as stereo pairs
         false);   // don't hide the advanced options

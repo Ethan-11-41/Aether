@@ -64,6 +64,9 @@ public:
     /** Shows a track's right-click menu (rename, colour, mute, solo, output, delete...). */
     void showTrackMenu (const juce::String& trackId)   { showContextMenu (trackId); }
 
+    /** Opens a MIDI track's instrument settings in a pop-up pointing at `screenArea`. */
+    void showInstrumentEditor (const juce::String& trackId, juce::Rectangle<int> screenArea);
+
     /** Called whenever the selected track changes. */
     std::function<void()> onSelectionChanged;
 

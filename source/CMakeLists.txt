@@ -97,6 +97,8 @@ add_library(aether_ui STATIC
     ui/EffectEditor.cpp
     ui/EffectEditor.h
     ui/IconButton.cpp
+    ui/KeyboardPanel.cpp
+    ui/KeyboardPanel.h
     ui/IconButton.h
     ui/LatencyPanel.cpp
     ui/LatencyPanel.h
