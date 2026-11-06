@@ -38,6 +38,9 @@ public:
     void stopRecording()                              { recorder->stop(); }
     bool isRecording() const noexcept                 { return recorder->isActive(); }
 
+    /** If recording, stops and adds the recorded clips now (before the project is closed). */
+    void finishRecording()                            { recorder->finishNow(); }
+
     /** Shows or hides the mixer below the timeline (remembered between sessions). */
     void setMixerVisible (bool shouldBeVisible);
     bool isMixerVisible() const noexcept              { return mixerVisible; }

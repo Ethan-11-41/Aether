@@ -6,6 +6,7 @@
 
 #include <cmath>
 #include <random>
+#include <thread>
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
@@ -149,6 +150,56 @@ TEST_CASE ("Recording writes exactly what came in, and places it corrected for l
     f.run (24000);
     f.stopAndFinish();
     CHECK (f.folder.getChildFile ("Audio").getChildFile ("Vocals 2.wav").existsAsFile());
+}
+
+TEST_CASE ("Closing the project while recording finishes the take instead of losing it", "[recording][engine]")
+{
+    Fixture f;
+    f.run (1024);
+    REQUIRE (f.recorder->start().isEmpty());
+    f.run (24000);
+
+    // The sound card keeps running on its own thread, as it does in the app.
+    std::atomic<bool> running { true };
+    std::thread soundCard ([&]
+    {
+        std::vector<float> mic (block, 0.1f), silence (block), left (block), right (block);
+        while (running)
+        {
+            const float* inputs[] = { mic.data(), silence.data() };
+            float* outputs[] = { left.data(), right.data() };
+            f.engine.process (inputs, 2, outputs, 2, block);
+            std::this_thread::sleep_for (std::chrono::milliseconds (1));
+        }
+    });
+
+    juce::StringArray finishedClips;
+    f.recorder->onFinished = [&] (const juce::StringArray& ids) { finishedClips = ids; };
+    const auto finished = f.recorder->finishNow();
+
+    running = false;
+    soundCard.join();
+
+    CHECK (finished);
+    CHECK_FALSE (f.recorder->isActive());
+    REQUIRE (finishedClips.size() == 1);
+    CHECK (clips::findClip (f.project, finishedClips[0]).getTrackState()[ids::id].toString() == f.vocals);
+    CHECK (f.project.hasUnsavedChanges());   // so closing asks whether to save it
+}
+
+TEST_CASE ("If the sound card has stopped, finishing a recording gives up but keeps the file", "[recording][engine]")
+{
+    Fixture f;
+    f.run (1024);
+    REQUIRE (f.recorder->start().isEmpty());
+    f.run (4800);
+
+    // Nothing runs the engine any more, so the stop is never confirmed.
+    CHECK_FALSE (f.recorder->finishNow (50));
+    CHECK (f.recorder->isActive());
+
+    f.recorder = nullptr;   // closing the project
+    CHECK (f.folder.getChildFile ("Audio").getChildFile ("Vocals 1.wav").existsAsFile());
 }
 
 TEST_CASE ("Loop recording turns each pass into a take", "[recording][engine][takes]")

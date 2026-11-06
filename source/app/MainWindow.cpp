@@ -132,6 +132,11 @@ void MainContent::showProjectView()
 //==============================================================================
 void MainContent::afterUnsavedChangesAreHandled (std::function<void()> then)
 {
+    // A recording in progress is finished first, so its clips are in the project (and the
+    // question below includes them) instead of being lost when the project closes.
+    if (projectView != nullptr)
+        projectView->finishRecording();
+
     auto* project = ctx.session.getProject();
 
     if (project == nullptr || ! project->hasUnsavedChanges())

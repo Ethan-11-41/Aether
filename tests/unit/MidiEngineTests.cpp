@@ -239,6 +239,7 @@ TEST_CASE ("Loop recording MIDI layers every pass into one clip", "[midi][record
 
 TEST_CASE ("Recording MIDI from a keyboard makes a MIDI clip", "[midi][recording]")
 {
+    juce::ScopedJuceInitialiser_GUI juceInit;   // the audio file cache needs JUCE's message thread
     Fixture f;
     const auto folder = juce::File::getSpecialLocation (juce::File::tempDirectory).getChildFile ("aether-midi-rec-" + juce::Uuid().toString());
     folder.createDirectory();
