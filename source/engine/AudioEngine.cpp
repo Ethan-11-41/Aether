@@ -59,6 +59,85 @@ RecordingStatus AudioEngine::getRecordingStatus() const noexcept
     return status;
 }
 
+namespace
+{
+    bool wantedLive (const juce::MidiMessage& m)
+    {
+        return m.isNoteOnOrOff() || m.isSustainPedalOn() || m.isSustainPedalOff() || m.isPitchWheel()
+            || m.isAllNotesOff() || m.isAllSoundOff();
+    }
+
+    LiveMidiMessage toLive (const juce::MidiMessage& m)
+    {
+        LiveMidiMessage live;
+        live.timeMs = juce::Time::getMillisecondCounterHiRes();
+        live.size = (std::uint8_t) std::min (3, m.getRawDataSize());
+        std::memcpy (live.data, m.getRawData(), live.size);
+        return live;
+    }
+
+    /** What a live MIDI message means to an instrument. False if nothing. */
+    bool toNoteEvent (const LiveMidiMessage& m, dsp::NoteEvent& e) noexcept AETHER_NONBLOCKING
+    {
+        if (m.size < 1)
+            return false;
+
+        const auto status = m.data[0] & 0xf0;
+        e = {};
+
+        if (status == 0x90 && m.size >= 3 && m.data[2] > 0)
+        {
+            e.type = dsp::NoteEvent::Type::noteOn;
+            e.pitch = m.data[1] & 0x7f;
+            e.velocity = m.data[2] & 0x7f;
+            return true;
+        }
+
+        if ((status == 0x80 || status == 0x90) && m.size >= 3)
+        {
+            e.type = dsp::NoteEvent::Type::noteOff;
+            e.pitch = m.data[1] & 0x7f;
+            return true;
+        }
+
+        if (status == 0xb0 && m.size >= 3 && m.data[1] == 64)
+        {
+            e.type = dsp::NoteEvent::Type::sustain;
+            e.value = m.data[2] >= 64 ? 1.0f : 0.0f;
+            return true;
+        }
+
+        if (status == 0xb0 && m.size >= 3 && (m.data[1] == 120 || m.data[1] == 123))
+        {
+            e.type = dsp::NoteEvent::Type::allNotesOff;
+            return true;
+        }
+
+        if (status == 0xe0 && m.size >= 3)
+        {
+            e.type = dsp::NoteEvent::Type::pitchBend;
+            e.value = (float) (((m.data[2] & 0x7f) << 7 | (m.data[1] & 0x7f)) - 8192) / 8192.0f;
+            return true;
+        }
+
+        return false;
+    }
+}
+
+void AudioEngine::sendLiveMidi (const juce::MidiMessage& message)
+{
+    if (wantedLive (message))
+        uiMidi.tryPush (toLive (message));
+}
+
+void AudioEngine::handleIncomingMidiMessage (juce::MidiInput*, const juce::MidiMessage& message)
+{
+    midiActivity.fetch_add (1, std::memory_order_relaxed);
+
+    if (wantedLive (message))
+        deviceMidi.tryPush (toLive (message));
+}
+
 void AudioEngine::startLatencyCapture (std::shared_ptr<LatencyCapture> capture)
 {
     auto job = std::make_unique<ProbeJob>();
@@ -152,6 +231,9 @@ void AudioEngine::handleCommands (const TimelineSnapshot& timeline) noexcept AET
                 break;
 
             case Command::Type::stop:
+                if (playing)
+                    stopClipNotes = true;
+
                 playing = false;
                 countingIn = false;
                 stopRecording();
@@ -171,6 +253,7 @@ void AudioEngine::handleCommands (const TimelineSnapshot& timeline) noexcept AET
 
             case Command::Type::locate:
                 positionSamples = tickToSample (timeline.tempo, std::max<Tick> (0, command.position));
+                stopClipNotes = stopClipNotes || playing;
                 break;
         }
     }
@@ -459,6 +542,7 @@ void AudioEngine::runPlayback (const TimelineSnapshot& timeline, int blockOffset
 
     auto offset = blockOffset;
     auto remaining = numSamples;
+    bool jumped = false;
 
     while (remaining > 0)
     {
@@ -473,12 +557,20 @@ void AudioEngine::runPlayback (const TimelineSnapshot& timeline, int blockOffset
 
         renderClips (timeline, positionSamples, positionSamples + length, offset);
 
+        // Remember the piece, for the instruments (which play after the transport has run).
+        if (numSegments < maxSegments)
+            segments[(size_t) numSegments++] = { positionSamples, positionSamples + length, offset, jumped };
+
+        jumped = false;
         positionSamples += length;
         offset += length;
         remaining -= length;
 
         if (looping && positionSamples == loopEnd)
+        {
             positionSamples = loopStart;   // jump back, sample-accurately
+            jumped = true;
+        }
     }
 }
 
@@ -530,8 +622,132 @@ void AudioEngine::monitorInputs (const TimelineSnapshot& timeline, const float* 
     }
 }
 
+void AudioEngine::collectLiveMidi (int numSamples) noexcept AETHER_NONBLOCKING
+{
+    // Messages from MIDI devices are placed in the block by when they arrived (as if the block
+    // covered the last `numSamples` of time), so fast playing keeps its timing; the on-screen
+    // keyboard's go at the start.
+    numLiveEvents = 0;
+    const auto now = juce::Time::getMillisecondCounterHiRes();
+    const auto blockStartMs = now - 1000.0 * numSamples / sampleRate;
+    LiveMidiMessage m;
+
+    auto add = [this, numSamples] (const LiveMidiMessage& message, int offset)
+    {
+        dsp::NoteEvent e;
+        if (numLiveEvents < maxLiveEvents && toNoteEvent (message, e))
+            liveEvents[(size_t) numLiveEvents++] = { std::clamp (offset, 0, numSamples - 1), e, message };
+    };
+
+    while (deviceMidi.tryPop (m))
+        add (m, (int) std::lround ((m.timeMs - blockStartMs) * sampleRate / 1000.0));
+
+    while (uiMidi.tryPop (m))
+        add (m, 0);
+
+    // In time order (insertion sort: a handful of messages, no allocation).
+    for (int i = 1; i < numLiveEvents; ++i)
+        for (int j = i; j > 0 && liveEvents[(size_t) j].offset < liveEvents[(size_t) j - 1].offset; --j)
+            std::swap (liveEvents[(size_t) j], liveEvents[(size_t) j - 1]);
+}
+
+void AudioEngine::playInstruments (const TimelineSnapshot& timeline, int chunkStart, int numSamples) noexcept AETHER_NONBLOCKING
+{
+    for (const auto& track : timeline.tracks)
+    {
+        if (track.instrument == nullptr)
+            continue;
+
+        int count = 0;
+        auto add = [this, &count] (const dsp::NoteEvent& e)
+        {
+            if (count < maxNoteEvents)
+                noteEvents[(size_t) count++] = e;
+        };
+
+        if (stopClipNotes)
+        {
+            dsp::NoteEvent e;
+            e.type = dsp::NoteEvent::Type::stopClipNotes;
+            add (e);
+        }
+
+        // Notes from clips that start in what the transport just played.
+        for (int s = 0; s < numSegments; ++s)
+        {
+            const auto& segment = segments[(size_t) s];
+
+            if (segment.afterJump)
+            {
+                dsp::NoteEvent e;
+                e.type = dsp::NoteEvent::Type::stopClipNotes;
+                e.offset = segment.offset;
+                add (e);
+            }
+
+            auto it = std::lower_bound (track.notes.begin(), track.notes.end(), segment.from,
+                                        [] (const NotePlayback& n, std::int64_t position) { return n.start < position; });
+
+            for (; it != track.notes.end() && it->start < segment.to; ++it)
+            {
+                dsp::NoteEvent e;
+                e.type = dsp::NoteEvent::Type::noteOn;
+                e.offset = segment.offset + (int) (it->start - segment.from);
+                e.pitch = it->pitch;
+                e.velocity = it->velocity;
+                e.fromClip = true;
+                e.length = it->length;
+                add (e);
+            }
+        }
+
+        // What's being played live.
+        if (track.liveInput)
+            for (int i = 0; i < numLiveEvents; ++i)
+            {
+                const auto offset = liveEvents[(size_t) i].offset - chunkStart;
+
+                if (offset >= 0 && offset < numSamples)
+                {
+                    auto e = liveEvents[(size_t) i].event;
+                    e.offset = offset;
+                    add (e);
+                }
+            }
+
+        // In time order (stable, so "stop clip notes" stays before the notes at the same moment).
+        for (int i = 1; i < count; ++i)
+            for (int j = i; j > 0 && noteEvents[(size_t) j].offset < noteEvents[(size_t) j - 1].offset; --j)
+                std::swap (noteEvents[(size_t) j], noteEvents[(size_t) j - 1]);
+
+        track.instrument->process (track.state->input.getWritePointer (0), track.state->input.getWritePointer (1),
+                                   numSamples, track.instrumentParameters, noteEvents.data(), count);
+    }
+
+    stopClipNotes = false;
+}
+
+void AudioEngine::recordMidi (int chunkStart, int recordFrom, int numSamples, std::int64_t recordBase) noexcept AETHER_NONBLOCKING
+{
+    // Everything played live from the moment recording started, numbered like samples in a recording.
+    for (int i = 0; i < numLiveEvents; ++i)
+    {
+        const auto& live = liveEvents[(size_t) i];
+        const auto offset = live.offset - chunkStart;
+
+        if (offset < recordFrom || offset >= numSamples)
+            continue;
+
+        RecordedMidiMessage m;
+        m.index = recordBase + (offset - recordFrom);
+        m.size = live.raw.size;
+        std::memcpy (m.data, live.raw.data, sizeof (m.data));
+        recordedMidi.tryPush (m);
+    }
+}
+
 void AudioEngine::processChunk (const TimelineSnapshot& timeline, const float* const* inputs, int numInputs,
-                                float* const* outputs, int numOutputs, int numSamples) noexcept AETHER_NONBLOCKING
+                                float* const* outputs, int numOutputs, int numSamples, int chunkStart) noexcept AETHER_NONBLOCKING
 {
     // Start with the test tone, or silence.
     if (testTone.isSounding())
@@ -564,6 +780,7 @@ void AudioEngine::processChunk (const TimelineSnapshot& timeline, const float* c
 
     // Transport: count-in, then playback (which puts the clips into their channels).
     int done = 0;
+    numSegments = 0;
 
     if (countingIn)
         done = runCountIn (numSamples);
@@ -584,6 +801,8 @@ void AudioEngine::processChunk (const TimelineSnapshot& timeline, const float* c
         // Record continuously (also across loop jumps: the file is one long take).
         if (recordingInto != nullptr)
         {
+            recordMidi (chunkStart, done, numSamples, recordedFrames);
+
             std::array<const float*, maxInputChannels> from {};
             const auto count = std::min (numInputs, maxInputChannels);
 
@@ -599,7 +818,10 @@ void AudioEngine::processChunk (const TimelineSnapshot& timeline, const float* c
     }
 
     if (mixing)
+    {
+        playInstruments (timeline, chunkStart, numSamples);
         mixChannels (timeline, outputs, numOutputs, numSamples);
+    }
 
     // The metronome goes straight to the speakers (not through the master's effects).
     if (metronome.isSounding())
@@ -614,6 +836,7 @@ void AudioEngine::process (const float* const* inputs, int numInputs,
 
     const auto& timeline = timelineExchange.acquire();
     handleCommands (timeline);
+    collectLiveMidi (numSamples);
 
     // Measure the inputs (e.g. the microphone) so the UI can show they are working.
     for (int ch = 0; ch < std::min (numInputs, numMeteredChannels); ++ch)
@@ -644,7 +867,7 @@ void AudioEngine::process (const float* const* inputs, int numInputs,
         for (int ch = 0; ch < usedInputs; ++ch)
             chunkInputs[(size_t) ch] = inputs[ch] != nullptr ? inputs[ch] + start : nullptr;
 
-        processChunk (timeline, chunkInputs.data(), usedInputs, chunkOutputs.data(), usedOutputs, length);
+        processChunk (timeline, chunkInputs.data(), usedInputs, chunkOutputs.data(), usedOutputs, length, start);
     }
 
     // A latency measurement replaces the output while it runs.

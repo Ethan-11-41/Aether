@@ -1,6 +1,7 @@
 // Aether - Copyright (C) 2026 The Aether authors. Licensed under the GNU AGPLv3 or later.
 #include "Recording.h"
 
+#include <algorithm>
 #include <cmath>
 
 #include "MidiClips.h"
@@ -82,6 +83,65 @@ std::optional<Placement> place (const Facts& f, double sampleRate)
     return p;
 }
 
+std::optional<MidiPlacement> placeMidi (const Facts& f, const std::vector<NoteData>& notes, double sampleRate)
+{
+    const auto minimumLength = std::max<std::int64_t> (1, (std::int64_t) std::llround (sampleRate * 0.01));
+    const auto loopLength = f.loopEnd - f.loopStart;
+    const auto wentRound = f.loopEnabled && loopLength >= minimumLength && f.startSample < f.loopEnd
+                        && f.lengthInSamples > f.loopEnd - f.startSample;
+
+    // Where on the timeline the playhead was when each sample of the recording was captured.
+    auto position = [&] (std::int64_t index)
+    {
+        auto p = f.startSample + index;
+        if (wentRound && p >= f.loopEnd)
+            p = f.loopStart + (p - f.loopEnd) % loopLength;
+        return p;
+    };
+
+    MidiPlacement result;
+    auto to = f.startSample + f.lengthInSamples;
+
+    if (wentRound)
+    {
+        result.timelineStart = f.loopStart;
+        to = f.loopEnd;
+    }
+    else
+    {
+        result.timelineStart = f.startSample;
+
+        if (f.punch && loopLength > 0)
+        {
+            result.timelineStart = std::max (result.timelineStart, f.loopStart);
+            to = std::min (to, f.loopEnd);
+        }
+    }
+
+    result.duration = to - result.timelineStart;
+
+    if (result.duration < minimumLength)
+        return std::nullopt;
+
+    for (const auto& n : notes)
+    {
+        // Played in time with what was heard `latency` samples earlier.
+        const auto at = position (n.start) - f.latencySamples;
+
+        if (at < result.timelineStart || at >= to)
+            continue;
+
+        result.notes.push_back ({ n.pitch, n.velocity, (Tick) (at - result.timelineStart),
+                                  (Tick) std::max<std::int64_t> (1, std::min<std::int64_t> (n.length, to - at)) });
+    }
+
+    if (result.notes.empty())
+        return std::nullopt;
+
+    std::sort (result.notes.begin(), result.notes.end(), [] (const NoteData& a, const NoteData& b) { return a.start < b.start; });
+    return result;
+}
+
 juce::String describeInput (int firstChannel, bool stereo)
 {
     if (firstChannel < 0)
@@ -93,20 +153,26 @@ juce::String describeInput (int firstChannel, bool stereo)
     return "Input " + juce::String (firstChannel + 1);
 }
 
-juce::StringArray armedTracks (const Project& project)
+namespace
 {
-    juce::StringArray ids;
-
-    for (int i = 0; i < project.getNumTracks(); ++i)
+    juce::StringArray armedOfKind (const Project& project, TrackKind kind)
     {
-        const auto track = project.getTrack (i);
+        juce::StringArray ids;
 
-        if (track.isArmed() && track.getKind() == TrackKind::audio)
-            ids.add (track.getId());
+        for (int i = 0; i < project.getNumTracks(); ++i)
+        {
+            const auto track = project.getTrack (i);
+
+            if (track.isArmed() && track.getKind() == kind)
+                ids.add (track.getId());
+        }
+
+        return ids;
     }
-
-    return ids;
 }
+
+juce::StringArray armedTracks (const Project& project)       { return armedOfKind (project, TrackKind::audio); }
+juce::StringArray armedMidiTracks (const Project& project)   { return armedOfKind (project, TrackKind::midi); }
 
 } // namespace recording
 
@@ -119,8 +185,9 @@ namespace
         {
             auto track = project.findTrack (id);
 
-            // Not an undo step (see the header). Only audio tracks record, but anything can be switched off.
-            if (track.isValid() && (track.getKind() == TrackKind::audio || ! value))
+            // Not an undo step (see the header). Audio and MIDI tracks record (not buses), but
+            // anything can be switched off.
+            if (track.isValid() && (! track.isBus() || ! value))
                 track.getState().setProperty (property, value, nullptr);
         }
     }
@@ -249,6 +316,17 @@ juce::StringArray edit::addRecordings (Project& project, const std::vector<Recor
     {
         if (! project.findTrack (take.trackId).isValid())
             continue;
+
+        if (take.isMidi)
+        {
+            clearRange (project, take.trackId, take.midiStart, take.midiStart + take.midiLength, false);
+            const auto id = addMidiClip (project, take.trackId, project.findTrack (take.trackId).getName(),
+                                         take.midiStart, take.midiLength, take.notes, false);
+            if (id.isNotEmpty())
+                clipIds.add (id);
+
+            continue;
+        }
 
         const auto tempo = timeline::buildTempoMap (project);
         const auto rate = take.source.sampleRate;

@@ -7,6 +7,7 @@
 #include "MixerRouting.h"
 #include "io/AudioImport.h"
 #include "model/ClipEdits.h"
+#include "model/MidiClips.h"
 #include "model/Mixer.h"
 #include "model/TimelineEdits.h"
 
@@ -83,8 +84,51 @@ namespace
     }
 }
 
+namespace
+{
+    void addMidi (TrackPlayback& channel, const Project& project, const TimelineSnapshot& snapshot, const Track& track,
+                  double sampleRate, MixerResources& resources, const juce::String& focusedTrackId)
+    {
+        // The instrument, with its settings.
+        const auto instrument = midi::instrumentOf (project, track.getId());
+        const auto typeId = instrument[ids::type].toString();
+
+        if (const auto* type = dsp::findEffectType (typeId))
+        {
+            channel.instrument = resources.instrument (instrument[ids::id].toString(), typeId, sampleRate);
+
+            for (size_t i = 0; i < type->parameters.size() && i < channel.instrumentParameters.size(); ++i)
+                channel.instrumentParameters[i] = mixer::getInsertParameter (instrument, type->parameters[i].id);
+        }
+
+        // Every note, in samples (worked out through the tempo map, so notes follow tempo changes).
+        auto toSample = [&snapshot, sampleRate] (Tick tick) { return (std::int64_t) std::llround (snapshot.tempo.ticksToSeconds (tick) * sampleRate); };
+
+        for (const auto& clip : clips::clipsOnTrack (track.getState()))
+        {
+            if (! clip.isMidi())
+                continue;
+
+            for (const auto& n : midi::audibleNotes (clip))
+            {
+                const auto start = clip.getStart() + n.start;
+                const auto from = toSample (start);
+                channel.notes.push_back ({ from, std::max<std::int64_t> (1, toSample (start + n.length) - from),
+                                           (std::uint8_t) n.pitch, (std::uint8_t) n.velocity });
+            }
+        }
+
+        std::sort (channel.notes.begin(), channel.notes.end(),
+                   [] (const NotePlayback& a, const NotePlayback& b) { return a.start < b.start; });
+
+        // What's played on a MIDI keyboard goes to armed or monitoring MIDI tracks, and to the
+        // selected one (so you can just select a track and play).
+        channel.liveInput = track.isArmed() || track.isMonitoring() || track.getId() == focusedTrackId;
+    }
+}
+
 std::unique_ptr<TimelineSnapshot> buildTimelineSnapshot (const Project& project, double sampleRate, const AudioResolver& resolver,
-                                                         MixerResources* resources)
+                                                         MixerResources* resources, const juce::String& focusedTrackId)
 {
     auto snapshot = std::make_unique<TimelineSnapshot>();
     snapshot->tempo = timeline::buildTempoMap (project);
@@ -192,6 +236,9 @@ std::unique_ptr<TimelineSnapshot> buildTimelineSnapshot (const Project& project,
         if (track.getKind() == TrackKind::audio && resolver)
             addClips (channel, *snapshot, track, sampleRate, resolver);
 
+        if (track.getKind() == TrackKind::midi)
+            addMidi (channel, project, *snapshot, track, sampleRate, res, focusedTrackId);
+
         snapshot->tracks.push_back (std::move (channel));
     }
 
@@ -254,7 +301,7 @@ void TimelineSync::update()
         return cache.getAudio (resolveClipFile (where, relativePath));
     };
 
-    auto snapshot = buildTimelineSnapshot (project, cache.getTargetSampleRate(), resolver, &mixerResources);
+    auto snapshot = buildTimelineSnapshot (project, cache.getTargetSampleRate(), resolver, &mixerResources, focusedTrack);
     snapshot->recordRing = recordRing;
     engine.setTimeline (std::move (snapshot));
 }

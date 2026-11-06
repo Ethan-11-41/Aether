@@ -109,6 +109,9 @@ struct Recorder::Session
     std::vector<TrackFile> files;
     std::unique_ptr<Writer> writer;
     recording::Facts facts;           // loop, punch and latency, as they were when recording began
+    juce::StringArray midiTracks;     // armed MIDI tracks
+    std::vector<RecordedMidiMessage> midi;   // everything played while recording
+    int midiLatency = 0;
     double sampleRate = 48000.0;
     std::uint32_t completedAtStart = 0;
     bool stopRequested = false;
@@ -118,9 +121,9 @@ struct Recorder::Session
 //==============================================================================
 Recorder::Recorder (Project& projectToRecordInto, AudioEngine& engineToUse, TimelineSync& syncToUse,
                     std::function<ProjectLocation()> projectLocation, std::function<int()> latency,
-                    std::function<int()> inputCount)
+                    std::function<int()> inputCount, std::function<int()> midiLatency)
     : project (projectToRecordInto), engine (engineToUse), sync (syncToUse), location (std::move (projectLocation)),
-      latencySamples (std::move (latency)), numInputChannels (std::move (inputCount))
+      latencySamples (std::move (latency)), numInputChannels (std::move (inputCount)), midiLatencySamples (std::move (midiLatency))
 {
 }
 
@@ -142,8 +145,12 @@ juce::StringArray Recorder::getRecordingTracks() const
     juce::StringArray ids;
 
     if (session != nullptr)
+    {
         for (const auto& f : session->files)
             ids.add (f.trackId);
+
+        ids.addArray (session->midiTracks);
+    }
 
     return ids;
 }
@@ -154,8 +161,9 @@ juce::String Recorder::start()
         return "Already recording.";
 
     const auto armed = recording::armedTracks (project);
+    const auto armedMidi = recording::armedMidiTracks (project);
 
-    if (armed.isEmpty())
+    if (armed.isEmpty() && armedMidi.isEmpty())
         return "No track is ready to record. Click the R button on a track (record arm) first.";
 
     const auto rate = engine.getCurrentSampleRate();
@@ -254,6 +262,13 @@ juce::String Recorder::start()
     newSession->facts.loopEnd = toSamples (loop.end);
     newSession->facts.punch = (bool) project.getState()[ids::punch];
     newSession->facts.latencySamples = latencySamples ? std::max (0, latencySamples()) : 0;
+    newSession->midiTracks = armedMidi;
+    newSession->midiLatency = midiLatencySamples ? std::max (0, midiLatencySamples()) : 0;
+
+    // Anything left over from before belongs to no recording.
+    for (RecordedMidiMessage leftover; engine.takeRecordedMidi (leftover);)
+    {
+    }
 
     newSession->ring = std::make_shared<RecordingRing> (channels, (int) std::lround (ringSeconds * rate));
     newSession->completedAtStart = engine.getRecordingStatus().completed;
@@ -282,6 +297,9 @@ void Recorder::poll()
 {
     if (session == nullptr)
         return;
+
+    for (RecordedMidiMessage m; engine.takeRecordedMidi (m);)
+        session->midi.push_back (m);
 
     const auto transport = engine.getTransportStatus();
     const auto status = engine.getRecordingStatus();
@@ -352,6 +370,48 @@ void Recorder::finish (const RecordingStatus& status)
         takes.push_back ({ f.trackId,
                            { relativePathInProject (where, f.file), f.name, rate, f.written },
                            *placement });
+    }
+
+    // MIDI: the notes played, placed on every armed MIDI track.
+    for (RecordedMidiMessage m; engine.takeRecordedMidi (m);)
+        session->midi.push_back (m);
+
+    if (! session->midiTracks.isEmpty())
+    {
+        midi::NoteCollector collector;
+        for (const auto& m : session->midi)
+            collector.add (m.index, juce::MidiMessage (m.data, m.size));
+
+        auto facts = session->facts;
+        facts.startSample = status.startSample;
+        facts.lengthInSamples = status.frames;
+        facts.latencySamples = session->midiLatency;
+
+        if (const auto placed = recording::placeMidi (facts, collector.finish (status.frames), rate))
+        {
+            // Samples to ticks, through the tempo map.
+            const auto tempo = timeline::buildTempoMap (project);
+            auto toTick = [&tempo, rate] (std::int64_t sample) { return tempo.secondsToTicks ((double) sample / rate); };
+            const auto clipStart = toTick (placed->timelineStart);
+
+            edit::RecordedTake take;
+            take.isMidi = true;
+            take.midiStart = clipStart;
+            take.midiLength = toTick (placed->timelineStart + placed->duration) - clipStart;
+
+            for (const auto& n : placed->notes)
+            {
+                const auto from = placed->timelineStart + n.start;
+                take.notes.push_back ({ n.pitch, n.velocity, toTick (from) - clipStart,
+                                        std::max<Tick> (1, toTick (from + n.length) - toTick (from)) });
+            }
+
+            for (const auto& trackId : session->midiTracks)
+            {
+                take.trackId = trackId;
+                takes.push_back (take);
+            }
+        }
     }
 
     session = nullptr;

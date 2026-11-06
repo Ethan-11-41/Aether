@@ -9,6 +9,7 @@
 #include "AudioFileCache.h"
 #include "RecordingRing.h"
 #include "dsp/Effect.h"
+#include "dsp/Instrument.h"
 #include "model/Clip.h"
 #include "rt/RealtimeAnnotations.h"
 #include "time/TempoMap.h"
@@ -116,6 +117,13 @@ struct SendPlayback
     std::shared_ptr<SendState> state = std::make_shared<SendState>();
 };
 
+/** One note from a MIDI clip, ready to play: in samples at the engine's rate. */
+struct NotePlayback
+{
+    std::int64_t start = 0, length = 0;
+    std::uint8_t pitch = 60, velocity = 100;
+};
+
 /** One mixer channel: a track (with its clips), a bus, or the master. */
 struct TrackPlayback
 {
@@ -138,6 +146,12 @@ struct TrackPlayback
 
     int armedChannel = -1;                   // an armed track's input, shown on its meter even when
     bool armedStereo = false;                // not monitoring (so you can check the level)
+
+    // MIDI tracks
+    std::shared_ptr<dsp::Instrument> instrument;           // plays the notes into this channel
+    dsp::EffectParameterValues instrumentParameters {};
+    std::vector<NotePlayback> notes;                       // every note of its clips, sorted by start
+    bool liveInput = false;                                // plays what's played on a MIDI keyboard
 };
 
 /** Everything about the project that the audio thread needs, as one read-only object. A new
