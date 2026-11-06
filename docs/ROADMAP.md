@@ -3,7 +3,7 @@
 Aether is built one milestone at a time. After every milestone the app compiles, runs, passes
 its automated tests, and comes with a checklist of things to try (in `docs/testing/`).
 
-Estimate (updated after M7): M0 to M7 took about two days, including testing. The remaining
+Estimate (updated after M8, which completes Phase 1): M0 to M8 took about two days, including testing. The remaining
 milestones are mostly two to three times bigger, and more of them need testing with real
 sound, plug-ins and instruments, so the current guess is roughly **3 to 6 weeks to version 1.0**
 at this pace (Phase 2 about 1.5 to 3 weeks, Phase 3 about 2 to 3 weeks). It depends mostly on
@@ -26,7 +26,7 @@ how quickly testing rounds come back. It will keep being updated.
 | ✅ **M5** | Recording | Record from any input with monitoring, count-in, punch in/out, loop-record multiple takes, automatic latency compensation + calibration |
 | ✅ **M6** | MIDI tracks | Record and play MIDI from a keyboard, the on-screen keyboard or your computer keyboard; a starter synth; basic MIDI file import |
 | ✅ **M7** | Export | Export the mix and per-track stems to WAV, FLAC and MP3 |
-| M8 | Phase 1 hardening | Standard shortcuts, tooltips and drag-and-drop everywhere, Aether's own beginner-friendly audio/MIDI settings panel, a 50-track performance test, bug fixing |
+| ✅ **M8** | Phase 1 hardening | Standard shortcuts, tooltips and drag-and-drop everywhere, Aether's own beginner-friendly audio/MIDI settings panel, a 50-track performance test, bug fixing |
 
 ## Phase 2: making music
 
