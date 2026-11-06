@@ -249,9 +249,12 @@ public:
             const auto sigBar = clicked->bar;
             menu.addSectionHeader (sigBar == 0 ? "Time signature of the song" : "Time signature from bar " + juce::String (sigBar + 1));
 
-            for (auto [n, d] : commonSignatures)
+            for (const auto& signature : commonSignatures)
+            {
+                const auto n = signature.first, d = signature.second;
                 menu.addItem (juce::String (n) + "/" + juce::String (d), true, clicked->numerator == n && clicked->denominator == d,
-                              [&proj, sigBar, n = n, d = d] { edit::setTimeSignature (proj, sigBar, n, d); });
+                              [&proj, sigBar, n, d] { edit::setTimeSignature (proj, sigBar, n, d); });
+            }
 
             if (sigBar > 0)
             {
@@ -263,9 +266,12 @@ public:
         {
             menu.addSectionHeader ("Change the time signature from bar " + juce::String (bar + 1));
 
-            for (auto [n, d] : commonSignatures)
+            for (const auto& signature : commonSignatures)
+            {
+                const auto n = signature.first, d = signature.second;
                 menu.addItem (juce::String (n) + "/" + juce::String (d),
-                              [&proj, bar, n = n, d = d] { edit::setTimeSignature (proj, bar, n, d); });
+                              [&proj, bar, n, d] { edit::setTimeSignature (proj, bar, n, d); });
+            }
         }
 
         if (menu.getNumItems() > 0)
@@ -538,7 +544,7 @@ public:
 
     juce::String getTooltip() override
     {
-        const auto hit = hitTest (getMouseXYRelative().toFloat());
+        const auto hit = findHit (getMouseXYRelative().toFloat());
 
         switch (hit.zone)
         {
@@ -562,8 +568,6 @@ public:
         const auto rowHeight = TrackListComponent::rowHeight;
         const auto scrollY = owner.trackViewport.getViewPositionY();
         const auto& proj = owner.project;
-        const auto selectedTrack = owner.trackList.getSelectedTrackId();
-
         for (int i = 0; i < proj.getNumTracks(); ++i)
         {
             const auto y = i * rowHeight - scrollY;
@@ -572,8 +576,17 @@ public:
 
             const auto track = proj.getTrack (i);
             juce::Rectangle<int> row (0, y, getWidth(), rowHeight);
-            g.setColour (track.getId() == selectedTrack ? colours.panelRaised.withAlpha (0.55f) : colours.panel.withAlpha (0.35f));
+            g.setColour (owner.trackList.isTrackSelected (track.getId()) ? colours.panelRaised.withAlpha (0.55f) : colours.panel.withAlpha (0.35f));
             g.fillRect (row);
+
+            if (track.isBus())
+            {
+                // Buses have no clips: say so, faintly.
+                g.setColour (colours.textDim.withAlpha (0.45f));
+                g.setFont (juce::FontOptions (12.0f));
+                g.drawText ("Bus: other tracks play into it (choose its tracks' Output in the mixer or by right-clicking them)",
+                            row.reduced (12, 0), juce::Justification::centredLeft, true);
+            }
         }
 
         owner.drawGrid (g, getLocalBounds(), false);
@@ -599,7 +612,9 @@ public:
 
     void mouseMove (const juce::MouseEvent& e) override
     {
-        switch (hitTest (e.position).zone)
+        const auto hit = findHit (e.position);
+
+        switch (hit.zone)
         {
             case Zone::trimStart:
             case Zone::trimEnd:  setMouseCursor (juce::MouseCursor::LeftRightResizeCursor); break;
@@ -608,17 +623,35 @@ public:
             case Zone::body:     setMouseCursor (juce::MouseCursor::DraggingHandCursor); break;
             case Zone::none:     setMouseCursor (juce::MouseCursor::NormalCursor); break;
         }
+
+        // The fade handles only show on the clip under the mouse.
+        setHoveredClip (hit.zone != Zone::none ? hit.clip.getId() : juce::String());
+    }
+
+    void mouseExit (const juce::MouseEvent&) override
+    {
+        if (drag.zone == Zone::none)
+            setHoveredClip ({});
+    }
+
+    void setHoveredClip (const juce::String& clipId)
+    {
+        if (hoveredClipId != clipId)
+        {
+            hoveredClipId = clipId;
+            repaint();
+        }
     }
 
     void mouseDown (const juce::MouseEvent& e) override
     {
-        const auto hit = hitTest (e.position);
+        const auto hit = findHit (e.position);
         const auto row = rowAt (e.y);
         owner.trackList.grabKeyboardFocus();
         drag = {};
 
         if (juce::isPositiveAndBelow (row, owner.project.getNumTracks()))
-            owner.trackList.selectTrack (owner.project.getTrack (row).getId());
+            owner.trackList.focusTrack (owner.project.getTrack (row).getId());
 
         if (e.mods.isPopupMenu())
         {
@@ -745,7 +778,7 @@ public:
 
     void mouseDoubleClick (const juce::MouseEvent& e) override
     {
-        const auto hit = hitTest (e.position);
+        const auto hit = findHit (e.position);
 
         if (hit.zone == Zone::body)
             askForClipName (hit.clip.getId());
@@ -784,6 +817,8 @@ private:
         bool moved = false;
         std::vector<Original> originals;
     };
+
+    juce::String hoveredClipId;
 
     int rowAt (int y) const
     {
@@ -828,7 +863,7 @@ private:
         return boxes;
     }
 
-    Hit hitTest (juce::Point<float> p) const
+    Hit findHit (juce::Point<float> p) const
     {
         const auto boxes = layoutClips();
 
@@ -965,11 +1000,18 @@ private:
             const auto curve = isFadeIn ? clip.getFadeInCurve() : clip.getFadeOutCurve();
             const auto from = isFadeIn ? 0.0 : (double) (clip.getDuration() - length);
 
-            // The handle: where the fade ends (or starts).
-            const auto handleX = xForClipPosition (clip, isFadeIn ? (double) length : from);
-            g.setColour (colours.text.withAlpha (0.85f));
-            g.fillRect (juce::Rectangle<float> (fadeHandleSize, fadeHandleSize)
-                            .withCentre ({ juce::jlimit (area.getX() + 4.0f, area.getRight() - 4.0f, handleX), area.getY() + 5.0f }));
+            // The handle (a small dot where the fade ends or starts), only while the mouse is
+            // over the clip or dragging its fade.
+            if (clip.getId() == hoveredClipId || (drag.clipId == clip.getId() && (drag.zone == Zone::fadeIn || drag.zone == Zone::fadeOut)))
+            {
+                const auto handleX = xForClipPosition (clip, isFadeIn ? (double) length : from);
+                const auto dot = juce::Rectangle<float> (7.0f, 7.0f)
+                                     .withCentre ({ juce::jlimit (area.getX() + 5.0f, area.getRight() - 5.0f, handleX), area.getY() + 5.0f });
+                g.setColour (juce::Colours::black.withAlpha (0.45f));
+                g.fillEllipse (dot.expanded (1.5f));
+                g.setColour (colours.text);
+                g.fillEllipse (dot);
+            }
 
             if (length <= 0)
                 return;
@@ -1003,6 +1045,27 @@ private:
         juce::Component::SafePointer<TimelineComponent> safeOwner (&owner);
         juce::PopupMenu menu;
 
+        // What the file is, e.g. "Guitar.wav: 44.1 kHz, stereo, played at 48 kHz".
+        {
+            const auto rateText = [] (double rate)
+            {
+                return juce::String (rate / 1000.0, std::fmod (rate, 1000.0) == 0.0 ? 0 : 1) + " kHz";
+            };
+
+            juce::String info = juce::File::createFileWithoutCheckingPath (clip.getFile()).getFileName() + ": "
+                              + rateText (clip.getSourceRate());
+
+            if (const auto audio = owner.audioFiles.getAudio (owner.resolve (clip.getFile())))
+            {
+                info << (audio->samples.getNumChannels() > 1 ? ", stereo" : ", mono");
+
+                if (audio->sampleRate != clip.getSourceRate())
+                    info << " (converted to " << rateText (audio->sampleRate) << " for your sound card)";
+            }
+
+            menu.addSectionHeader (info);
+        }
+
         menu.addItem ("Split at the playhead (S)", [safeOwner] { if (safeOwner) safeOwner->splitClipsAtPlayhead(); });
         menu.addItem ("Duplicate (Ctrl+D)", [safeOwner] { if (safeOwner) safeOwner->duplicateSelectedClips(); });
         menu.addItem ("Delete (Delete)", [safeOwner] { if (safeOwner) safeOwner->deleteSelectedClips(); });
@@ -1010,9 +1073,9 @@ private:
         menu.addItem ("Loop this clip", true, clip.isLooping(), [&proj, id, loop = ! clip.isLooping()] { edit::setClipLooping (proj, id, loop); });
 
         juce::PopupMenu volume;
-        for (auto [name, change] : { std::pair { "Louder (+1.5 dB)", 1.5 }, std::pair { "Quieter (-1.5 dB)", -1.5 },
-                                     std::pair { "Quieter (-6 dB)", -6.0 } })
-            volume.addItem (name, [&proj, id, change = change, current = clip.getGainDb()] { edit::setClipGain (proj, id, current + change); });
+        for (const auto& step : { std::pair { "Louder (+1.5 dB)", 1.5 }, std::pair { "Quieter (-1.5 dB)", -1.5 },
+                                  std::pair { "Quieter (-6 dB)", -6.0 } })
+            volume.addItem (step.first, [&proj, id, change = step.second, current = clip.getGainDb()] { edit::setClipGain (proj, id, current + change); });
         volume.addItem ("Back to 0 dB", clip.getGainDb() != 0.0, false, [&proj, id] { edit::setClipGain (proj, id, 0.0); });
         menu.addSubMenu ("Volume (now " + juce::String (clip.getGainDb(), 1) + " dB)", volume);
 
@@ -1021,9 +1084,10 @@ private:
             juce::PopupMenu shapes;
             const auto current = isFadeIn ? clip.getFadeInCurve() : clip.getFadeOutCurve();
 
-            for (auto [name, curve] : { std::pair { "Smooth", FadeCurve::smooth }, std::pair { "Straight line", FadeCurve::linear },
-                                        std::pair { "Fast", FadeCurve::fast }, std::pair { "Slow", FadeCurve::slow } })
-                shapes.addItem (name, true, current == curve, [&proj, id, isFadeIn, curve = curve] { edit::setClipFadeCurve (proj, id, isFadeIn, curve); });
+            for (const auto& shape : { std::pair { "Smooth", FadeCurve::smooth }, std::pair { "Straight line", FadeCurve::linear },
+                                       std::pair { "Fast", FadeCurve::fast }, std::pair { "Slow", FadeCurve::slow } })
+                shapes.addItem (shape.first, true, current == shape.second,
+                                [&proj, id, isFadeIn, curve = shape.second] { edit::setClipFadeCurve (proj, id, isFadeIn, curve); });
 
             menu.addSubMenu (isFadeIn ? "Fade-in shape" : "Fade-out shape", shapes);
         }

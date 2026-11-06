@@ -1,7 +1,9 @@
 // Aether - Copyright (C) 2026 The Aether authors. Licensed under the GNU AGPLv3 or later.
 #include "TrackListComponent.h"
 
+#include "MixerControls.h"
 #include "model/EditCommands.h"
+#include "model/Mixer.h"
 #include "model/TrackColours.h"
 
 namespace aether::ui
@@ -14,17 +16,42 @@ class TrackListComponent::Header final : public juce::Component,
 {
 public:
     Header (TrackListComponent& ownerToUse, Track trackToShow)
-        : owner (ownerToUse), track (std::move (trackToShow))
+        : owner (ownerToUse), track (std::move (trackToShow)),
+          mute (owner.theme, "M", owner.theme.warning),
+          solo (owner.theme, "S", owner.theme.meterMid),
+          volume (owner.theme, false),
+          pan (owner.theme),
+          meter (owner.theme, true)
     {
-        setTooltip ("Double-click the name to rename. Drag to move the track. Right-click for more.");
+        setTooltip ("Click to select (Ctrl+click: several, Shift+click: a range). Double-click the name to rename. "
+                    "Drag to move the track. Right-click for more.");
         setWantsKeyboardFocus (false);
+
+        auto& list = owner;
+        const auto id = track.getId();
+        auto group = [&list, id] { return list.tracksToEdit (id); };
+
+        mute.isOn = [this] { return track.isMuted(); };
+        mute.onClick = [this, &list, group] { edit::setMuted (list.project, group(), ! track.isMuted()); };
+        mute.setTooltip ("Mute: silence this track (and the other selected tracks, if it's selected).");
+
+        solo.isOn = [this] { return track.isSoloed(); };
+        solo.onClick = [this, &list, group] { edit::setSoloed (list.project, group(), ! track.isSoloed()); };
+        solo.setTooltip ("Solo: hear only the soloed tracks.");
+
+        connectVolume (volume, list.project, [id] { return id; }, group);
+        connectPan (pan, list.project, [id] { return id; }, group);
+
+        for (auto* control : std::initializer_list<juce::Component*> { &mute, &solo, &volume, &pan, &meter })
+            addAndMakeVisible (control);
     }
 
     const Track& getTrack() const   { return track; }
     juce::TextEditor* getEditor() const   { return editor.get(); }
+    StereoMeter& getMeter()         { return meter; }
 
     juce::Rectangle<int> getColourStripArea() const   { return getLocalBounds().removeFromLeft (14); }
-    juce::Rectangle<int> getNameArea() const          { return getLocalBounds().withTrimmedLeft (26).withTrimmedRight (8).removeFromTop (getHeight() / 2 + 4).withTrimmedTop (8); }
+    juce::Rectangle<int> getNameArea() const          { return getLocalBounds().withTrimmedLeft (26).withTrimmedRight (20).removeFromTop (getHeight() / 2 + 4).withTrimmedTop (8); }
 
     void startRenaming()
     {
@@ -48,7 +75,7 @@ public:
     void paint (juce::Graphics& g) override
     {
         const auto& t = owner.theme;
-        const auto selected = owner.selectedTrackId == track.getId();
+        const auto selected = owner.isTrackSelected (track.getId());
         auto bounds = getLocalBounds();
 
         g.setColour (selected ? t.panelRaised : t.panel);
@@ -73,25 +100,41 @@ public:
             g.drawText (track.getName(), getNameArea(), juce::Justification::centredLeft, true);
         }
 
-        // Kind badge, e.g. "AUDIO" or "MIDI".
-        const auto kindText = track.getKind() == TrackKind::midi ? juce::String ("MIDI") : juce::String ("AUDIO");
-        auto badge = juce::Rectangle<int> (26, getHeight() / 2 + 6, 52, 18);
+        // Kind badge, e.g. "AUDIO", "MIDI" or "BUS".
+        const auto kindText = track.getKind() == TrackKind::midi ? juce::String ("MIDI")
+                            : track.isBus() ? juce::String ("BUS") : juce::String ("AUDIO");
         g.setColour (track.getColour().withAlpha (0.18f));
-        g.fillRoundedRectangle (badge.toFloat(), 4.0f);
+        g.fillRoundedRectangle (getBadgeArea().toFloat(), 4.0f);
         g.setColour (track.getColour().brighter (0.3f));
-        g.setFont (juce::FontOptions (11.0f, juce::Font::bold));
-        g.drawText (kindText, badge, juce::Justification::centred);
+        g.setFont (juce::FontOptions (10.0f, juce::Font::bold));
+        g.drawText (kindText, getBadgeArea(), juce::Justification::centred);
     }
+
+    juce::Rectangle<int> getBadgeArea() const   { return { 26, getHeight() / 2 + 6, 42, 18 }; }
 
     void resized() override
     {
         if (editor != nullptr)
             editor->setBounds (getNameArea().expanded (2, 2));
+
+        // Bottom row: badge, M, S, volume, pan; and a level meter down the right-hand edge.
+        const auto rowY = getHeight() / 2 + 6;
+        mute.setBounds (74, rowY, 20, 18);
+        solo.setBounds (97, rowY, 20, 18);
+        meter.setBounds (getWidth() - 11, 8, 6, getHeight() - 16);
+        pan.setBounds (getWidth() - 40, rowY - 3, 24, 24);
+        volume.setBounds (122, rowY, std::max (20, getWidth() - 46 - 122), 18);
     }
 
     void mouseDown (const juce::MouseEvent& e) override
     {
-        owner.selectTrack (track.getId());
+        // A right-click on a track that isn't selected selects just that one; on a selected
+        // track it keeps the selection, so the menu can act on all of them.
+        if (e.mods.isPopupMenu())
+            owner.focusTrack (track.getId());
+        else
+            owner.selectTrack (track.getId(), e.mods);
+
         owner.grabKeyboardFocus();
         dragging = false;
 
@@ -154,6 +197,10 @@ private:
 
     TrackListComponent& owner;
     Track track;
+    ToggleBox mute, solo;
+    VolumeFader volume;
+    PanKnob pan;
+    StereoMeter meter;
     std::unique_ptr<juce::TextEditor> editor;
     bool dragging = false;
 };
@@ -183,8 +230,16 @@ void TrackListComponent::rebuild()
     }
 
     // Keep the selection valid.
+    for (int i = selectedIds.size(); --i >= 0;)
+        if (project.indexOfTrack (selectedIds[i]) < 0)
+            selectedIds.remove (i);
+
     if (project.indexOfTrack (selectedTrackId) < 0)
-        selectedTrackId = project.getNumTracks() > 0 ? project.getTrack (0).getId() : juce::String();
+        selectedTrackId = ! selectedIds.isEmpty() ? selectedIds[0]
+                        : project.getNumTracks() > 0 ? project.getTrack (0).getId() : juce::String();
+
+    if (selectedTrackId.isNotEmpty())
+        selectedIds.addIfNotAlreadyThere (selectedTrackId);
 
     setSize (getWidth(), getIdealHeight());
     resized();
@@ -192,6 +247,94 @@ void TrackListComponent::rebuild()
 
     if (onSelectionChanged)
         onSelectionChanged();
+}
+
+juce::StringArray TrackListComponent::getSelectedTrackIds() const
+{
+    juce::StringArray ids;
+
+    for (int i = 0; i < project.getNumTracks(); ++i)
+        if (selectedIds.contains (project.getTrack (i).getId()))
+            ids.add (project.getTrack (i).getId());
+
+    return ids;
+}
+
+juce::StringArray TrackListComponent::tracksToEdit (const juce::String& trackId) const
+{
+    return isTrackSelected (trackId) ? getSelectedTrackIds() : juce::StringArray { trackId };
+}
+
+void TrackListComponent::selectionChanged()
+{
+    repaintHeaders();
+
+    if (onSelectionChanged)
+        onSelectionChanged();
+}
+
+void TrackListComponent::selectTrack (const juce::String& trackId, juce::ModifierKeys mods)
+{
+    if (project.indexOfTrack (trackId) < 0)
+        return;
+
+    if (mods.isCommandDown())
+    {
+        // Add or remove this one; the focus moves to it (or to another selected track).
+        if (selectedIds.contains (trackId) && selectedIds.size() > 1)
+        {
+            selectedIds.removeString (trackId);
+            selectedTrackId = getSelectedTrackIds()[0];
+        }
+        else
+        {
+            selectedIds.addIfNotAlreadyThere (trackId);
+            selectedTrackId = trackId;
+        }
+
+        anchorTrackId = trackId;
+        selectionChanged();
+        return;
+    }
+
+    if (mods.isShiftDown() && project.indexOfTrack (anchorTrackId) >= 0)
+    {
+        const auto from = project.indexOfTrack (anchorTrackId);
+        const auto to = project.indexOfTrack (trackId);
+        selectedIds.clear();
+
+        for (int i = std::min (from, to); i <= std::max (from, to); ++i)
+            selectedIds.add (project.getTrack (i).getId());
+
+        selectedTrackId = trackId;
+        selectionChanged();
+        return;
+    }
+
+    selectTrack (trackId);
+}
+
+void TrackListComponent::focusTrack (const juce::String& trackId)
+{
+    if (! isTrackSelected (trackId))
+    {
+        selectTrack (trackId);
+    }
+    else if (selectedTrackId != trackId)
+    {
+        selectedTrackId = trackId;
+        selectionChanged();
+    }
+}
+
+void TrackListComponent::updateMeters (const std::function<std::pair<float, float> (const juce::String&)>& peaksOf,
+                                       float elapsedSeconds)
+{
+    for (auto& header : headers)
+    {
+        const auto [left, right] = peaksOf (header->getTrack().getId());
+        header->getMeter().pushLevels (left, right, elapsedSeconds);
+    }
 }
 
 void TrackListComponent::repaintHeaders()
@@ -207,10 +350,12 @@ int TrackListComponent::getIdealHeight() const
 
 void TrackListComponent::selectTrack (const juce::String& trackId)
 {
-    if (selectedTrackId == trackId || project.indexOfTrack (trackId) < 0)
+    if (project.indexOfTrack (trackId) < 0 || (selectedTrackId == trackId && selectedIds.size() == 1))
         return;
 
     selectedTrackId = trackId;
+    anchorTrackId = trackId;
+    selectedIds = { trackId };
     repaintHeaders();
 
     // Scroll so the selected track is visible.
@@ -260,8 +405,9 @@ juce::TextEditor* TrackListComponent::getActiveRenameEditor() const
 void TrackListComponent::showColourMenu (const juce::String& trackId)
 {
     const auto track = project.findTrack (trackId);
+    const auto targets = tracksToEdit (trackId);
     juce::PopupMenu menu;
-    menu.addSectionHeader ("Track colour");
+    menu.addSectionHeader (targets.size() > 1 ? "Colour of the " + juce::String (targets.size()) + " selected tracks" : "Track colour");
 
     const auto& colours = trackColours::palette();
     const auto& names = trackColours::names();
@@ -272,10 +418,10 @@ void TrackListComponent::showColourMenu (const juce::String& trackId)
         juce::PopupMenu::Item item (names[i]);
         item.setColour (colour);
         item.setTicked (track.getColour() == colour);
-        item.setAction ([safeThis = SafePointer<TrackListComponent> (this), trackId, colour]
+        item.setAction ([safeThis = SafePointer<TrackListComponent> (this), targets, colour]
         {
             if (safeThis != nullptr)
-                edit::setTrackColour (safeThis->project, trackId, colour);
+                edit::setTracksColour (safeThis->project, targets, colour);
         });
         menu.addItem (item);
     }
@@ -306,8 +452,31 @@ void TrackListComponent::showContextMenu (const juce::String& trackId)
     menu.addItem ("Move down (Ctrl+Down)", index < project.getNumTracks() - 1, false,
                   whenStillOpen ([trackId, index] (TrackListComponent& list) { edit::moveTrack (list.project, trackId, index + 1); }));
     menu.addSeparator();
-    menu.addItem ("Delete track (Delete)",
-                  whenStillOpen ([trackId] (TrackListComponent& list) { edit::deleteTrack (list.project, trackId); }));
+
+    const auto targets = tracksToEdit (trackId);
+    const auto track = project.findTrack (trackId);
+    menu.addItem (track.isMuted() ? "Unmute" : "Mute",
+                  whenStillOpen ([targets, mute = ! track.isMuted()] (TrackListComponent& list) { edit::setMuted (list.project, targets, mute); }));
+    menu.addItem (track.isSoloed() ? "Unsolo" : "Solo",
+                  whenStillOpen ([targets, solo = ! track.isSoloed()] (TrackListComponent& list) { edit::setSoloed (list.project, targets, solo); }));
+
+    // Where the sound goes: the master, or a bus.
+    if (! track.isBus() || mixer::possibleOutputs (project, trackId).size() > 0)
+    {
+        juce::PopupMenu outputs;
+        outputs.addItem ("Master", true, track.getOutput().isEmpty(),
+                         whenStillOpen ([targets] (TrackListComponent& list) { edit::setOutput (list.project, targets, {}); }));
+
+        for (const auto& busId : mixer::possibleOutputs (project, trackId))
+            outputs.addItem (project.findTrack (busId).getName(), true, track.getOutput() == busId,
+                             whenStillOpen ([targets, busId] (TrackListComponent& list) { edit::setOutput (list.project, targets, busId); }));
+
+        menu.addSubMenu ("Output", outputs);
+    }
+
+    menu.addSeparator();
+    menu.addItem (targets.size() > 1 ? "Delete " + juce::String (targets.size()) + " tracks (Delete)" : "Delete track (Delete)",
+                  whenStillOpen ([targets] (TrackListComponent& list) { edit::deleteTracks (list.project, targets); }));
 
     menu.showMenuAsync (juce::PopupMenu::Options().withMousePosition());
 }
@@ -386,8 +555,38 @@ void TrackListComponent::resized()
 
 bool TrackListComponent::keyPressed (const juce::KeyPress& key)
 {
-    if (key == juce::KeyPress::upKey)   { selectRelative (-1); return true; }
-    if (key == juce::KeyPress::downKey) { selectRelative (+1); return true; }
+    if (key.getKeyCode() == juce::KeyPress::upKey && ! key.getModifiers().isCommandDown())
+    {
+        if (key.getModifiers().isShiftDown())
+        {
+            const auto index = project.indexOfTrack (selectedTrackId);
+            if (index > 0)
+                selectTrack (project.getTrack (index - 1).getId(), juce::ModifierKeys::shiftModifier);
+        }
+        else
+        {
+            selectRelative (-1);
+        }
+
+        return true;
+    }
+
+    if (key.getKeyCode() == juce::KeyPress::downKey && ! key.getModifiers().isCommandDown())
+    {
+        if (key.getModifiers().isShiftDown())
+        {
+            const auto index = project.indexOfTrack (selectedTrackId);
+            if (index >= 0 && index < project.getNumTracks() - 1)
+                selectTrack (project.getTrack (index + 1).getId(), juce::ModifierKeys::shiftModifier);
+        }
+        else
+        {
+            selectRelative (+1);
+        }
+
+        return true;
+    }
+
     return false;
 }
 

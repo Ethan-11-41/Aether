@@ -11,7 +11,11 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "engine/AudioEngine.h"
+#include "engine/TimelineSync.h"
 #include "engine/rt/SpscQueue.h"
+#include "model/ClipEdits.h"
+#include "model/EditCommands.h"
+#include "model/Mixer.h"
 
 TEST_CASE ("AudioEngine::process is real-time safe in every state", "[realtime]")
 {
@@ -141,5 +145,60 @@ TEST_CASE ("Clip playback is real-time safe", "[realtime]")
     for (int block = 0; block < 1000; ++block)
         engine.process (nullptr, 0, block % 2 == 0 ? stereo : single, block % 2 == 0 ? 2 : 1, 256);
 
+    SUCCEED ("no real-time violations");
+}
+
+TEST_CASE ("The mixer, buses, sends and effects are real-time safe", "[realtime]")
+{
+    using namespace aether;
+    Project project;
+    const auto a = edit::addTrack (project, TrackKind::audio).getId();
+    const auto b = edit::addTrack (project, TrackKind::audio).getId();
+    const auto group = edit::addTrack (project, TrackKind::bus).getId();
+    const auto fx = edit::addTrack (project, TrackKind::bus).getId();
+
+    edit::addAudioClip (project, a, { "Audio/a.wav", "a", 48000.0, 96000 }, 0);
+    edit::addAudioClip (project, b, { "Audio/b.wav", "b", 48000.0, 96000 }, 0);
+    edit::setOutput (project, { a, b }, group);
+    edit::addSend (project, a, fx);
+    edit::setSendPreFader (project, edit::addSend (project, b, fx), true);
+    edit::addInsert (project, a, "delay");
+    edit::addInsert (project, fx, "reverb");
+    edit::addInsert (project, mixer::masterId, "delay");
+    edit::setPan (project, a, -0.3);
+
+    auto audio = std::make_shared<AudioData>();
+    audio->sampleRate = 48000.0;
+    audio->samples.setSize (2, 96000);
+    audio->samples.clear();
+    audio->samples.setSample (0, 100, 1.0f);
+
+    AudioEngine engine;
+    engine.prepare (48000.0, 2048);
+    MixerResources resources;
+    auto resolver = [audio] (const juce::String&) { return audio; };
+    engine.setTimeline (buildTimelineSnapshot (project, 48000.0, resolver, &resources));
+    engine.play();
+
+    std::vector<float> left (2048), right (2048);
+    float* outputs[] = { left.data(), right.data() };
+
+    for (int block = 0; block < 600; ++block)
+    {
+        // The UI keeps editing (volume, mute, solo, effect settings) while audio runs.
+        if (block % 40 == 20)
+        {
+            edit::setVolume (project, a, -(double) (block % 12));
+            edit::setMuted (project, { b }, block % 80 == 20);
+            edit::setSoloed (project, { group }, block % 120 == 20);
+            engine.setTimeline (buildTimelineSnapshot (project, 48000.0, resolver, &resources));
+            engine.collectGarbage();
+        }
+
+        const auto blockSize = 1 + (block * 37) % 2048;   // odd sizes, and blocks bigger than a mixer chunk
+        engine.process (nullptr, 0, outputs, block % 3 == 0 ? 1 : 2, blockSize);
+    }
+
+    engine.collectGarbage();
     SUCCEED ("no real-time violations");
 }

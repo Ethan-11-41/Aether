@@ -93,6 +93,7 @@ void AudioEngine::prepare (double newSampleRate, int /*maximumBlockSize*/)
         positionSamples = (std::int64_t) std::llround ((double) positionSamples * newSampleRate / sampleRate);
 
     sampleRate = newSampleRate;
+    rampSamples = std::max (1, (int) std::lround (sampleRate * 0.01));
     currentRate.store (sampleRate, std::memory_order_relaxed);
     testTone.prepare (sampleRate);
     metronome.prepare (sampleRate);
@@ -205,11 +206,14 @@ void AudioEngine::renderClips (const TimelineSnapshot& timeline, std::int64_t fr
 {
     // The clip positions were worked out for one sample rate; if the device has just changed
     // rate, stay silent until the UI thread has sent a matching timeline.
-    if (timeline.sampleRate != sampleRate || numOutputChannels <= 0)
+    if (timeline.sampleRate != sampleRate)
         return;
 
     for (const auto& track : timeline.tracks)
     {
+        auto* left = track.state->input.getWritePointer (0);
+        auto* right = track.state->input.getWritePointer (1);
+
         for (const auto& clip : track.clips)
         {
             if (clip.start >= toSample)
@@ -242,27 +246,168 @@ void AudioEngine::renderClips (const TimelineSnapshot& timeline, std::int64_t fr
                 if (clip.duration - pos <= clip.fadeOut)
                     gain *= fadeShape (clip.fadeOutCurve, (double) (clip.duration - pos - 1) / (double) clip.fadeOut);
 
+                // Mono files play on both sides; stereo files left to left, right to right.
                 const auto index = blockOffset + (int) (s - fromSample);
-
-                if (numOutputChannels == 1)
-                {
-                    // Mono output: average the file's channels.
-                    float sum = 0.0f;
-                    for (int ch = 0; ch < sourceChannels; ++ch)
-                        sum += samples.getSample (ch, (int) source);
-
-                    if (auto* out = outputChannels[0])
-                        out[index] += sum / (float) sourceChannels * gain;
-                }
-                else
-                {
-                    // Mono files play on both sides; stereo files left to left, right to right.
-                    for (int ch = 0; ch < 2; ++ch)
-                        if (auto* out = outputChannels[ch])
-                            out[index] += samples.getSample (std::min (ch, sourceChannels - 1), (int) source) * gain;
-                }
+                left[index] += samples.getSample (0, (int) source) * gain;
+                right[index] += samples.getSample (std::min (1, sourceChannels - 1), (int) source) * gain;
             }
         }
+    }
+}
+
+namespace
+{
+    /** Multiplies a signal by a smoothly changing gain. */
+    void applyGain (GainRamp& ramp, float target, int rampLength, float* data, int numSamples) noexcept AETHER_NONBLOCKING
+    {
+        ramp.setTarget (target, rampLength);
+
+        if (ramp.isSteady())
+        {
+            const auto gain = ramp.getCurrent();
+
+            if (gain != 1.0f)
+                for (int i = 0; i < numSamples; ++i)
+                    data[i] *= gain;
+
+            return;
+        }
+
+        for (int i = 0; i < numSamples; ++i)
+            data[i] *= ramp.next();
+    }
+
+    /** Adds a stereo signal into another, through a smoothly changing gain. */
+    void addWithGain (GainRamp& ramp, float target, int rampLength, const float* fromLeft, const float* fromRight,
+                      float* toLeft, float* toRight, int numSamples) noexcept AETHER_NONBLOCKING
+    {
+        ramp.setTarget (target, rampLength);
+
+        if (ramp.isSteady())
+        {
+            const auto gain = ramp.getCurrent();
+
+            if (gain == 0.0f)
+                return;
+
+            for (int i = 0; i < numSamples; ++i)
+            {
+                toLeft[i] += fromLeft[i] * gain;
+                toRight[i] += fromRight[i] * gain;
+            }
+
+            return;
+        }
+
+        for (int i = 0; i < numSamples; ++i)
+        {
+            const auto gain = ramp.next();
+            toLeft[i] += fromLeft[i] * gain;
+            toRight[i] += fromRight[i] * gain;
+        }
+    }
+}
+
+void AudioEngine::processChannel (const TimelineSnapshot& timeline, const TrackPlayback& channel, int index,
+                                  const dsp::EffectContext& context, int numSamples) noexcept AETHER_NONBLOCKING
+{
+    auto& state = *channel.state;
+    auto* left = state.input.getWritePointer (0);
+    auto* right = state.input.getWritePointer (1);
+    const auto numTracks = (int) timeline.tracks.size();
+
+    // Where this channel's sound can go: only to channels later in the list (so nothing is ever
+    // mixed into a channel that has already been processed in this chunk).
+    auto inputOf = [&] (int destination) -> ChannelState*
+    {
+        if (destination > index && destination < numTracks)
+            return timeline.tracks[(size_t) destination].state.get();
+
+        return nullptr;
+    };
+
+    // 1. Effects.
+    for (const auto& insert : channel.inserts)
+        if (! insert.bypassed && insert.effect != nullptr)
+            insert.effect->process (left, right, numSamples, insert.parameters, context);
+
+    // 2. Mute (after the effects, so a muted channel's echoes stop too).
+    state.mute.setTarget (channel.muteGain, rampSamples);
+    if (! state.mute.isSteady() || state.mute.getCurrent() != 1.0f)
+    {
+        auto copy = state.mute;   // the same fade for both sides
+        applyGain (state.mute, channel.muteGain, rampSamples, left, numSamples);
+        applyGain (copy, channel.muteGain, rampSamples, right, numSamples);
+    }
+
+    // 3. Sends taken before the fader.
+    auto doSends = [&] (bool preFader)
+    {
+        for (const auto& send : channel.sends)
+        {
+            if (send.preFader != preFader)
+                continue;
+
+            if (auto* target = inputOf (send.destination))
+                addWithGain (send.state->gain, send.gain, rampSamples, left, right,
+                             target->input.getWritePointer (0), target->input.getWritePointer (1), numSamples);
+        }
+    };
+
+    doSends (true);
+
+    // 4. Volume and pan.
+    applyGain (state.left, channel.leftGain, rampSamples, left, numSamples);
+    applyGain (state.right, channel.rightGain, rampSamples, right, numSamples);
+
+    // 5. Sends after the fader, the meters, and on to the bus or the master.
+    doSends (false);
+
+    updatePeak (state.peaks[0], blockPeak (left, numSamples));
+    updatePeak (state.peaks[1], blockPeak (right, numSamples));
+
+    auto* destination = channel.destination >= 0 ? inputOf (channel.destination) : timeline.master.state.get();
+
+    if (destination != nullptr && destination != &state)
+        addWithGain (state.output, channel.outputGain, rampSamples, left, right,
+                     destination->input.getWritePointer (0), destination->input.getWritePointer (1), numSamples);
+}
+
+void AudioEngine::mixChannels (const TimelineSnapshot& timeline, float* const* outputs, int numOutputs, int numSamples) noexcept AETHER_NONBLOCKING
+{
+    dsp::EffectContext context;
+    context.sampleRate = sampleRate;
+    context.bpm = timeline.tempo.tempoAt (sampleToTick (timeline.tempo, positionSamples));
+
+    for (size_t i = 0; i < timeline.tracks.size(); ++i)
+        processChannel (timeline, timeline.tracks[i], (int) i, context, numSamples);
+
+    // The master: its effects and volume, then out to the sound card.
+    auto& master = *timeline.master.state;
+    auto* left = master.input.getWritePointer (0);
+    auto* right = master.input.getWritePointer (1);
+
+    for (const auto& insert : timeline.master.inserts)
+        if (! insert.bypassed && insert.effect != nullptr)
+            insert.effect->process (left, right, numSamples, insert.parameters, context);
+
+    applyGain (master.left, timeline.master.leftGain, rampSamples, left, numSamples);
+    applyGain (master.right, timeline.master.rightGain, rampSamples, right, numSamples);
+    updatePeak (master.peaks[0], blockPeak (left, numSamples));
+    updatePeak (master.peaks[1], blockPeak (right, numSamples));
+
+    if (numOutputs >= 2)
+    {
+        for (int ch = 0; ch < 2; ++ch)
+            if (auto* out = outputs[ch])
+                for (int i = 0; i < numSamples; ++i)
+                    out[i] += (ch == 0 ? left : right)[i];
+    }
+    else if (numOutputs == 1 && outputs[0] != nullptr)
+    {
+        // A mono output: both sides, averaged.
+        for (int i = 0; i < numSamples; ++i)
+            outputs[0][i] += (left[i] + right[i]) * 0.5f;
     }
 }
 
@@ -300,21 +445,9 @@ void AudioEngine::runPlayback (const TimelineSnapshot& timeline, int blockOffset
     }
 }
 
-void AudioEngine::process (const float* const* inputs, int numInputs,
-                           float* const* outputs, int numOutputs,
-                           int numSamples) noexcept AETHER_NONBLOCKING
+void AudioEngine::processChunk (const TimelineSnapshot& timeline, float* const* outputs, int numOutputs, int numSamples) noexcept AETHER_NONBLOCKING
 {
-    const auto& timeline = timelineExchange.acquire();
-    handleCommands (timeline);
-
-    // Measure the inputs (e.g. the microphone) so the UI can show they are working.
-    for (int ch = 0; ch < std::min (numInputs, numMeteredChannels); ++ch)
-        if (inputs != nullptr && inputs[ch] != nullptr)
-            updatePeak (inputPeaks[(size_t) ch], blockPeak (inputs[ch], numSamples));
-
     // Start with the test tone, or silence.
-    testTone.setActive (testToneRequested.load (std::memory_order_relaxed));
-
     if (testTone.isSounding())
     {
         testTone.render (outputs, numOutputs, numSamples);
@@ -326,9 +459,19 @@ void AudioEngine::process (const float* const* inputs, int numInputs,
                 std::memset (outputs[ch], 0, sizeof (float) * (size_t) numSamples);
     }
 
-    // Transport.
-    outputChannels = outputs;
-    numOutputChannels = numOutputs;
+    // A snapshot made for another sample rate (the device has just changed) stays silent until
+    // the UI thread sends a matching one.
+    const auto mixing = timeline.sampleRate <= 0.0 || timeline.sampleRate == sampleRate;
+
+    if (mixing)
+    {
+        for (const auto& track : timeline.tracks)
+            track.state->input.clear (0, numSamples);
+
+        timeline.master.state->input.clear (0, numSamples);
+    }
+
+    // Transport: count-in, then playback (which puts the clips into their channels).
     int done = 0;
 
     if (countingIn)
@@ -337,8 +480,49 @@ void AudioEngine::process (const float* const* inputs, int numInputs,
     if (playing && done < numSamples)
         runPlayback (timeline, done, numSamples - done);
 
+    if (mixing)
+        mixChannels (timeline, outputs, numOutputs, numSamples);
+
+    // The metronome goes straight to the speakers (not through the master's effects).
     if (metronome.isSounding())
         metronome.render (outputs, numOutputs, numSamples, metronomeGain.load (std::memory_order_relaxed));
+}
+
+void AudioEngine::process (const float* const* inputs, int numInputs,
+                           float* const* outputs, int numOutputs,
+                           int numSamples) noexcept AETHER_NONBLOCKING
+{
+    const juce::ScopedNoDenormals noDenormals;   // very quiet echo tails would otherwise be slow to process
+
+    const auto& timeline = timelineExchange.acquire();
+    handleCommands (timeline);
+
+    // Measure the inputs (e.g. the microphone) so the UI can show they are working.
+    for (int ch = 0; ch < std::min (numInputs, numMeteredChannels); ++ch)
+        if (inputs != nullptr && inputs[ch] != nullptr)
+            updatePeak (inputPeaks[(size_t) ch], blockPeak (inputs[ch], numSamples));
+
+    testTone.setActive (testToneRequested.load (std::memory_order_relaxed));
+
+    // Outputs beyond the ones Aether uses are kept silent.
+    const auto usedOutputs = std::min (numOutputs, maxOutputChannels);
+
+    for (int ch = usedOutputs; ch < numOutputs; ++ch)
+        if (outputs[ch] != nullptr)
+            std::memset (outputs[ch], 0, sizeof (float) * (size_t) numSamples);
+
+    // Work through the block in pieces the mixer's buffers can hold.
+    std::array<float*, maxOutputChannels> chunkOutputs {};
+
+    for (int start = 0; start < numSamples; start += mixChunkSize)
+    {
+        const auto length = std::min (mixChunkSize, numSamples - start);
+
+        for (int ch = 0; ch < usedOutputs; ++ch)
+            chunkOutputs[(size_t) ch] = outputs[ch] != nullptr ? outputs[ch] + start : nullptr;
+
+        processChunk (timeline, chunkOutputs.data(), usedOutputs, length);
+    }
 
     reportPlaying.store (playing, std::memory_order_relaxed);
     reportCountingIn.store (countingIn, std::memory_order_relaxed);

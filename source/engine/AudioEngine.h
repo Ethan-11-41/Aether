@@ -36,8 +36,8 @@ struct TransportCommand
 
 /** The audio engine: everything that runs on the audio thread.
 
-    Milestone 2: the transport (play, stop, position, loop, count-in) and the metronome, plus the
-    test tone and level meters from Milestone 0.
+    The transport (play, stop, position, loop, count-in), the metronome, clip playback and the
+    mixer (tracks, buses, sends, effects, master), plus the test tone and level meters.
 
     The UI thread talks to it only without locks:
       - transport commands (play, stop, locate) go through a lock-free queue,
@@ -115,13 +115,19 @@ public:
 private:
     using Command = TransportCommand;
 
+    static constexpr int maxOutputChannels = 64;
+
     void handleCommands (const TimelineSnapshot& timeline) noexcept AETHER_NONBLOCKING;
+    void processChunk (const TimelineSnapshot& timeline, float* const* outputs, int numOutputs, int numSamples) noexcept AETHER_NONBLOCKING;
     void startCountIn (const TimelineSnapshot& timeline) noexcept AETHER_NONBLOCKING;
     int runCountIn (int numSamples) noexcept AETHER_NONBLOCKING;
     void runPlayback (const TimelineSnapshot& timeline, int blockOffset, int numSamples) noexcept AETHER_NONBLOCKING;
     void clickBeats (const TempoMap& tempo, std::int64_t fromSample, std::int64_t toSample, int blockOffset) noexcept AETHER_NONBLOCKING;
     void renderClips (const TimelineSnapshot& timeline, std::int64_t fromSample, std::int64_t toSample,
                       int blockOffset) noexcept AETHER_NONBLOCKING;
+    void mixChannels (const TimelineSnapshot& timeline, float* const* outputs, int numOutputs, int numSamples) noexcept AETHER_NONBLOCKING;
+    void processChannel (const TimelineSnapshot& timeline, const TrackPlayback& channel, int index,
+                         const dsp::EffectContext& context, int numSamples) noexcept AETHER_NONBLOCKING;
     std::int64_t tickToSample (const TempoMap& tempo, Tick tick) const noexcept AETHER_NONBLOCKING;
     Tick sampleToTick (const TempoMap& tempo, std::int64_t sample) const noexcept AETHER_NONBLOCKING;
 
@@ -130,8 +136,7 @@ private:
 
     double sampleRate = 48000.0;
     std::atomic<double> currentRate { 0.0 };
-    float* const* outputChannels = nullptr;   // the current block's output (audio thread only)
-    int numOutputChannels = 0;
+    int rampSamples = 480;                    // how long volume/mute changes take to fade (10 ms)
 
     // Shared with the UI thread
     rt::SnapshotExchange<TimelineSnapshot> timelineExchange;

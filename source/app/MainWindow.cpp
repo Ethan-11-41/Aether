@@ -491,11 +491,12 @@ void MainContent::deleteSelectedTrack()
     auto* project = ctx.session.getProject();
     const auto trackId = selectedTrackId();
 
-    if (project == nullptr || trackId.isEmpty())
+    if (project == nullptr || trackId.isEmpty() || projectView == nullptr)
         return;
 
-    const auto index = project->indexOfTrack (trackId);
-    edit::deleteTrack (*project, trackId);
+    // All the selected tracks go, in one undo step.
+    const auto index = project->indexOfTrack (projectView->getTrackList().getSelectedTrackIds()[0]);
+    edit::deleteTracks (*project, projectView->getTrackList().getSelectedTrackIds());
 
     // Select the neighbour, so pressing Delete repeatedly works as expected.
     if (project->getNumTracks() > 0 && projectView != nullptr)
@@ -519,7 +520,7 @@ void MainContent::getAllCommands (juce::Array<juce::CommandID>& list)
                      commands::undo, commands::redo, commands::selectAll,
                      commands::importAudio, commands::splitClips, commands::duplicateClips,
                      commands::nudgeLeft, commands::nudgeRight, commands::nudgeLeftFine, commands::nudgeRightFine,
-                     commands::toggleSnap,
+                     commands::toggleSnap, commands::toggleMixer, commands::addBus,
                      commands::addAudioTrack, commands::addMidiTrack, commands::renameTrack, commands::deleteTrack,
                      commands::moveTrackUp, commands::moveTrackDown,
                      commands::playStop, commands::stop, commands::goToStart, commands::toggleLoop,
@@ -611,6 +612,13 @@ void MainContent::getCommandInfo (juce::CommandID id, juce::ApplicationCommandIn
             info.setActive (hasProject);
             break;
 
+        case commands::addBus:
+            info.setInfo ("Add bus", "Add a bus: a channel other tracks can play into, to share effects (like a "
+                          "reverb) or set the volume of several tracks at once", commands::categories::track, 0);
+            info.addDefaultKeypress ('b', ctrl | shift);
+            info.setActive (hasProject);
+            break;
+
         case commands::renameTrack:
             info.setInfo ("Rename track", "Rename the selected track", commands::categories::track, 0);
             info.addDefaultKeypress (KeyPress::F2Key, 0);
@@ -620,8 +628,9 @@ void MainContent::getCommandInfo (juce::CommandID id, juce::ApplicationCommandIn
         case commands::deleteTrack:
         {
             const auto clipsSelected = hasProject && projectView->getTimeline().hasSelectedClips();
-            info.setInfo (clipsSelected ? "Delete selected clips" : "Delete track",
-                          "Delete the selected clips, or the selected track if no clips are selected (you can undo this)",
+            const auto tracks = hasProject ? projectView->getTrackList().getSelectedTrackIds().size() : 0;
+            info.setInfo (clipsSelected ? "Delete selected clips" : tracks > 1 ? "Delete " + juce::String (tracks) + " tracks" : "Delete track",
+                          "Delete the selected clips, or the selected tracks if no clips are selected (you can undo this)",
                           commands::categories::track, 0);
             info.addDefaultKeypress (KeyPress::deleteKey, 0);
             info.addDefaultKeypress (KeyPress::backspaceKey, 0);
@@ -735,6 +744,14 @@ void MainContent::getCommandInfo (juce::CommandID id, juce::ApplicationCommandIn
             info.setInfo ("Zoom out", "Show more of the song", commands::categories::view, 0);
             info.addDefaultKeypress ('-', ctrl);
             info.setActive (hasProject);
+            break;
+
+        case commands::toggleMixer:
+            info.setInfo ("Mixer", "Show or hide the mixer (volume, pan, effects and routing for every track)",
+                          commands::categories::view, 0);
+            info.addDefaultKeypress (KeyPress::F9Key, 0);
+            info.setActive (hasProject);
+            info.setTicked (hasProject && projectView->isMixerVisible());
             break;
 
         case commands::audioSettings:
@@ -880,6 +897,12 @@ bool MainContent::perform (const InvocationInfo& invocation)
             if (projectView != nullptr) projectView->getTimeline().zoomOut();
             return true;
 
+        case commands::toggleMixer:
+            if (projectView != nullptr) projectView->setMixerVisible (! projectView->isMixerVisible());
+            return true;
+
+        case commands::addBus:             addTrack (TrackKind::bus); return true;
+
         case commands::audioSettings:      showAudioSettings(); return true;
         case commands::about:              showAbout(); return true;
         case commands::testCrashRecovery:  testCrashRecovery(); return true;
@@ -902,7 +925,7 @@ bool MainContent::perform (const InvocationInfo& invocation)
 //==============================================================================
 juce::StringArray MainContent::getMenuBarNames()
 {
-    return { "File", "Edit", "Track", "Transport", "Settings", "Help" };
+    return { "File", "Edit", "Track", "Transport", "View", "Settings", "Help" };
 }
 
 juce::PopupMenu MainContent::getMenuForIndex (int menuIndex, const juce::String&)
@@ -953,6 +976,7 @@ juce::PopupMenu MainContent::getMenuForIndex (int menuIndex, const juce::String&
     {
         menu.addCommandItem (cm, commands::addAudioTrack);
         menu.addCommandItem (cm, commands::addMidiTrack);
+        menu.addCommandItem (cm, commands::addBus);
         menu.addCommandItem (cm, commands::importAudio);
         menu.addSeparator();
         menu.addCommandItem (cm, commands::renameTrack);
@@ -969,16 +993,20 @@ juce::PopupMenu MainContent::getMenuForIndex (int menuIndex, const juce::String&
         menu.addSeparator();
         menu.addCommandItem (cm, commands::toggleLoop);
         menu.addCommandItem (cm, commands::toggleMetronome);
+    }
+    else if (menuIndex == 4)
+    {
+        menu.addCommandItem (cm, commands::toggleMixer);
         menu.addSeparator();
         menu.addCommandItem (cm, commands::zoomIn);
         menu.addCommandItem (cm, commands::zoomOut);
         menu.addCommandItem (cm, commands::toggleSnap);
     }
-    else if (menuIndex == 4)
+    else if (menuIndex == 5)
     {
         menu.addCommandItem (cm, commands::audioSettings);
     }
-    else if (menuIndex == 5)
+    else if (menuIndex == 6)
     {
         menu.addCommandItem (cm, commands::about);
         menu.addSeparator();

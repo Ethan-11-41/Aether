@@ -6,6 +6,45 @@ follow [Semantic Versioning](https://semver.org/) (0.x while Aether is in early 
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-06 - Milestone 4: mixer
+
+### Added
+- The mixer (View > Mixer, F9, or the Mixer button): a channel strip for every track and bus,
+  and the master. Each strip has volume (fader), pan, mute, solo, a stereo level meter, up to
+  four effects, up to three sends, and its output (the master or a bus). Drag the bar above it
+  to make it taller or shorter.
+- Buses (Track > Add bus, Ctrl+Shift+B, or "+ Bus"): channels other tracks play into, to share
+  effects or set several tracks' volume at once. Buses can play into other buses. Aether
+  refuses connections that would make a loop.
+- Sends: copy some of a track's sound to a bus (e.g. one with a reverb), after the fader or
+  before it (right-click the send).
+- Solo works "in place": you hear the soloed tracks through their buses, their sends, and the
+  master; soloing a bus lets you hear what plays into it.
+- Two simple, temporary effects: Reverb (size, damping, width, mix) and Delay (time in note
+  lengths that follow the tempo, feedback, tone, ping-pong, mix). Click an effect to change its
+  settings. The full set of effects comes in M13.
+- Track headers now have mute (M), solo (S), volume, pan and a level meter.
+- Select several tracks: Ctrl+click adds or removes one, Shift+click (or Shift+Up/Down) selects
+  a range. Moving one selected track's fader moves them all by the same amount (a quieter track
+  stays quieter); mute, solo, colour, output and delete also work on all selected tracks.
+- Volume, pan and mute changes fade over 10 ms, so they never click.
+- The clip's right-click menu shows the file's sample rate and channels, and whether Aether is
+  converting it for your sound card.
+- Automated tests for the mixer settings and undo, routing and solo, the sound coming out of
+  the mixer (volume, pan, mute, buses, sends, master, meters, echo timing, reverb tail), group
+  fader moves, selection and the mixer panel (177 tests), plus a real-time safety test for the
+  whole mixer with effects while settings change.
+
+### Changed
+- Fade handles on clips are now small dots that appear only when the mouse is over the clip.
+- The toolbar buttons are shorter ("+ Audio", "+ MIDI", "+ Bus"), with a Mixer button on the
+  right. Zoom and snap moved to a new View menu.
+- Deleting a bus sends the tracks that played into it to the master (undo brings it all back).
+
+### Fixed
+- The Delay's note lengths were set up the first time the audio thread used them, which could
+  allocate memory on the audio thread. Found by the RealtimeSanitizer tests before release.
+
 ## [0.4.0] - 2026-11-06 - Milestone 3: arrangement and audio clips
 
 ### Added

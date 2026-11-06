@@ -3,6 +3,8 @@
 
 #include "AppCommands.h"
 
+#include <map>
+
 #include "io/AudioImport.h"
 
 namespace aether
@@ -27,8 +29,10 @@ ProjectView::ProjectView (AppContext& context, Project& projectToShow)
 
     for (auto& b : { ButtonSetup { undoButton,     commands::undo,          "Undo" },
                      ButtonSetup { redoButton,     commands::redo,          "Redo" },
-                     ButtonSetup { addAudioButton, commands::addAudioTrack, "+ Audio track" },
-                     ButtonSetup { addMidiButton,  commands::addMidiTrack,  "+ MIDI track" } })
+                     ButtonSetup { addAudioButton, commands::addAudioTrack, "+ Audio" },
+                     ButtonSetup { addMidiButton,  commands::addMidiTrack,  "+ MIDI" },
+                     ButtonSetup { addBusButton,   commands::addBus,        "+ Bus" },
+                     ButtonSetup { mixerButton,    commands::toggleMixer,   "Mixer" } })
     {
         b.button.setCommandToTrigger (&ctx.commands, b.command, true);
         b.button.setButtonText (b.text);
@@ -82,11 +86,63 @@ ProjectView::ProjectView (AppContext& context, Project& projectToShow)
 
     trackViewport.onScroll = [this] { timeline->tracksScrolled(); };
 
+    // The mixer, below the timeline.
+    mixer = std::make_unique<ui::MixerComponent> (ctx.theme, project, trackList);
+    addChildComponent (*mixer);
+    divider.theme = &ctx.theme;
+    divider.onDragStart = [this] { heightAtDragStart = mixerHeight; };
+    divider.onDrag = [this] (int distance)
+    {
+        mixerHeight = juce::jlimit (ui::MixerComponent::minimumHeight, std::max (ui::MixerComponent::minimumHeight, getHeight() - 300),
+                                    heightAtDragStart + distance);
+        ctx.settings.get().setValue (mixerHeightKey, mixerHeight);
+        resized();
+    };
+    addChildComponent (divider);
+    mixerHeight = ctx.settings.get().getIntValue (mixerHeightKey, 340);
+    setMixerVisible (ctx.settings.get().getBoolValue (mixerVisibleKey, false));
+
     trackList.onSelectionChanged = [this]
     {
         ctx.commands.commandStatusChanged();
-        timeline->tracksScrolled();   // repaint the lanes: the selected one is highlighted
+        timeline->tracksScrolled();   // repaint the lanes: the selected ones are highlighted
+        mixer->selectionChanged();
     };
+
+    startTimerHz (30);   // the level meters
+}
+
+void ProjectView::setMixerVisible (bool shouldBeVisible)
+{
+    mixerVisible = shouldBeVisible;
+    mixer->setVisible (mixerVisible);
+    divider.setVisible (mixerVisible);
+    mixerButton.setToggleState (mixerVisible, juce::dontSendNotification);
+    ctx.settings.get().setValue (mixerVisibleKey, mixerVisible);
+    resized();
+    ctx.commands.commandStatusChanged();
+}
+
+void ProjectView::timerCallback()
+{
+    const auto now = juce::Time::getMillisecondCounterHiRes();
+    const auto elapsed = lastMeterTime > 0.0 ? (float) ((now - lastMeterTime) / 1000.0) : 0.0f;
+    lastMeterTime = now;
+
+    // Each channel's peak is taken once per frame and shared by the track headers and the mixer.
+    std::map<juce::String, std::pair<float, float>> peaks;
+    auto peaksOf = [this, &peaks] (const juce::String& channelId)
+    {
+        auto it = peaks.find (channelId);
+        if (it == peaks.end())
+            it = peaks.emplace (channelId, timelineSync.takeChannelPeaks (channelId)).first;
+        return it->second;
+    };
+
+    trackList.updateMeters (peaksOf, elapsed);
+
+    if (mixerVisible)
+        mixer->updateMeters (peaksOf, elapsed);
 }
 
 void ProjectView::importFiles (const juce::Array<juce::File>& files, const juce::String& trackId, Tick position)
@@ -132,6 +188,7 @@ void ProjectView::chooseFilesToImport (const juce::String& trackId, Tick positio
 
 ProjectView::~ProjectView()
 {
+    stopTimer();
     trackList.onSelectionChanged = nullptr;
     trackViewport.onScroll = nullptr;
 
@@ -177,11 +234,23 @@ void ProjectView::resized()
         bar.removeFromLeft (6);
         redoButton.setBounds (bar.removeFromLeft (64));
         bar.removeFromLeft (18);
-        addAudioButton.setBounds (bar.removeFromLeft (118));
+        addAudioButton.setBounds (bar.removeFromLeft (78));
         bar.removeFromLeft (6);
-        addMidiButton.setBounds (bar.removeFromLeft (112));
+        addMidiButton.setBounds (bar.removeFromLeft (72));
+        bar.removeFromLeft (6);
+        addBusButton.setBounds (bar.removeFromLeft (62));
         bar.removeFromLeft (24);
+        mixerButton.setBounds (bar.removeFromRight (76));
+        bar.removeFromRight (12);
         transportBar.setBounds (bar.removeFromLeft (std::min (bar.getWidth(), ui::TransportBar::idealWidth)));
+    }
+
+    if (mixerVisible)
+    {
+        const auto height = juce::jlimit (ui::MixerComponent::minimumHeight,
+                                          std::max (ui::MixerComponent::minimumHeight, area.getHeight() - 220), mixerHeight);
+        mixer->setBounds (area.removeFromBottom (height));
+        divider.setBounds (area.removeFromBottom (6));
     }
 
     auto left = area.removeFromLeft (trackColumnWidth);

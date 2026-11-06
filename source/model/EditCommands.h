@@ -19,15 +19,20 @@ Track addTrack (Project& project, TrackKind kind, int insertIndex = -1, bool new
 /** Removes a track. Returns false if no track has that id. */
 bool deleteTrack (Project& project, const juce::String& trackId);
 
+/** Removes several tracks in one undo step. Tracks that played into a deleted bus are sent to the
+    master instead. Returns how many were deleted. */
+int deleteTracks (Project& project, const juce::StringArray& trackIds);
+
 /** Renames a track. Leading/trailing spaces are removed; an empty name is ignored. */
 bool renameTrack (Project& project, const juce::String& trackId, const juce::String& newName);
 
 bool setTrackColour (Project& project, const juce::String& trackId, juce::Colour colour);
+bool setTracksColour (Project& project, const juce::StringArray& trackIds, juce::Colour colour);
 
 /** Moves a track to a new position in the list (0 = top). */
 bool moveTrack (Project& project, const juce::String& trackId, int newIndex);
 
-/** The default name for the next new track of a kind, e.g. "Audio 1", "MIDI 2". */
+/** The default name for the next new track of a kind, e.g. "Audio 1", "MIDI 2", "Bus 1". */
 juce::String nextTrackName (const Project& project, TrackKind kind);
 
 /** The colour for the next new track: the first palette colour not used yet. */

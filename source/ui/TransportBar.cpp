@@ -178,18 +178,24 @@ void TransportBar::showSignatureMenu()
     menu.addSectionHeader (current.bar == 0 ? "Time signature of the song"
                                             : "Time signature from bar " + juce::String (current.bar + 1));
 
-    for (auto [n, d] : commonSignatures)
+    for (const auto& signature : commonSignatures)
+    {
+        const auto n = signature.first, d = signature.second;
         menu.addItem (juce::String (n) + "/" + juce::String (d), true, current.numerator == n && current.denominator == d,
-                      [this, n = n, d = d, sigBar = current.bar] { edit::setTimeSignature (project, sigBar, n, d); });
+                      [this, n, d, sigBar = current.bar] { edit::setTimeSignature (project, sigBar, n, d); });
+    }
 
     if (bar != current.bar)
     {
         menu.addSeparator();
         juce::PopupMenu changeHere;
 
-        for (auto [n, d] : commonSignatures)
+        for (const auto& signature : commonSignatures)
+        {
+            const auto n = signature.first, d = signature.second;
             changeHere.addItem (juce::String (n) + "/" + juce::String (d),
-                                [this, n = n, d = d, bar] { edit::setTimeSignature (project, bar, n, d); });
+                                [this, n, d, bar] { edit::setTimeSignature (project, bar, n, d); });
+        }
 
         menu.addSubMenu ("Change from bar " + juce::String (bar + 1) + " onwards", changeHere);
     }

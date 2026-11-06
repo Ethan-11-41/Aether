@@ -7,12 +7,20 @@ add_library(aether_core STATIC
     devices/DriverErrors.h
     devices/LatencyInfo.cpp
     devices/LatencyInfo.h
+    dsp/Effect.h
+    dsp/Effects.cpp
+    dsp/EffectTypes.cpp
+    dsp/EffectTypes.h
     engine/AudioEngine.cpp
     engine/AudioFileCache.cpp
     engine/AudioFileCache.h
     engine/AudioEngine.h
     engine/Metronome.cpp
     engine/Metronome.h
+    engine/MixerResources.cpp
+    engine/MixerResources.h
+    engine/MixerRouting.cpp
+    engine/MixerRouting.h
     engine/Resampler.cpp
     engine/Resampler.h
     engine/TestToneGenerator.cpp
@@ -47,6 +55,8 @@ add_library(aether_core STATIC
     model/EditCommands.cpp
     model/EditCommands.h
     model/Ids.h
+    model/Mixer.cpp
+    model/Mixer.h
     model/Project.cpp
     model/Project.h
     model/TimelineEdits.cpp
@@ -70,12 +80,18 @@ target_compile_definitions(aether_core PUBLIC AETHER_VERSION_STRING="${PROJECT_V
 add_library(aether_ui STATIC
     ui/AetherLookAndFeel.cpp
     ui/AetherLookAndFeel.h
+    ui/EffectEditor.cpp
+    ui/EffectEditor.h
     ui/IconButton.cpp
     ui/IconButton.h
     ui/LatencyPanel.cpp
     ui/LatencyPanel.h
     ui/LevelMeter.cpp
     ui/LevelMeter.h
+    ui/MixerComponent.cpp
+    ui/MixerComponent.h
+    ui/MixerControls.cpp
+    ui/MixerControls.h
     ui/MessageBanner.cpp
     ui/MessageBanner.h
     ui/NumberDragField.cpp

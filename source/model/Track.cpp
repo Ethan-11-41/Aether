@@ -12,6 +12,7 @@ juce::String toString (TrackKind kind)
     {
         case TrackKind::audio: return "audio";
         case TrackKind::midi:  return "midi";
+        case TrackKind::bus:   return "bus";
     }
 
     return "audio";
@@ -21,6 +22,7 @@ std::optional<TrackKind> trackKindFromString (const juce::String& text)
 {
     if (text == "audio") return TrackKind::audio;
     if (text == "midi")  return TrackKind::midi;
+    if (text == "bus")   return TrackKind::bus;
     return std::nullopt;
 }
 
@@ -32,6 +34,16 @@ Track::Track (juce::ValueTree stateToUse)
 TrackKind Track::getKind() const
 {
     return trackKindFromString (state[ids::kind].toString()).value_or (TrackKind::audio);
+}
+
+double Track::getVolumeDb() const
+{
+    return state.hasProperty (ids::volume) ? (double) state[ids::volume] : 0.0;
+}
+
+double Track::getPan() const
+{
+    return juce::jlimit (-1.0, 1.0, (double) state[ids::pan]);
 }
 
 juce::Colour Track::getColour() const

@@ -15,10 +15,14 @@ namespace aether::ui
 
 /** The list of track headers on the left of the project window.
 
-    - Click to select; double-click the name (or press F2) to rename.
+    - Click to select; Ctrl+click adds or removes a track from the selection, Shift+click selects
+      a range. Double-click the name (or press F2) to rename.
+    - Each header has mute (M), solo (S), volume, pan and a level meter. With several tracks
+      selected, using a control on one of them changes them all (volume and pan move by the
+      same amount).
     - Click the coloured strip, or right-click, to change the colour.
     - Drag a track up or down to reorder it.
-    All changes go through the undoable functions in model/EditCommands.h.
+    All changes go through the undoable functions in model/EditCommands.h and model/Mixer.h.
 */
 class TrackListComponent final : public juce::Component,
                                  private juce::ValueTree::Listener
@@ -29,12 +33,36 @@ public:
     TrackListComponent (const Theme& theme, Project& project);
     ~TrackListComponent() override;
 
+    /** The selected track that has the focus (the one last clicked). */
     juce::String getSelectedTrackId() const     { return selectedTrackId; }
+
+    /** Every selected track, top to bottom. */
+    juce::StringArray getSelectedTrackIds() const;
+    bool isTrackSelected (const juce::String& trackId) const   { return selectedIds.contains (trackId); }
+
+    /** The tracks a control on `trackId` should change: all selected tracks if it is one of
+        them, otherwise just that track. */
+    juce::StringArray tracksToEdit (const juce::String& trackId) const;
+
+    /** Selects just this track. */
     void selectTrack (const juce::String& trackId);
+
+    /** Selects as a click with these modifier keys would: Ctrl adds/removes, Shift selects a range. */
+    void selectTrack (const juce::String& trackId, juce::ModifierKeys mods);
+
+    /** Gives a track the focus, keeping the selection if it's already part of it. */
+    void focusTrack (const juce::String& trackId);
+
     void selectRelative (int delta);
+
+    /** Updates the level meters, given each channel's peak levels since the last call. */
+    void updateMeters (const std::function<std::pair<float, float> (const juce::String&)>& peaksOf, float elapsedSeconds);
 
     /** Shows the rename box on the selected track. */
     void startRenamingSelected();
+
+    /** Shows a track's right-click menu (rename, colour, mute, solo, output, delete...). */
+    void showTrackMenu (const juce::String& trackId)   { showContextMenu (trackId); }
 
     /** Called whenever the selected track changes. */
     std::function<void()> onSelectionChanged;
@@ -60,13 +88,15 @@ private:
     friend class Header;
 
     void rebuild();
+    void selectionChanged();
     void showColourMenu (const juce::String& trackId);
     void showContextMenu (const juce::String& trackId);
     int insertIndexForY (int y) const;
 
-    void valueTreeChildAdded (juce::ValueTree&, juce::ValueTree&) override               { rebuild(); }
-    void valueTreeChildRemoved (juce::ValueTree&, juce::ValueTree&, int) override        { rebuild(); }
-    void valueTreeChildOrderChanged (juce::ValueTree&, int, int) override                { rebuild(); }
+    // Only tracks being added, removed or moved need new headers (not clips, sends or effects).
+    void valueTreeChildAdded (juce::ValueTree& parent, juce::ValueTree&) override        { if (parent == tracksNode) rebuild(); }
+    void valueTreeChildRemoved (juce::ValueTree& parent, juce::ValueTree&, int) override { if (parent == tracksNode) rebuild(); }
+    void valueTreeChildOrderChanged (juce::ValueTree& parent, int, int) override         { if (parent == tracksNode) rebuild(); }
     void valueTreePropertyChanged (juce::ValueTree&, const juce::Identifier&) override  { repaintHeaders(); }
     void repaintHeaders();
 
@@ -74,7 +104,8 @@ private:
     Project& project;
     juce::ValueTree tracksNode;
     std::vector<std::unique_ptr<Header>> headers;
-    juce::String selectedTrackId;
+    juce::String selectedTrackId, anchorTrackId;
+    juce::StringArray selectedIds;
 
     juce::String draggingTrackId;
     int dropIndex = -1;
