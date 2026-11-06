@@ -26,6 +26,9 @@ redistribute under the licence shown. "Shipped" means it is part of the installe
 The complete list of code bundled inside JUCE, with exact licences, is in JUCE's
 `JUCE.spdx.json` file.
 
+The temporary Reverb effect (Milestone 4) uses JUCE's `juce::Reverb`, which is based on the
+public-domain "Freeverb" by Jezar at Dreampoint. The temporary Delay is Aether's own code.
+
 Planned for later milestones (will be added to this table when actually used): VST3 SDK (MIT),
 LAME (LGPL, MP3 export), Signalsmith Stretch (MIT), CLAP SDK (MIT), r8brain-free-src (MIT),
 Inter font (SIL OFL 1.1), Lucide icons (ISC).

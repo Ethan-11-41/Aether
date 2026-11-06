@@ -4,7 +4,7 @@ An honest list of what works. Updated at the end of every milestone.
 
 **Legend:** ✅ Working · 🟡 Partial · 🧪 Stub/placeholder · ⬜ Not started
 
-Current version: **0.4.0** (Milestone 3)
+Current version: **0.5.0** (Milestone 4)
 
 ## Milestone 0: skeleton and build pipeline
 
@@ -38,8 +38,8 @@ Current version: **0.4.0** (Milestone 3)
 | Crash reports (minidumps) | 🟡 | Windows only; written, but nothing reads them yet (send them to the developer). |
 | Menus and keyboard shortcuts | ✅ | Shortcut editor comes in M25. |
 | Open `.aether` files by double-clicking | ✅ | Registered by the installer. |
-| Selecting several tracks at once | ⬜ | Later (with the arrangement view, M3). |
-| Track mute/solo/volume, record arm | ⬜ | M4 (mixer) and M5 (recording). |
+| Selecting several tracks at once | ✅ | Added in 0.5.0 (Ctrl+click, Shift+click). |
+| Track mute/solo/volume/pan | ✅ | Added in 0.5.0. Record arm comes with M5. |
 | Timeline | 🧪 | Placeholder area with grid lines; real timeline in M2/M3. |
 
 ## Milestone 2: time and transport
@@ -71,15 +71,31 @@ Current version: **0.4.0** (Milestone 3)
 | Selecting several clips | 🟡 | Ctrl+click and Ctrl+A. Dragging a selection rectangle isn't there yet. |
 | Copy / cut / paste | ⬜ | Use Duplicate for now. Coming with M8 (hardening). |
 | Overlapping clips on one track | 🟡 | Both play (mixed). Crossfades and take comping come in M21. |
-| Track volume, pan, mute, solo | ⬜ | M4 (mixer). All tracks currently play at full volume. |
 | Clips on MIDI tracks | ⬜ | M6. |
 | Mouse editing of clips | 🟡 | The edits and commands are tested automatically; dragging is checked by hand (see the M3 checklist). |
+
+## Milestone 4: mixer
+
+| Feature | Status | Notes |
+|---|---|---|
+| Mixer panel (F9): a strip per track and bus, and the master | ✅ | |
+| Volume, pan, mute, solo, on the strips and on the track headers | ✅ | Pan is a balance control: the centre leaves the sound unchanged. |
+| Stereo level meters per channel | ✅ | Peak meters, -60 to +6 dB. No loudness (LUFS) meter yet. |
+| Buses, buses into buses, refusing loops | ✅ | |
+| Sends, before or after the fader | ✅ | The mixer shows up to three sends per track. |
+| Solo "in place" | ✅ | See the M4 checklist for how it behaves with buses. |
+| Effects slots, with Reverb and Delay | 🟡 | Up to four per channel. These two are simple temporary effects; the real set (EQ, compressor, better reverb and delay...) is M13. |
+| Selecting several tracks; group volume/pan moves by the same amount | ✅ | |
+| Smooth (click-free) volume, pan and mute changes | ✅ | |
+| Delay compensation | ⬜ | Moved to M15 (plug-in hosting). Aether's own effects add no delay, so there is nothing to compensate yet; it matters when plug-ins arrive. |
+| Mixer automation | ⬜ | M14. |
+| MIDI tracks' strips | 🟡 | They're there, but stay silent until instruments arrive (M6). |
+| Mouse handling of the mixer | 🟡 | The settings, sound and group edits are tested automatically; the mouse itself is checked by hand (see the M4 checklist). |
 
 ## Everything else
 
 | Area | Status | Milestone |
 |---|---|---|
-| Mixer | ⬜ | M4 |
 | Recording | ⬜ | M5 |
 | MIDI tracks, MIDI input | ⬜ | M6 |
 | Export (WAV/FLAC/MP3, stems) | ⬜ | M7 |

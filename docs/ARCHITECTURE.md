@@ -49,7 +49,13 @@ Separate process:   plug-in scanner
 - The snapshot is handed to the audio thread with one atomic pointer swap. The previous snapshot
   is returned through a lock-free queue and freed on the UI thread, so the audio thread never
   frees memory either.
-- Fast controls (faders, mute, solo, knobs) bypass the rebuild and use atomic values.
+- Faders, mute, solo and effect settings also arrive through a rebuilt snapshot (building one is
+  cheap: no audio is copied). The audio thread fades every volume, pan, mute and send change
+  over 10 ms, so nothing clicks.
+- The mixer's working state (fades, meters, effect tails) lives in objects kept from one snapshot
+  to the next by `engine/MixerResources`, so an edit never cuts off a reverb tail. Objects that
+  are no longer needed are only freed together with the last snapshot that used them, on the UI
+  thread.
 
 ### Enforcing the audio-thread rule
 - Code that runs on the audio thread is marked `AETHER_NONBLOCKING`
@@ -87,8 +93,15 @@ Separate process:   plug-in scanner
   latency plus a correction measured by a built-in loopback test (drivers often misreport).
 
 ### Mixer
-- Tracks → buses → master, with pre- or post-fader sends. Feedback loops are refused.
-- Plug-in delay compensation delays the shorter signal paths so everything stays in time.
+- Tracks → buses → master, with pre- or post-fader sends. Feedback loops are refused when
+  editing, and broken if a hand-edited file contains one (`engine/MixerRouting`).
+- The snapshot lists the channels in processing order: every bus comes after everything that
+  plays into it, so one pass mixes everything. The engine mixes in pieces of at most 512
+  samples (a larger device block is split), so all mixer buffers are allocated in advance.
+- Each channel: effects → mute → pre-fader sends → volume and pan → post-fader sends → meter →
+  output. Solo is worked out when the snapshot is built, as a gain on each connection.
+- Plug-in delay compensation (from M15) will delay the shorter signal paths so everything stays
+  in time. Aether's own effects add no delay.
 
 ### Plug-ins
 - VST3 through JUCE (CLAP through our own host code, Phase 3).

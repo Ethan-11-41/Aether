@@ -4,10 +4,11 @@ A free, open-source digital audio workstation (DAW) for Windows: record, arrange
 music, in the spirit of GarageBand, FL Studio, LMMS and Reaper. Beginner-friendly on the surface,
 with deep customisation underneath.
 
-> **Status: early development (Milestone 3 of 30).** Aether can create, save and open projects
+> **Status: early development (Milestone 4 of 30).** Aether can create, save and open projects
 > with full undo/redo, autosave and crash recovery; play with tempo changes, time signatures,
-> looping and a metronome; and import, arrange and edit audio clips (move, trim, split, fade,
-> loop) on a snap grid. It has no mixer or recording yet (milestones M4 and M5). See [docs/STATUS.md](docs/STATUS.md)
+> looping and a metronome; import, arrange and edit audio clips on a snap grid; and mix them
+> with volume, pan, mute, solo, buses, sends and two simple effects. It can't record yet
+> (milestone M5). See [docs/STATUS.md](docs/STATUS.md)
 > for exactly what works, and [docs/ROADMAP.md](docs/ROADMAP.md) for what's coming.
 
 ---
@@ -39,7 +40,9 @@ See [docs/FILE_FORMAT.md](docs/FILE_FORMAT.md).
 |---|---|
 | New / open / save / save as / close project | Ctrl+N / Ctrl+O / Ctrl+S / Ctrl+Shift+S / Ctrl+W |
 | Undo / redo | Ctrl+Z / Ctrl+Y (or Ctrl+Shift+Z) |
-| Add audio track / MIDI track | Ctrl+T / Ctrl+Shift+T |
+| Add audio track / MIDI track / bus | Ctrl+T / Ctrl+Shift+T / Ctrl+Shift+B |
+| Show/hide the mixer | F9 |
+| Select several tracks | Ctrl+click (add/remove), Shift+click or Shift+Up/Down (a range) |
 | Rename / delete the selected track | F2 / Delete |
 | Move the selected track up / down | Ctrl+Up / Ctrl+Down |
 | Select the track above / below | Up / Down |
@@ -146,9 +149,10 @@ xvfb-run -a build/linux-debug/source/AetherApp_artefacts/Debug/Aether --screensh
 | `source/model/` | The project data: tracks, and the undoable edit commands |
 | `source/io/` | Saving and loading, the file format, autosave, crash recovery, recent projects |
 | `source/devices/` | Sound card setup and latency |
-| `source/engine/` | The audio engine (everything that runs on the audio thread) |
+| `source/engine/` | The audio engine (everything that runs on the audio thread), including the mixer |
+| `source/dsp/` | Built-in effects (for now: the temporary Reverb and Delay) |
 | `source/engine/rt/` | Real-time tools: lock-free queues, audio-thread annotations |
-| `source/ui/` | Interface pieces: track list, meters, look and feel |
+| `source/ui/` | Interface pieces: timeline, track list, mixer, meters, look and feel |
 | `tests/` | Automated tests (`unit/`, `realtime/`, and `fixtures/`: sample files, kept forever) |
 | `installer/` | The Inno Setup script that makes Setup.exe |
 | `docs/` | Architecture, roadmap, status, test checklists |

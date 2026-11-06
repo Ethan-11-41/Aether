@@ -117,6 +117,27 @@ Every `Track` now has a `Clips` child (tracks without one get an empty one when 
 | | `fadeIn`, `fadeOut` | Fade lengths in samples of the file. |
 | | `fadeInCurve`, `fadeOutCurve` | `"smooth"`, `"linear"`, `"fast"` or `"slow"`. |
 
+### Added in Aether 0.5.0 (still format version 1)
+
+A `Track`'s `kind` can now also be `"bus"`. Projects without a `Master` node get one when opened.
+
+| Node | Property | Meaning |
+|---|---|---|
+| `Track` | `volume` | dB (-100 = silent, up to +6). Default 0. |
+| | `pan` | -1 (left) to +1 (right). Default 0. |
+| | `mute`, `solo` | `true` or `false`. Default `false`. |
+| | `output` | The `id` of the bus the track plays into. Missing or empty: the master. |
+| `Sends` | | Inside a `Track`: its sends. |
+| `Send` | `id` | Unique id. |
+| | `target` | The `id` of the bus it sends to. |
+| | `level` | dB, as `volume`. |
+| | `preFader` | `true`: taken before the track's volume fader. |
+| `Inserts` | | Inside a `Track` or the `Master`: its effects, in the order they process the sound. |
+| `Insert` | `id`, `type` | Unique id; the effect: `"reverb"` or `"delay"`. |
+| | `bypass` | `true` when the effect is switched off. |
+| | (settings) | One property per setting, named as in `source/dsp/EffectTypes.cpp`: reverb `size`, `damping`, `width`, `mix` (percent); delay `time` (index into 1/32, 1/16 T, 1/16, 1/8 T, 1/16 D, 1/8, 1/4 T, 1/8 D, 1/4, 1/4 D, 1/2), `feedback` (%), `tone` (Hz), `pingPong` (0/1), `mix` (%). |
+| `Master` | `volume` | The master volume in dB. |
+
 ## Rules for changing the format
 
 1. Never rename or reuse a node type or property name (see `source/model/Ids.h`).
