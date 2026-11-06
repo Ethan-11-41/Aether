@@ -357,7 +357,7 @@ public:
         if (! grabbed.isValid() && mode != Mode::box)
             return;
 
-        auto& project = owner.project;
+        auto& proj = owner.project;
         const auto tick = owner.view.xToTick (e.x);
 
         switch (mode)
@@ -374,9 +374,9 @@ public:
                 if (delta != 0)
                 {
                     if (mode == Mode::resize && ! changed)
-                        project.getUndoManager().beginNewTransaction (owner.selection.size() == 1 ? "Change note length"
+                        proj.getUndoManager().beginNewTransaction (owner.selection.size() == 1 ? "Change note length"
                                                                                                   : "Change note lengths");
-                    edit::resizeNotes (project, mode == Mode::draw ? NoteNodes { grabbed } : owner.selection, delta, minimum, false);
+                    edit::resizeNotes (proj, mode == Mode::draw ? NoteNodes { grabbed } : owner.selection, delta, minimum, false);
                     changed = true;
                 }
                 break;
@@ -395,9 +395,9 @@ public:
                 if (deltaTicks != 0 || deltaPitch != 0)
                 {
                     if (! changed)
-                        project.getUndoManager().beginNewTransaction (owner.selection.size() == 1 ? "Move note" : "Move notes");
+                        proj.getUndoManager().beginNewTransaction (owner.selection.size() == 1 ? "Move note" : "Move notes");
 
-                    edit::moveNotes (project, owner.selection, deltaTicks, deltaPitch, false);
+                    edit::moveNotes (proj, owner.selection, deltaTicks, deltaPitch, false);
                     changed = true;
 
                     if (deltaPitch != 0)
@@ -500,18 +500,18 @@ private:
     void drawTimeLines (juce::Graphics& g) const
     {
         const auto& t = owner.theme;
-        const auto& tempo = owner.tempo;
+        const auto& map = owner.tempo;
         const auto height = (float) getHeight();
 
-        for (int bar = std::max (0, tempo.ticksToBarBeat (owner.view.getViewStart()).bar); bar < 100000; ++bar)
+        for (int bar = std::max (0, map.ticksToBarBeat (owner.view.getViewStart()).bar); bar < 100000; ++bar)
         {
-            const auto barTick = tempo.barToTicks (bar);
+            const auto barTick = map.barToTicks (bar);
             if (owner.view.tickToX (barTick) > getWidth())
                 break;
 
-            const auto barEnd = barTick + tempo.barLengthAt (barTick);
+            const auto barEnd = barTick + map.barLengthAt (barTick);
             const auto step = owner.stepAt (barTick);
-            const auto beat = tempo.beatLengthAt (barTick);
+            const auto beat = map.beatLengthAt (barTick);
             const auto stepPixels = owner.view.getPixelsPerQuarter() * (double) step / (double) ticksPerQuarter;
 
             for (auto tick = barTick; tick < barEnd; tick += (stepPixels >= 6.0 ? step : beat))
@@ -666,20 +666,20 @@ private:
     void apply (const juce::MouseEvent& e)
     {
         const auto velocity = velocityAt (e.y);
-        auto& project = owner.project;
+        auto& proj = owner.project;
 
         if (grabbed.isValid())
         {
             if (group)
-                edit::changeNoteVelocity (project, owner.selection, velocity - notes::read (grabbed).velocity, false);
+                edit::changeNoteVelocity (proj, owner.selection, velocity - notes::read (grabbed).velocity, false);
             else
-                edit::setNoteVelocity (project, { grabbed }, velocity, false);
+                edit::setNoteVelocity (proj, { grabbed }, velocity, false);
             return;
         }
 
         // Not on a stem: set every stem the mouse passes over.
         if (auto stem = stemAt ((float) e.x); stem.isValid())
-            edit::setNoteVelocity (project, { stem }, velocity, false);
+            edit::setNoteVelocity (proj, { stem }, velocity, false);
     }
 
     PianoRoll& owner;
