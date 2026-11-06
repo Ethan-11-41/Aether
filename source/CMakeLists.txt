@@ -133,6 +133,8 @@ add_library(aether_ui STATIC
     ui/MessageBanner.h
     ui/NumberDragField.cpp
     ui/NumberDragField.h
+    ui/PianoRoll.cpp
+    ui/PianoRoll.h
     ui/ShortcutList.cpp
     ui/ShortcutList.h
     ui/Theme.h
