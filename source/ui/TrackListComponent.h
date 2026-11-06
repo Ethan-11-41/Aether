@@ -25,6 +25,7 @@ namespace aether::ui
     All changes go through the undoable functions in model/EditCommands.h and model/Mixer.h.
 */
 class TrackListComponent final : public juce::Component,
+                                 public juce::FileDragAndDropTarget,
                                  private juce::ValueTree::Listener
 {
 public:
@@ -73,6 +74,21 @@ public:
     /** How many inputs the sound card has (for the Input menu). */
     std::function<int()> inputChannelCount;
 
+    /** Which files can be dropped on the track list (audio and MIDI files). */
+    std::function<bool (const juce::File&)> canImport;
+
+    /** Files dropped on a track (`trackId`) or below the tracks (empty `trackId`: new tracks). */
+    std::function<void (const juce::Array<juce::File>&, const juce::String& trackId)> onImportFiles;
+
+    bool isInterestedInFileDrag (const juce::StringArray& files) override;
+    void fileDragEnter (const juce::StringArray& files, int x, int y) override;
+    void fileDragMove (const juce::StringArray& files, int x, int y) override;
+    void fileDragExit (const juce::StringArray& files) override;
+    void filesDropped (const juce::StringArray& files, int x, int y) override;
+
+    /** The row a file drop would go to (-1: none; the number of tracks: a new track). For the tests. */
+    int getFileDropRow() const noexcept   { return fileDropRow; }
+
     /** Height needed to show every track (for the scrolling area). */
     int getIdealHeight() const;
 
@@ -115,6 +131,7 @@ private:
 
     juce::String draggingTrackId;
     int dropIndex = -1;
+    int fileDropRow = -1;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TrackListComponent)
 };

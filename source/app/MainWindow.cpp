@@ -6,6 +6,7 @@
 #include "CrashReporter.h"
 #include "ExportDialog.h"
 #include "io/AppFolders.h"
+#include "io/FileTypes.h"
 #include "model/EditCommands.h"
 #include "model/Recording.h"
 #include "model/TimelineEdits.h"
@@ -1253,6 +1254,115 @@ void MainContent::paint (juce::Graphics& g)
     g.fillRect (statusArea);
     g.setColour (ctx.theme.outline);
     g.drawHorizontalLine (statusArea.getY(), 0.0f, (float) getWidth());
+}
+
+void MainContent::paintOverChildren (juce::Graphics& g)
+{
+    if (dropMessage.isEmpty())
+        return;
+
+    auto area = getLocalBounds().withTrimmedTop (menuBar.getBottom()).toFloat();
+    g.setColour (ctx.theme.background.withAlpha (0.75f));
+    g.fillRect (area);
+
+    g.setColour (ctx.theme.accent);
+    juce::Path border;
+    border.addRoundedRectangle (area.reduced (12.0f), 10.0f);
+    const float dashes[] { 10.0f, 6.0f };
+    juce::PathStrokeType (2.0f).createDashedStroke (border, border, dashes, 2);
+    g.fillPath (border);
+
+    const juce::Font font (juce::FontOptions (20.0f, juce::Font::bold));
+    const auto width = (float) juce::GlyphArrangement::getStringWidthInt (font, dropMessage) + 48.0f;
+    const auto pill = area.withSizeKeepingCentre (std::min (width, area.getWidth() - 48.0f), 56.0f);
+    g.fillRoundedRectangle (pill, 12.0f);
+    g.setColour (ctx.theme.accentText);
+    g.setFont (font);
+    g.drawFittedText (dropMessage, pill.toNearestInt().reduced (16, 0), juce::Justification::centred, 2);
+}
+
+juce::String MainContent::describeDrop (const juce::StringArray& paths) const
+{
+    const auto wildcard = ctx.audioFiles.getWildcard();
+    juce::Array<juce::File> importable;
+
+    for (const auto& path : paths)
+    {
+        const juce::File file (path);
+
+        if (filetypes::isProject (file))
+            return "Open " + file.getFileNameWithoutExtension();
+
+        if (filetypes::isImportable (file, wildcard))
+            importable.add (file);
+    }
+
+    if (importable.isEmpty())
+        return {};
+
+    if (projectView != nullptr)
+        return importable.size() == 1 ? "Add as a new track at the playhead" : "Add as new tracks at the playhead";
+
+    return "Start a new project with " + (importable.size() == 1 ? importable[0].getFileName()
+                                                                 : juce::String (importable.size()) + " files");
+}
+
+bool MainContent::isInterestedInFileDrag (const juce::StringArray& files)
+{
+    return describeDrop (files).isNotEmpty();
+}
+
+void MainContent::fileDragEnter (const juce::StringArray& files, int, int)
+{
+    dropMessage = describeDrop (files);
+    repaint();
+}
+
+void MainContent::fileDragExit (const juce::StringArray&)
+{
+    dropMessage.clear();
+    repaint();
+}
+
+void MainContent::filesDropped (const juce::StringArray& paths, int, int)
+{
+    dropMessage.clear();
+    repaint();
+
+    const auto wildcard = ctx.audioFiles.getWildcard();
+    juce::Array<juce::File> importable;
+
+    for (const auto& path : paths)
+    {
+        const juce::File file (path);
+
+        if (filetypes::isProject (file))
+        {
+            openProjectFile (file);   // asks about unsaved changes first
+            return;
+        }
+
+        if (filetypes::isImportable (file, wildcard))
+            importable.add (file);
+    }
+
+    if (importable.isEmpty())
+        return;
+
+    if (projectView != nullptr)
+        projectView->importFiles (importable, {}, ctx.engine.getTransportStatus().position);
+    else
+        createProjectWithFiles (importable);
+}
+
+void MainContent::createProjectWithFiles (const juce::Array<juce::File>& files)
+{
+    // Named after the first file, in the folder chosen on the start screen.
+    const auto folder = startScreen != nullptr ? startScreen->getNewProjectFolder() : projectfiles::defaultProjectsFolder();
+    createProject (folder, files[0].getFileNameWithoutExtension());
+
+    if (projectView != nullptr)
+        projectView->importFiles (files, {}, 0);
 }
 
 void MainContent::resized()

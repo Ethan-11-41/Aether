@@ -143,3 +143,43 @@ TEST_CASE ("Dragging a track moves it to where it is dropped", "[ui][tracks]")
             CHECK (f.nameAt (i) == "Audio " + juce::String (i + 1));
     }
 }
+
+TEST_CASE ("Files dropped on a track header go onto that track; below the tracks, onto new ones", "[ui][tracks]")
+{
+    Fixture f;
+    juce::Array<juce::File> received;
+    juce::String receivedTrack = "not called";
+
+    // Without an import handler, the list isn't interested in files.
+    CHECK_FALSE (f.list.isInterestedInFileDrag ({ "/music/take.wav" }));
+
+    f.list.canImport = [] (const juce::File& file) { return file.hasFileExtension (".wav;.mid"); };
+    f.list.onImportFiles = [&] (const juce::Array<juce::File>& files, const juce::String& trackId)
+    {
+        received = files;
+        receivedTrack = trackId;
+    };
+
+    CHECK (f.list.isInterestedInFileDrag ({ "/music/take.wav" }));
+    CHECK (f.list.isInterestedInFileDrag ({ "/music/notes.txt", "/music/song.mid" }));
+    CHECK_FALSE (f.list.isInterestedInFileDrag ({ "/music/notes.txt" }));
+
+    // Hovering shows where the files would go.
+    f.list.fileDragEnter ({ "/music/take.wav" }, 20, row * 2 + 10);
+    CHECK (f.list.getFileDropRow() == 2);
+    f.list.fileDragMove ({ "/music/take.wav" }, 20, row * 4 + 10);
+    CHECK (f.list.getFileDropRow() == 4);   // below the last track: a new track
+    f.list.fileDragExit ({ "/music/take.wav" });
+    CHECK (f.list.getFileDropRow() == -1);
+
+    // Dropped on the third track (files that can't be imported are left out).
+    f.list.filesDropped ({ "/music/take.wav", "/music/notes.txt" }, 20, row * 2 + 10);
+    CHECK (receivedTrack == f.ids[2]);
+    REQUIRE (received.size() == 1);
+    CHECK (received[0].getFileName() == "take.wav");
+    CHECK (f.list.getFileDropRow() == -1);
+
+    // Dropped below the tracks.
+    f.list.filesDropped ({ "/music/song.mid" }, 20, row * 4 + 10);
+    CHECK (receivedTrack.isEmpty());
+}

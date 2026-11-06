@@ -49,6 +49,8 @@ add_library(aether_core STATIC
     io/Autosaver.cpp
     io/Autosaver.h
     io/JsonValueTree.cpp
+    io/FileTypes.cpp
+    io/FileTypes.h
     io/MidiImport.cpp
     io/MidiImport.h
     io/Mp3Encoder.cpp

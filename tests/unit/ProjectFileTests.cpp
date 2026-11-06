@@ -2,6 +2,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "io/Autosaver.h"
+#include "io/FileTypes.h"
 #include "io/JsonValueTree.h"
 #include "io/ProjectFiles.h"
 #include "io/ProjectFormat.h"
@@ -303,4 +304,25 @@ TEST_CASE ("Recent projects: newest first, no duplicates, missing files hidden",
 
     recent.clear();
     CHECK (recent.getFiles().isEmpty());
+}
+
+TEST_CASE ("Dropped files are recognised as projects, audio or MIDI", "[io]")
+{
+    using namespace aether;
+    const juce::String audio = "*.wav;*.aif;*.aiff;*.flac;*.mp3;*.ogg";
+
+    CHECK (filetypes::isProject (juce::File ("/songs/My Song/My Song.aether")));
+    CHECK (filetypes::isProject (juce::File ("/songs/LOUD.AETHER")));
+    CHECK_FALSE (filetypes::isProject (juce::File ("/songs/My Song/Autosave/My Song.autosave.aether")));
+    CHECK_FALSE (filetypes::isProject (juce::File ("/songs/take.wav")));
+
+    CHECK (filetypes::matchesWildcard (juce::File ("/a/Take 1.WAV"), audio));
+    CHECK (filetypes::matchesWildcard (juce::File ("/a/b.flac"), audio));
+    CHECK_FALSE (filetypes::matchesWildcard (juce::File ("/a/b.wavx"), audio));
+    CHECK_FALSE (filetypes::matchesWildcard (juce::File ("/a/README"), audio));
+
+    CHECK (filetypes::isImportable (juce::File ("/a/b.mid"), audio));
+    CHECK (filetypes::isImportable (juce::File ("/a/b.mp3"), audio));
+    CHECK_FALSE (filetypes::isImportable (juce::File ("/a/b.txt"), audio));
+    CHECK_FALSE (filetypes::isImportable (juce::File ("/a/b.aether"), audio));
 }

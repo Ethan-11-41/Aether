@@ -7,6 +7,7 @@
 #include <utility>
 
 #include "io/AudioImport.h"
+#include "io/FileTypes.h"
 #include "io/MidiImport.h"
 #include "model/ClipEdits.h"
 #include "model/MidiClips.h"
@@ -1568,13 +1569,8 @@ bool TimelineComponent::isInterestedInFileDrag (const juce::StringArray& files)
     const auto wildcard = audioFiles.getWildcard();
 
     for (const auto& path : files)
-        if (isMidiFile (juce::File (path)))
+        if (filetypes::isImportable (juce::File (path), wildcard))
             return true;
-
-    for (const auto& path : files)
-        if (wildcard.containsIgnoreCase ("*" + juce::File (path).getFileExtension() + ";")
-            || wildcard.endsWithIgnoreCase ("*" + juce::File (path).getFileExtension()))
-            return juce::File (path).getFileExtension().isNotEmpty();
 
     return false;
 }
