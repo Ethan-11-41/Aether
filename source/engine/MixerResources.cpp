@@ -9,6 +9,7 @@ void MixerResources::beginBuild()
     for (auto& [id, entry] : channels) entry.used = false;
     for (auto& [id, entry] : sends)    entry.used = false;
     for (auto& [id, entry] : effects)  entry.used = false;
+    for (auto& [id, entry] : instruments) entry.used = false;
 }
 
 template <typename T>
@@ -23,6 +24,7 @@ void MixerResources::endBuild()
     dropUnused (channels);
     dropUnused (sends);
     dropUnused (effects);
+    dropUnused (instruments);
 }
 
 std::shared_ptr<ChannelState> MixerResources::channel (const juce::String& channelId)
@@ -54,6 +56,26 @@ std::shared_ptr<dsp::Effect> MixerResources::effect (const juce::String& insertI
     if (entry.object == nullptr || entry.type != type || entry.sampleRate != sampleRate)
     {
         std::shared_ptr<dsp::Effect> made = dsp::createEffect (type);
+
+        if (made != nullptr)
+            made->prepare (sampleRate, mixChunkSize);
+
+        entry.object = std::move (made);
+        entry.type = type;
+        entry.sampleRate = sampleRate;
+    }
+
+    entry.used = true;
+    return entry.object;
+}
+
+std::shared_ptr<dsp::Instrument> MixerResources::instrument (const juce::String& instrumentId, const juce::String& type, double sampleRate)
+{
+    auto& entry = instruments[instrumentId];
+
+    if (entry.object == nullptr || entry.type != type || entry.sampleRate != sampleRate)
+    {
+        std::shared_ptr<dsp::Instrument> made = dsp::createInstrument (type);
 
         if (made != nullptr)
             made->prepare (sampleRate, mixChunkSize);

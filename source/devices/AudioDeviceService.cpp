@@ -28,6 +28,10 @@ AudioDeviceService::AudioDeviceService (juce::PropertySet& settingsToUse, Device
     if (deviceManager.getCurrentAudioDevice() != nullptr)
         lastWorking = WorkingConfig { deviceManager.getCurrentAudioDeviceType(), deviceManager.getAudioDeviceSetup() };
 
+    // MIDI: everything on, now and whenever something is plugged in.
+    refreshMidiInputs();
+    midiDevicesChanged = juce::MidiDeviceListConnection::make ([this] { refreshMidiInputs(); });
+
     deviceManager.addChangeListener (this);
 }
 
@@ -51,6 +55,57 @@ void AudioDeviceService::addAudioCallback (juce::AudioIODeviceCallback* callback
 void AudioDeviceService::removeAudioCallback (juce::AudioIODeviceCallback* callback)
 {
     deviceManager.removeAudioCallback (callback);
+}
+
+void AudioDeviceService::addMidiCallback (juce::MidiInputCallback* callback)
+{
+    deviceManager.addMidiInputDeviceCallback ({}, callback);   // {} = from every enabled input
+}
+
+void AudioDeviceService::removeMidiCallback (juce::MidiInputCallback* callback)
+{
+    deviceManager.removeMidiInputDeviceCallback ({}, callback);
+}
+
+void AudioDeviceService::refreshMidiInputs()
+{
+    const auto switchedOff = juce::StringArray::fromLines (settings.getValue (midiOffKey));
+    const juce::ScopedValueSetter<bool> refreshing (refreshingMidi, true);
+
+    for (const auto& device : juce::MidiInput::getAvailableDevices())
+        if (! switchedOff.contains (device.name) && ! deviceManager.isMidiInputDeviceEnabled (device.identifier))
+        {
+            deviceManager.setMidiInputDeviceEnabled (device.identifier, true);
+            juce::Logger::writeToLog ("MIDI input switched on: " + device.name);
+        }
+}
+
+void AudioDeviceService::rememberMidiChoices()
+{
+    // The user switched MIDI inputs on or off in the settings: remember the ones that are off.
+    auto switchedOff = juce::StringArray::fromLines (settings.getValue (midiOffKey));
+
+    for (const auto& device : juce::MidiInput::getAvailableDevices())
+    {
+        if (deviceManager.isMidiInputDeviceEnabled (device.identifier))
+            switchedOff.removeString (device.name);
+        else
+            switchedOff.addIfNotAlreadyThere (device.name);
+    }
+
+    switchedOff.removeEmptyStrings();
+    settings.setValue (midiOffKey, switchedOff.joinIntoString ("\n"));
+}
+
+juce::StringArray AudioDeviceService::getEnabledMidiInputNames() const
+{
+    juce::StringArray names;
+
+    for (const auto& device : juce::MidiInput::getAvailableDevices())
+        if (deviceManager.isMidiInputDeviceEnabled (device.identifier))
+            names.add (device.name);
+
+    return names;
 }
 
 LatencyInfo AudioDeviceService::getLatencyInfo() const
@@ -131,6 +186,9 @@ void AudioDeviceService::saveState()
 
 void AudioDeviceService::changeListenerCallback (juce::ChangeBroadcaster*)
 {
+    if (! refreshingMidi)
+        rememberMidiChoices();
+
     handleDeviceChange();
 }
 

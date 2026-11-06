@@ -6,6 +6,7 @@
 #include <map>
 
 #include "io/AudioImport.h"
+#include "io/MidiImport.h"
 #include "model/TimelineEdits.h"
 
 namespace aether
@@ -91,7 +92,15 @@ ProjectView::ProjectView (AppContext& context, Project& projectToShow)
     recorder = std::make_unique<Recorder> (project, ctx.engine, timelineSync,
                                            [&session = ctx.session] { return session.getLocation(); },
                                            [&devices = ctx.devices] { return devices.getLatencyInfo().recordingCorrectionSamples(); },
-                                           [&devices = ctx.devices] { return devices.getNumInputChannels(); });
+                                           [&devices = ctx.devices] { return devices.getNumInputChannels(); },
+                                           [&devices = ctx.devices]
+                                           {
+                                               // MIDI is late only by what you hear: the output side of the round trip.
+                                               const auto info = devices.getLatencyInfo();
+                                               return info.measuredRoundTripSamples >= 0
+                                                          ? std::max (0, info.measuredRoundTripSamples - info.inputLatencySamples)
+                                                          : info.outputLatencySamples;
+                                           });
     recorder->onFinished = [this] (const juce::StringArray& clipIds)
     {
         if (! clipIds.isEmpty())
@@ -134,14 +143,33 @@ ProjectView::ProjectView (AppContext& context, Project& projectToShow)
     mixerHeight = ctx.settings.get().getIntValue (mixerHeightKey, 340);
     setMixerVisible (ctx.settings.get().getBoolValue (mixerVisibleKey, false));
 
+    // The on-screen keyboard, at the very bottom.
+    keyboard = std::make_unique<ui::KeyboardPanel> (ctx.theme, [&engine = ctx.engine] (const juce::MidiMessage& m) { engine.sendLiveMidi (m); });
+    addChildComponent (*keyboard);
+    setKeyboardVisible (ctx.settings.get().getBoolValue (keyboardVisibleKey, false));
+
+    midiLight.theme = &ctx.theme;
+    addAndMakeVisible (midiLight);
+
     trackList.onSelectionChanged = [this]
     {
         ctx.commands.commandStatusChanged();
         timeline->tracksScrolled();   // repaint the lanes: the selected ones are highlighted
         mixer->selectionChanged();
+        timelineSync.setFocusedTrack (trackList.getSelectedTrackId());   // a MIDI keyboard plays the selected track
     };
+    timelineSync.setFocusedTrack (trackList.getSelectedTrackId());
 
     startTimerHz (30);   // the level meters
+}
+
+void ProjectView::setKeyboardVisible (bool shouldBeVisible)
+{
+    keyboardVisible = shouldBeVisible;
+    keyboard->setVisible (keyboardVisible);
+    ctx.settings.get().setValue (keyboardVisibleKey, keyboardVisible);
+    resized();
+    ctx.commands.commandStatusChanged();
 }
 
 void ProjectView::toggleRecording()
@@ -198,12 +226,63 @@ void ProjectView::timerCallback()
 
     trackList.updateMeters (peaksOf, elapsed);
 
+    // The MIDI light: on for a moment after each message.
+    if (const auto activity = ctx.engine.getMidiActivity(); activity != lastMidiActivity)
+    {
+        lastMidiActivity = activity;
+        midiLitUntil = now + 150.0;
+    }
+
+    if (const auto lit = now < midiLitUntil; lit != midiLight.lit)
+    {
+        midiLight.lit = lit;
+        midiLight.repaint();
+    }
+
+    if (++tooltipRefresh % 60 == 0)
+    {
+        const auto inputs = ctx.devices.getEnabledMidiInputNames();
+        midiLight.setTooltip (inputs.isEmpty() ? "No MIDI keyboard found. Connect one (e.g. by USB), or use the on-screen keyboard (View menu)."
+                                               : "MIDI keyboards: " + inputs.joinIntoString (", ") + ". This lights up when they send notes.");
+    }
+
     if (mixerVisible)
         mixer->updateMeters (peaksOf, elapsed);
 }
 
-void ProjectView::importFiles (const juce::Array<juce::File>& files, const juce::String& trackId, Tick position)
+void ProjectView::importFiles (const juce::Array<juce::File>& allFiles, const juce::String& trackId, Tick position)
 {
+    // MIDI files become MIDI tracks; everything else is imported as audio.
+    juce::Array<juce::File> files;
+    juce::StringArray midiClips, midiProblems;
+
+    for (const auto& file : allFiles)
+    {
+        if (! isMidiFile (file))
+        {
+            files.add (file);
+            continue;
+        }
+
+        const auto index = project.indexOfTrack (trackList.getSelectedTrackId());
+        const auto midiResult = importMidiFile (project, file, position, index >= 0 ? index + 1 : -1);
+        midiClips.addArray (midiResult.clipIds);
+
+        if (midiResult.problem.isNotEmpty())
+            midiProblems.add (midiResult.problem);
+        else if (! midiResult.trackIds.isEmpty())
+            trackList.selectTrack (midiResult.trackIds[0]);
+    }
+
+    if (! midiClips.isEmpty())
+        timeline->selectClips (midiClips);
+
+    if (! midiProblems.isEmpty())
+        showProblem ("MIDI file not imported", midiProblems.joinIntoString ("\n"));
+
+    if (files.isEmpty())
+        return;
+
     const auto result = importAudioFiles (project, ctx.session.getLocation(), ctx.audioFiles.getFormats(), files, trackId, position);
 
     if (! result.clipIds.isEmpty())
@@ -229,9 +308,9 @@ void ProjectView::importFiles (const juce::Array<juce::File>& files, const juce:
 
 void ProjectView::chooseFilesToImport (const juce::String& trackId, Tick position)
 {
-    fileChooser = std::make_unique<juce::FileChooser> ("Import audio files",
+    fileChooser = std::make_unique<juce::FileChooser> ("Import audio or MIDI files",
                                                        juce::File::getSpecialLocation (juce::File::userMusicDirectory),
-                                                       ctx.audioFiles.getWildcard());
+                                                       ctx.audioFiles.getWildcard() + ";*.mid;*.midi");
     juce::Component::SafePointer<ProjectView> safeThis (this);
 
     fileChooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles
@@ -300,9 +379,14 @@ void ProjectView::resized()
         addBusButton.setBounds (bar.removeFromLeft (62));
         bar.removeFromLeft (24);
         mixerButton.setBounds (bar.removeFromRight (76));
-        bar.removeFromRight (12);
+        bar.removeFromRight (8);
+        midiLight.setBounds (bar.removeFromRight (44).withSizeKeepingCentre (44, 26));
+        bar.removeFromRight (8);
         transportBar.setBounds (bar.removeFromLeft (std::min (bar.getWidth(), ui::TransportBar::idealWidth)));
     }
+
+    if (keyboardVisible)
+        keyboard->setBounds (area.removeFromBottom (ui::KeyboardPanel::idealHeight));
 
     if (mixerVisible)
     {

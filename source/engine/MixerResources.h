@@ -33,6 +33,9 @@ public:
         has changed (then a new one is made and prepared). Null for an unknown type. */
     std::shared_ptr<dsp::Effect> effect (const juce::String& insertId, const juce::String& type, double sampleRate);
 
+    /** The same for a MIDI track's instrument (so held notes carry on through edits). */
+    std::shared_ptr<dsp::Instrument> instrument (const juce::String& instrumentId, const juce::String& type, double sampleRate);
+
     /** A channel's highest level (linear, left and right) since the last call. */
     std::pair<float, float> takePeaks (const juce::String& channelId);
 
@@ -52,6 +55,7 @@ private:
     std::map<juce::String, Entry<ChannelState>> channels;
     std::map<juce::String, Entry<SendState>> sends;
     std::map<juce::String, Entry<dsp::Effect>> effects;
+    std::map<juce::String, Entry<dsp::Instrument>> instruments;
 };
 
 } // namespace aether

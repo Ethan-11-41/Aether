@@ -7,7 +7,9 @@
 #include <utility>
 
 #include "io/AudioImport.h"
+#include "io/MidiImport.h"
 #include "model/ClipEdits.h"
+#include "model/MidiClips.h"
 #include "model/Recording.h"
 #include "model/TimelineEdits.h"
 
@@ -558,7 +560,7 @@ public:
             case Zone::none:     break;
         }
 
-        return "Drop audio files here to import them, or right-click to import. Click to move the playhead.";
+        return "Drop audio or MIDI files here to import them, or right-click to import. Click to move the playhead.";
     }
 
     void paint (juce::Graphics& g) override
@@ -758,9 +760,11 @@ public:
 
                 for (const auto& original : drag.originals)
                 {
+                    // Audio clips only onto audio tracks, MIDI clips onto MIDI tracks.
+                    const auto kind = clips::findClip (proj, original.clipId).isMidi() ? TrackKind::midi : TrackKind::audio;
                     auto targetIndex = original.trackIndex + rowDelta;
                     if (! juce::isPositiveAndBelow (targetIndex, proj.getNumTracks())
-                        || proj.getTrack (targetIndex).getKind() != TrackKind::audio)
+                        || proj.getTrack (targetIndex).getKind() != kind)
                         targetIndex = original.trackIndex;
 
                     edit::setClipPosition (proj, original.clipId, std::max<Tick> (0, original.start + delta),
@@ -901,6 +905,14 @@ private:
                 continue;
 
             const auto& clip = it->clip;
+
+            if (clip.isMidi())   // no fades on MIDI clips
+            {
+                if (p.x - r.getX() <= edgeGrabWidth)   return { clip, Zone::trimStart };
+                if (r.getRight() - p.x <= edgeGrabWidth) return { clip, Zone::trimEnd };
+                return { clip, Zone::body };
+            }
+
             const auto bodyTop = r.getY() + (float) clipHeaderHeight;
             const auto fadeInX = xForClipPosition (clip, (double) clip.getFadeIn());
             const auto fadeOutX = xForClipPosition (clip, (double) (clip.getDuration() - clip.getFadeOut()));
@@ -943,6 +955,14 @@ private:
         if (clip.getGainDb() != 0.0)   title << "  " << (clip.getGainDb() > 0 ? "+" : "") << juce::String (clip.getGainDb(), 1) << " dB";
         g.drawText (title, header.reduced (5.0f, 0.0f), juce::Justification::centredLeft, true);
 
+        if (clip.isMidi())
+        {
+            drawNotes (g, box, r);
+            g.setColour (box.selected ? colours.text : box.colour.darker (0.3f));
+            g.drawRoundedRectangle (box.bounds, 4.0f, box.selected ? 1.8f : 1.0f);
+            return;
+        }
+
         drawWaveform (g, box, r);
         drawFades (g, clip, r);
 
@@ -960,6 +980,42 @@ private:
 
         g.setColour (box.selected ? colours.text : box.colour.darker (0.3f));
         g.drawRoundedRectangle (box.bounds, 4.0f, box.selected ? 1.8f : 1.0f);
+    }
+
+    /** A MIDI clip's notes, as small bars (higher notes higher up), like a tiny piano roll. */
+    void drawNotes (juce::Graphics& g, const ClipBox& box, juce::Rectangle<float> area) const
+    {
+        const auto notes = midi::audibleNotes (box.clip);
+
+        if (notes.empty())
+            return;
+
+        auto lowest = 127, highest = 0;
+        for (const auto& n : notes)
+        {
+            lowest = std::min (lowest, n.pitch);
+            highest = std::max (highest, n.pitch);
+        }
+
+        // At least an octave tall, so a few notes don't fill the whole clip.
+        const auto span = std::max (12, highest - lowest + 1);
+        const auto bottomPitch = lowest - (span - (highest - lowest + 1)) / 2;
+        const auto inner = area.reduced (0.0f, 3.0f);
+        const auto rowH = inner.getHeight() / (float) span;
+
+        g.setColour (box.colour.brighter (0.6f).withAlpha (0.95f));
+
+        for (const auto& n : notes)
+        {
+            const auto x1 = (float) owner.view.tickToX (box.clip.getStart() + n.start);
+            const auto x2 = (float) owner.view.tickToX (box.clip.getStart() + n.start + n.length);
+
+            if (x2 < area.getX() - 1.0f || x1 > area.getRight() + 1.0f)
+                continue;
+
+            const auto y = inner.getBottom() - (float) (n.pitch - bottomPitch + 1) * rowH;
+            g.fillRect (juce::Rectangle<float> (x1, y, std::max (1.5f, x2 - x1 - 0.5f), std::max (1.5f, rowH - 0.5f)));
+        }
     }
 
     void drawWaveform (juce::Graphics& g, const ClipBox& box, juce::Rectangle<float> area) const
@@ -1072,6 +1128,20 @@ private:
         juce::Component::SafePointer<TimelineComponent> safeOwner (&owner);
         juce::PopupMenu menu;
 
+        if (clip.isMidi())
+        {
+            const auto count = (int) midi::audibleNotes (clip).size();
+            menu.addSectionHeader ("MIDI clip: " + juce::String (count) + (count == 1 ? " note" : " notes")
+                                   + " (a piano roll to edit them comes in M9)");
+            menu.addItem ("Split at the playhead (S)", [safeOwner] { if (safeOwner) safeOwner->splitClipsAtPlayhead(); });
+            menu.addItem ("Duplicate (Ctrl+D)", [safeOwner] { if (safeOwner) safeOwner->duplicateSelectedClips(); });
+            menu.addItem ("Delete (Delete)", [safeOwner] { if (safeOwner) safeOwner->deleteSelectedClips(); });
+            menu.addSeparator();
+            menu.addItem ("Rename...", [this, id] { askForClipName (id); });
+            menu.showMenuAsync (juce::PopupMenu::Options().withMousePosition());
+            return;
+        }
+
         // What the file is, e.g. "Guitar.wav: 44.1 kHz, stereo, played at 48 kHz".
         {
             const auto rateText = [] (double rate)
@@ -1145,7 +1215,7 @@ private:
         juce::Component::SafePointer<TimelineComponent> safeOwner (&owner);
         juce::PopupMenu menu;
 
-        menu.addItem ("Import audio file here...", [safeOwner, trackId, position]
+        menu.addItem ("Import audio or MIDI file here...", [safeOwner, trackId, position]
         {
             if (safeOwner != nullptr && safeOwner->onImportRequested)
                 safeOwner->onImportRequested (trackId, position);
@@ -1416,6 +1486,10 @@ int TimelineComponent::trackRowAt (int yInTimeline) const
 bool TimelineComponent::isInterestedInFileDrag (const juce::StringArray& files)
 {
     const auto wildcard = audioFiles.getWildcard();
+
+    for (const auto& path : files)
+        if (isMidiFile (juce::File (path)))
+            return true;
 
     for (const auto& path : files)
         if (wildcard.containsIgnoreCase ("*" + juce::File (path).getFileExtension() + ";")

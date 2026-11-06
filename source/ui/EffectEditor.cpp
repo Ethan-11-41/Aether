@@ -3,6 +3,7 @@
 
 #include <cmath>
 
+#include "model/MidiClips.h"
 #include "model/Mixer.h"
 
 namespace aether::ui
@@ -10,7 +11,7 @@ namespace aether::ui
 
 namespace
 {
-    constexpr int knobWidth = 72, knobHeight = 86, titleHeight = 40, margin = 12;
+    constexpr int knobWidth = 72, knobHeight = 86, titleHeight = 40, margin = 12, knobsPerRow = 6, presetHeight = 34;
 }
 
 //==============================================================================
@@ -81,9 +82,26 @@ EffectEditor::EffectEditor (const Theme& t, Project& projectToEdit, juce::String
     onOff.isOn = [this] { return ! (bool) mixer::findInsert (project, insertId)[ids::bypass]; };
     onOff.onClick = [this] { edit::setInsertBypassed (project, insertId, ! (bool) mixer::findInsert (project, insertId)[ids::bypass]); };
     onOff.setTooltip ("Switch the effect on or off");
-    addAndMakeVisible (onOff);
+    addChildComponent (onOff);
+    onOff.setVisible (type == nullptr || ! type->isInstrument);   // an instrument is silenced with the track's mute
 
     int width = 240;
+
+    // Instruments: a preset menu at the top.
+    if (type != nullptr && type->isInstrument && ! type->presets.empty())
+    {
+        for (int i = 0; i < (int) type->presets.size(); ++i)
+            presetBox.addItem (type->presets[(size_t) i].name, i + 1);
+
+        presetBox.setTextWhenNothingSelected ("(your own settings)");
+        presetBox.setTooltip ("Ready-made sounds. Choosing one changes all the settings below (you can undo it).");
+        presetBox.onChange = [this]
+        {
+            const auto trackId = mixer::findInsert (project, insertId).getParent()[ids::id].toString();
+            edit::setInstrumentPreset (project, trackId, presetBox.getText());
+        };
+        addAndMakeVisible (presetBox);
+    }
 
     if (type != nullptr)
     {
@@ -120,11 +138,12 @@ EffectEditor::EffectEditor (const Theme& t, Project& projectToEdit, juce::String
             knobs.push_back (std::move (knob));
         }
 
-        width = std::max (width, margin * 2 + knobWidth * (int) knobs.size());
+        width = std::max (width, margin * 2 + knobWidth * std::min (knobsPerRow, (int) knobs.size()));
     }
 
     const auto choiceRows = (int) choices.size();
-    setSize (width, titleHeight + knobHeight + choiceRows * 30 + margin);
+    const auto knobRows = std::max (1, ((int) knobs.size() + knobsPerRow - 1) / knobsPerRow);
+    setSize (width, titleHeight + (presetBox.getNumItems() > 0 ? presetHeight : 0) + knobRows * knobHeight + choiceRows * 30 + margin);
     projectState.addListener (this);
     refresh();
 }
@@ -147,6 +166,24 @@ void EffectEditor::refresh()
     for (size_t i = 0; i < choices.size(); ++i)
         choices[i]->setSelectedId ((int) std::lround (mixer::getInsertParameter (insert, choiceParameters[i]->id)) + 1,
                                    juce::dontSendNotification);
+
+    if (presetBox.getNumItems() > 0)
+    {
+        // Shows the preset while the settings still match it; "(your own settings)" once changed.
+        presetBox.setSelectedId (0, juce::dontSendNotification);
+
+        for (int i = 0; type != nullptr && i < (int) type->presets.size(); ++i)
+        {
+            const auto& preset = type->presets[(size_t) i];
+            bool matches = preset.name == insert[ids::preset].toString();
+
+            for (size_t p = 0; matches && p < type->parameters.size() && p < preset.values.size(); ++p)
+                matches = std::abs (mixer::getInsertParameter (insert, type->parameters[p].id) - preset.values[p]) < 1.0e-3f;
+
+            if (matches)
+                presetBox.setSelectedId (i + 1, juce::dontSendNotification);
+        }
+    }
 
     repaint();
 }
@@ -190,9 +227,20 @@ void EffectEditor::resized()
     auto title = area.removeFromTop (titleHeight).reduced (margin, 8);
     onOff.setBounds (title.removeFromRight (44).withSizeKeepingCentre (44, 22));
 
-    auto knobRow = area.removeFromTop (knobHeight).withTrimmedLeft (margin);
-    for (auto& knob : knobs)
-        knob->setBounds (knobRow.removeFromLeft (knobWidth));
+    if (presetBox.getNumItems() > 0)
+        presetBox.setBounds (area.removeFromTop (presetHeight).reduced (margin, 4));
+
+    juce::Rectangle<int> knobRow;
+    for (size_t i = 0; i < knobs.size(); ++i)
+    {
+        if (i % knobsPerRow == 0)
+            knobRow = area.removeFromTop (knobHeight).withTrimmedLeft (margin);
+
+        knobs[i]->setBounds (knobRow.removeFromLeft (knobWidth));
+    }
+
+    if (knobs.empty())
+        area.removeFromTop (knobHeight);
 
     for (auto& box : choices)
         box->setBounds (area.removeFromTop (30).withTrimmedLeft (margin + 92).withTrimmedRight (margin).reduced (0, 3));

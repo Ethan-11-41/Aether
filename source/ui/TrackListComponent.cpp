@@ -1,8 +1,11 @@
 // Aether - Copyright (C) 2026 The Aether authors. Licensed under the GNU AGPLv3 or later.
 #include "TrackListComponent.h"
 
+#include "EffectEditor.h"
 #include "MixerControls.h"
+#include "dsp/EffectTypes.h"
 #include "model/EditCommands.h"
+#include "model/MidiClips.h"
 #include "model/Mixer.h"
 #include "model/Recording.h"
 #include "model/TrackColours.h"
@@ -27,7 +30,8 @@ public:
           meter (owner.theme, true)
     {
         setTooltip ("Click to select (Ctrl+click: several, Shift+click: a range). Double-click the name to rename. "
-                    "Drag to move the track. Right-click for more.");
+                    "Drag to move the track. Right-click for more."
+                    + juce::String (track.getKind() == TrackKind::midi ? " Click MIDI to change the instrument's sound." : ""));
         setWantsKeyboardFocus (false);
 
         auto& list = owner;
@@ -48,18 +52,23 @@ public:
         for (auto* control : std::initializer_list<juce::Component*> { &mute, &solo, &volume, &pan, &meter })
             addAndMakeVisible (control);
 
-        // Recording (audio tracks only, for now: MIDI recording comes in M6).
-        if (track.getKind() == TrackKind::audio)
+        // Recording: audio and MIDI tracks (not buses).
+        if (! track.isBus())
         {
+            const auto isMidi = track.getKind() == TrackKind::midi;
             arm.isOn = [this] { return track.isArmed(); };
             arm.onClick = [this, &list, group] { edit::setArmed (list.project, group(), ! track.isArmed()); };
-            arm.setTooltip ("Record arm: this track records when you press Record (R). "
-                            "Right-click the track to choose its input.");
+            arm.setTooltip (isMidi ? "Record arm: this track records what you play on a MIDI keyboard when you press Record (R). "
+                                     "An armed track also plays what you play, even when it isn't selected."
+                                   : "Record arm: this track records when you press Record (R). "
+                                     "Right-click the track to choose its input.");
 
             monitor.isOn = [this] { return track.isMonitoring(); };
             monitor.onClick = [this, &list, group] { edit::setMonitoring (list.project, group(), ! track.isMonitoring()); };
-            monitor.setTooltip ("Input monitoring: hear the track's input (e.g. your microphone) through Aether, with "
-                                "the track's effects. Use headphones, or the speakers will feed back into the microphone.");
+            monitor.setTooltip (isMidi ? "Play through this track: what you play on a MIDI keyboard always plays this track's "
+                                         "instrument (the selected MIDI track does anyway)."
+                                       : "Input monitoring: hear the track's input (e.g. your microphone) through Aether, with "
+                                         "the track's effects. Use headphones, or the speakers will feed back into the microphone.");
 
             addAndMakeVisible (arm);
             addAndMakeVisible (monitor);
@@ -162,6 +171,14 @@ public:
 
     void mouseDown (const juce::MouseEvent& e) override
     {
+        // The MIDI badge opens the instrument's settings.
+        if (! e.mods.isPopupMenu() && track.getKind() == TrackKind::midi && getBadgeArea().contains (e.getPosition()))
+        {
+            owner.selectTrack (track.getId());
+            owner.showInstrumentEditor (track.getId(), localAreaToGlobal (getBadgeArea()));
+            return;
+        }
+
         // A right-click on a track that isn't selected selects just that one; on a selected
         // track it keeps the selection, so the menu can act on all of them.
         if (e.mods.isPopupMenu())
@@ -494,6 +511,26 @@ void TrackListComponent::showContextMenu (const juce::String& trackId)
     menu.addItem (track.isSoloed() ? "Unsolo" : "Solo",
                   whenStillOpen ([targets, solo = ! track.isSoloed()] (TrackListComponent& list) { edit::setSoloed (list.project, targets, solo); }));
 
+    // MIDI tracks: the instrument.
+    if (track.getKind() == TrackKind::midi)
+    {
+        juce::PopupMenu presets;
+        const auto instrument = midi::instrumentOf (project, trackId);
+
+        if (const auto* type = dsp::findEffectType (instrument[ids::type].toString()))
+            for (const auto& preset : type->presets)
+                presets.addItem (preset.name, true, instrument[ids::preset].toString() == preset.name,
+                                 whenStillOpen ([trackId, name = preset.name] (TrackListComponent& list) { edit::setInstrumentPreset (list.project, trackId, name); }));
+
+        menu.addSubMenu ("Instrument (" + instrument[ids::preset].toString() + ")", presets);
+        menu.addItem ("Instrument settings...", whenStillOpen ([trackId] (TrackListComponent& list)
+        {
+            list.showInstrumentEditor (trackId, list.getScreenBounds().withSize (10, 10).translated (list.getWidth() / 2, 0));
+        }));
+        menu.addItem (track.isArmed() ? "Disarm (don't record)" : "Arm for recording",
+                      whenStillOpen ([targets, armed = ! track.isArmed()] (TrackListComponent& list) { edit::setArmed (list.project, targets, armed); }));
+    }
+
     // What it records from.
     if (track.getKind() == TrackKind::audio)
     {
@@ -547,6 +584,14 @@ void TrackListComponent::showContextMenu (const juce::String& trackId)
                   whenStillOpen ([targets] (TrackListComponent& list) { edit::deleteTracks (list.project, targets); }));
 
     menu.showMenuAsync (juce::PopupMenu::Options().withMousePosition());
+}
+
+void TrackListComponent::showInstrumentEditor (const juce::String& trackId, juce::Rectangle<int> screenArea)
+{
+    const auto instrument = midi::instrumentOf (project, trackId);
+
+    if (instrument.isValid())
+        EffectEditor::show (theme, project, instrument[ids::id].toString(), screenArea);
 }
 
 void TrackListComponent::dragStarted (const juce::String& trackId)

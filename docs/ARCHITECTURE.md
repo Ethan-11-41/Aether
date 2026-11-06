@@ -100,6 +100,18 @@ Separate process:   plug-in scanner
   cross-correlation), or the driver's figure until measured. Measurements are kept per device
   setting.
 
+### MIDI
+- MIDI clips store notes in ticks (`model/MidiClips`); the engine snapshot lists each MIDI
+  track's notes in samples (worked out through the tempo map) and its instrument
+  (`dsp::Instrument`, kept from one snapshot to the next like effects).
+- The transport records the continuous pieces it played in each chunk; instruments then get
+  note-ons at exact sample offsets. Notes from clips end by themselves after their length, and
+  are released when playback stops or jumps (loop, locate), so nothing hangs.
+- Live MIDI: JUCE calls `AudioEngine::handleIncomingMidiMessage` on a MIDI thread (one device at a
+  time); messages go through a lock-free queue (the on-screen keyboard has its own, from the UI
+  thread) and are placed in the next block by their arrival time. While recording they are also
+  passed, numbered like samples of the recording, to the Recorder, which turns them into notes.
+
 ### Mixer
 - Tracks → buses → master, with pre- or post-fader sends. Feedback loops are refused when
   editing, and broken if a hand-edited file contains one (`engine/MixerRouting`).
@@ -166,7 +178,7 @@ source/
   plugins/    VST3/CLAP hosting, scanner process, blacklist, presets      (from M15)
   dsp/        built-in instruments and effects                            (from M4)
   library/    sound library index, tags, search                           (from M17)
-  interop/    MIDI files, DAWproject, Reaper, LMMS, stems                 (from M6)
+  interop/    DAWproject, Reaper, LMMS, stems (MIDI file import is in io/)  (from M18)
   ui/         timeline, mixer, piano roll, step sequencer, browser, themes
 tests/
   unit/       Catch2 tests for non-UI logic

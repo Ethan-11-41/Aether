@@ -412,6 +412,9 @@ void MixerComponent::Strip::showAddEffectMenu()
 
     for (const auto& type : dsp::effectTypes())
     {
+        if (type.isInstrument)
+            continue;
+
         const auto typeId = type.id;
         menu.addItem (type.name, whileStripExists (this, [this, &proj, typeId]
         {

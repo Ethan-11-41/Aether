@@ -26,6 +26,8 @@ namespace aether::ids
     inline const juce::Identifier Send           { "Send" };
     inline const juce::Identifier Inserts        { "Inserts" };          // list of Insert (effects), inside a Track or Master
     inline const juce::Identifier Insert         { "Insert" };
+    inline const juce::Identifier Note           { "Note" };             // inside a MIDI Clip
+    inline const juce::Identifier Instrument     { "Instrument" };       // inside a MIDI Track: what plays its notes
 
     // Properties
     inline const juce::Identifier id      { "id" };       // unique id (UUID text) of a track, clip, etc.
@@ -83,4 +85,12 @@ namespace aether::ids
     inline const juce::Identifier takes       { "takes" };        // clip: how many takes its file holds (loop recording)
     inline const juce::Identifier takeLength  { "takeLength" };   // clip: samples from one take to the next in the file
     inline const juce::Identifier take        { "take" };         // clip: which take is playing (0 = the first)
+
+    // MIDI (positions and lengths in ticks)
+    // A MIDI clip has kind = "midi" (audio clips have no kind).
+    inline const juce::Identifier length       { "length" };        // a MIDI clip's or a note's length
+    inline const juce::Identifier contentStart { "contentStart" };  // MIDI clip: where in its notes it starts playing
+    inline const juce::Identifier pitch        { "pitch" };         // note: 0-127 (60 = middle C)
+    inline const juce::Identifier velocity     { "velocity" };      // note: 1-127 (how hard it was played)
+    inline const juce::Identifier preset       { "preset" };        // instrument: the preset it was set to last
 }

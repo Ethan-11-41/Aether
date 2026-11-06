@@ -153,8 +153,14 @@ TEST_CASE ("Arming and monitoring are switches, not undo steps", "[recording][mo
     Fixture f;
     edit::setArmed (f.project, { f.vocals, f.keys }, true);
     CHECK (f.project.findTrack (f.vocals).isArmed());
-    CHECK_FALSE (f.project.findTrack (f.keys).isArmed());   // MIDI recording comes in M6
+    CHECK (f.project.findTrack (f.keys).isArmed());
     CHECK (recording::armedTracks (f.project) == juce::StringArray { f.vocals });
+    CHECK (recording::armedMidiTracks (f.project) == juce::StringArray { f.keys });
+
+    const auto bus = edit::addTrack (f.project, TrackKind::bus).getId();
+    f.project.getUndoManager().clearUndoHistory();
+    edit::setArmed (f.project, { bus }, true);
+    CHECK_FALSE (f.project.findTrack (bus).isArmed());   // buses don't record
     CHECK_FALSE (f.project.getUndoManager().canUndo());
 
     edit::setMonitoring (f.project, { f.vocals }, true);

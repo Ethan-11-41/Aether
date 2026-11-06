@@ -9,6 +9,8 @@ add_library(aether_core STATIC
     devices/LatencyInfo.h
     dsp/Effect.h
     dsp/Effects.cpp
+    dsp/Instrument.h
+    dsp/StarterSynth.cpp
     dsp/EffectTypes.cpp
     dsp/EffectTypes.h
     engine/AudioEngine.cpp
@@ -45,6 +47,8 @@ add_library(aether_core STATIC
     io/Autosaver.cpp
     io/Autosaver.h
     io/JsonValueTree.cpp
+    io/MidiImport.cpp
+    io/MidiImport.h
     io/JsonValueTree.h
     io/ProjectFiles.cpp
     io/ProjectFiles.h
@@ -61,6 +65,8 @@ add_library(aether_core STATIC
     model/EditCommands.cpp
     model/EditCommands.h
     model/Ids.h
+    model/MidiClips.cpp
+    model/MidiClips.h
     model/Mixer.cpp
     model/Mixer.h
     model/Project.cpp
@@ -91,6 +97,8 @@ add_library(aether_ui STATIC
     ui/EffectEditor.cpp
     ui/EffectEditor.h
     ui/IconButton.cpp
+    ui/KeyboardPanel.cpp
+    ui/KeyboardPanel.h
     ui/IconButton.h
     ui/LatencyPanel.cpp
     ui/LatencyPanel.h

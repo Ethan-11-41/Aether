@@ -40,6 +40,20 @@ public:
     void addAudioCallback (juce::AudioIODeviceCallback* callback);
     void removeAudioCallback (juce::AudioIODeviceCallback* callback);
 
+    /** MIDI from every switched-on MIDI input goes to `callback` (on a MIDI thread). */
+    void addMidiCallback (juce::MidiInputCallback* callback);
+    void removeMidiCallback (juce::MidiInputCallback* callback);
+
+    /** Switches on every MIDI input (keyboards, the Kawai over USB...) except those the user
+        switched off in the settings. Called at start-up and whenever a MIDI device is plugged in
+        or out; public so the tests can call it. */
+    void refreshMidiInputs();
+
+    /** The names of the MIDI inputs that are switched on. */
+    juce::StringArray getEnabledMidiInputNames() const;
+
+    static constexpr const char* midiOffKey = "midiInputsSwitchedOff";
+
     /** Latency of the currently open device (invalid if no device is open), including the
         measured round trip if this exact setting (driver, devices, sample rate, buffer size)
         has been measured. */
@@ -98,6 +112,7 @@ private:
 
     void changeListenerCallback (juce::ChangeBroadcaster*) override;
     juce::String measuredLatencyKey() const;
+    void rememberMidiChoices();
     void restoreLastWorkingConfig (const juce::String& failedTypeName, const juce::String& driverError);
 
     juce::PropertySet& settings;
@@ -107,6 +122,8 @@ private:
     bool restorePending = false;
     std::function<void (std::function<void()>)> runDeferred;
     std::function<juce::String()> driverErrorSource;
+    juce::MidiDeviceListConnection midiDevicesChanged;
+    bool refreshingMidi = false;
 
     JUCE_DECLARE_WEAK_REFERENCEABLE (AudioDeviceService)
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AudioDeviceService)

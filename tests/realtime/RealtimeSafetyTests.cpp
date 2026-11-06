@@ -15,6 +15,7 @@
 #include "engine/rt/SpscQueue.h"
 #include "model/ClipEdits.h"
 #include "model/EditCommands.h"
+#include "model/MidiClips.h"
 #include "model/Mixer.h"
 #include "model/Recording.h"
 #include "model/TimelineEdits.h"
@@ -248,5 +249,54 @@ TEST_CASE ("Recording, monitoring and latency measurement are real-time safe", "
 
     engine.collectGarbage();
     CHECK (ring->getDroppedFrames() > 0);
+    SUCCEED ("no real-time violations");
+}
+
+TEST_CASE ("MIDI playback, the synth, live MIDI and MIDI recording are real-time safe", "[realtime]")
+{
+    using namespace aether;
+    Project project;
+    const auto keys = edit::addTrack (project, TrackKind::midi).getId();
+    const auto pad = edit::addTrack (project, TrackKind::midi).getId();
+    edit::setInstrumentPreset (project, pad, "Soft pad");
+
+    std::vector<NoteData> notes;
+    for (int i = 0; i < 64; ++i)
+        notes.push_back ({ 40 + i % 40, 100, i * ticksPerQuarter / 4, ticksPerQuarter });
+    edit::addMidiClip (project, keys, "a", 0, 16 * ticksPerQuarter, notes);
+    edit::addMidiClip (project, pad, "b", 0, 16 * ticksPerQuarter, notes);
+    edit::setArmed (project, { keys }, true);
+    edit::setLoopRange (project, 0, 2 * ticksPerQuarter);
+    edit::setLoopEnabled (project, true);
+
+    AudioEngine engine;
+    engine.prepare (48000.0, 2048);
+    MixerResources resources;
+    auto timeline = buildTimelineSnapshot (project, 48000.0, {}, &resources, pad);
+    timeline->recordRing = std::make_shared<RecordingRing> (std::vector<int> {}, 4096);
+    engine.setTimeline (std::move (timeline));
+    engine.record();
+
+    std::vector<float> left (2048), right (2048);
+    float* outputs[] = { left.data(), right.data() };
+    RecordedMidiMessage drained;
+
+    for (int block = 0; block < 400; ++block)
+    {
+        // A keyboard playing all the while (from "MIDI threads" and the on-screen keyboard).
+        engine.handleIncomingMidiMessage (nullptr, juce::MidiMessage::noteOn (1, 40 + block % 50, (juce::uint8) 90));
+        engine.handleIncomingMidiMessage (nullptr, juce::MidiMessage::controllerEvent (1, 64, block % 2 == 0 ? 127 : 0));
+        engine.handleIncomingMidiMessage (nullptr, juce::MidiMessage::pitchWheel (1, 8192 + block));
+        engine.sendLiveMidi (juce::MidiMessage::noteOff (1, 40 + (block + 25) % 50));
+
+        if (block == 200) engine.stop();
+        if (block == 250) { engine.locate (0); engine.play(); }
+        if (block % 50 == 0)
+            while (engine.takeRecordedMidi (drained)) {}
+
+        engine.process (nullptr, 0, outputs, 2, 1 + (block * 71) % 2048);
+    }
+
+    engine.collectGarbage();
     SUCCEED ("no real-time violations");
 }

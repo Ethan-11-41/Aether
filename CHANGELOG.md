@@ -6,6 +6,42 @@ follow [Semantic Versioning](https://semver.org/) (0.x while Aether is in early 
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-06 - Milestone 6: MIDI tracks
+
+### Added
+- MIDI tracks make sound: every MIDI track has the new **starter synth**, with presets
+  (Electric piano, Soft pad, Bass, Lead, Organ, Pluck) and settings (tone, detune, sub, filter,
+  envelope, touch sensitivity, volume). Click a MIDI track's **MIDI** badge (or right-click >
+  Instrument) to choose a preset or change the sound. A fuller synth comes in M10.
+- MIDI keyboards: every MIDI input (e.g. your Kawai over USB) is switched on automatically,
+  including ones plugged in while Aether is running. They can be switched off in Audio settings
+  (Aether remembers). A **MIDI** light in the toolbar flashes when notes arrive; its tooltip
+  lists the keyboards.
+- Playing: what you play goes to the selected MIDI track, and to armed (R) or "play through" (I)
+  MIDI tracks. The sustain pedal and pitch bend work.
+- The **on-screen keyboard** (View > On-screen keyboard, Ctrl+K): click its keys, or click it
+  and play with the computer keyboard (A W S E D F T G Y H U J K; Z / X change octave).
+- Recording MIDI: arm a MIDI track (R) and record as with audio: count-in, punch in/out,
+  latency correction (by the output delay, i.e. what you heard while playing). With the loop
+  on, every pass is added to the same clip. The sustain pedal is turned into note lengths.
+- MIDI clips: shown with their notes, and moved, trimmed, split, duplicated, deleted and
+  renamed like audio clips (only onto MIDI tracks). A piano roll to edit notes comes in M9.
+- Importing MIDI files (.mid): drag them onto the timeline, or Track > Import (Ctrl+I). Each
+  part becomes a MIDI track with a clip; a new project takes the file's tempo.
+- Automated tests for MIDI clips and their edits, instruments and presets, the sustain pedal,
+  MIDI file import, notes playing at exactly their sample, every preset, live playing, notes not
+  hanging after stop or loop jumps, voice stealing, and recording MIDI (216 tests), plus a
+  real-time safety test of MIDI playback, the synth and live/recorded MIDI.
+
+### Fixed
+- **Tooltips now appear** in the main window. They were written for every control but never
+  shown, because the main window was missing the part that displays them (only the Audio
+  settings window had it). Hover over any button or control to see its name and what it does.
+
+### Changed
+- Arming (R) and "play through" (I) work on MIDI tracks too.
+- The roadmap now includes pitch correction ("auto-tune") in M19, with pitch-shifting.
+
 ## [0.6.0] - 2026-11-06 - Milestone 5: recording
 
 ### Added

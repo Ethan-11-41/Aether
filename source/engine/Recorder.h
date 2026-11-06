@@ -17,9 +17,9 @@ namespace aether
 
 /** Records the armed tracks.
 
-    - start(): makes one WAV file per armed track (24-bit, in the project's Audio folder), gives
-      the engine a RecordingRing to fill, and starts the transport recording (after the
-      count-in, if one is set).
+    - start(): makes one WAV file per armed audio track (24-bit, in the project's Audio folder),
+      gives the engine a RecordingRing to fill, and starts the transport recording (after the
+      count-in, if one is set). Armed MIDI tracks record what's played on MIDI keyboards.
     - While recording, a background thread moves the sound from the ring into the files, and
       updates each file's header every second, so a crash or power cut loses at most a second.
     - stop(): stops the transport. When the engine confirms the recording has ended, the last
@@ -33,9 +33,12 @@ class Recorder final : private juce::Timer
 public:
     /** `latencySamples` gives the round trip to correct recordings by (measured, if the user
         has measured it; otherwise what the driver reports). `numInputChannels` says how many
-        inputs the sound card has (to warn about tracks set to an input that doesn't exist). */
+        inputs the sound card has (to warn about tracks set to an input that doesn't exist).
+        `midiLatencySamples` is how late you hear what you play along to (the output latency),
+        which recorded MIDI is corrected by. */
     Recorder (Project& project, AudioEngine& engine, TimelineSync& sync, std::function<ProjectLocation()> location,
-              std::function<int()> latencySamples, std::function<int()> numInputChannels = {});
+              std::function<int()> latencySamples, std::function<int()> numInputChannels = {},
+              std::function<int()> midiLatencySamples = {});
     ~Recorder() override;
 
     /** Starts recording. Returns a problem in plain words, or an empty string if it started. */
@@ -85,7 +88,7 @@ private:
     AudioEngine& engine;
     TimelineSync& sync;
     std::function<ProjectLocation()> location;
-    std::function<int()> latencySamples, numInputChannels;
+    std::function<int()> latencySamples, numInputChannels, midiLatencySamples;
     std::unique_ptr<Session> session;
 };
 

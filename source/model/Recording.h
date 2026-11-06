@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "ClipEdits.h"
+#include "MidiClips.h"
 #include "Project.h"
 
 /** The recording side of the project: which tracks are armed, what they record from, punch
@@ -56,17 +57,31 @@ namespace recording
         less than the minimum clip length, or nothing inside the punch range. */
     std::optional<Placement> place (const Facts& facts, double sampleRate);
 
+    /** Where recorded MIDI goes. */
+    struct MidiPlacement
+    {
+        std::int64_t timelineStart = 0, duration = 0;   // the clip, in samples
+        std::vector<NoteData> notes;                    // start and length in samples, from timelineStart
+    };
+
+    /** Places recorded notes, whose `start` and `length` count samples from the start of the
+        recording (as an audio file's would). `facts.latencySamples` is MIDI's latency (how late
+        you heard what you played along to). With the loop on, every pass goes into the same
+        clip (overdub). Nothing if no notes landed inside the clip's range. */
+    std::optional<MidiPlacement> placeMidi (const Facts& facts, const std::vector<NoteData>& notes, double sampleRate);
+
     /** A track's input as text, e.g. "Input 1", "Inputs 1+2" or "No input". */
     juce::String describeInput (int firstChannel, bool stereo);
 
-    /** Tracks that will record when you press Record: armed audio tracks. */
+    /** Tracks that will record when you press Record: armed audio tracks, and armed MIDI tracks. */
     juce::StringArray armedTracks (const Project& project);
+    juce::StringArray armedMidiTracks (const Project& project);
 }
 
 namespace edit
 {
     /** Arms tracks for recording (or disarms them). Arming isn't an undo step: like selection,
-        it's a switch, not a change to the song. Only audio tracks can be armed. */
+        it's a switch, not a change to the song. Audio and MIDI tracks can be armed (not buses). */
     void setArmed (Project& project, const juce::StringArray& trackIds, bool shouldBeArmed);
 
     /** Lets you hear the tracks' input through them (with their effects). Not an undo step either. */
@@ -82,12 +97,16 @@ namespace edit
     /** Removes everything on a track between two positions, cutting clips that cross them. */
     bool clearRange (Project& project, const juce::String& trackId, Tick from, Tick to, bool newUndoStep = true);
 
-    /** A finished recording for one track. */
+    /** A finished recording for one track: audio (a file and where it goes) or MIDI (notes). */
     struct RecordedTake
     {
         juce::String trackId;
         AudioSourceInfo source;
         recording::Placement placement;
+
+        bool isMidi = false;
+        Tick midiStart = 0, midiLength = 0;
+        std::vector<NoteData> notes {};  // MIDI: start in ticks from midiStart
     };
 
     /** Adds the clips of a recording (all tracks in one undo step), replacing whatever was on

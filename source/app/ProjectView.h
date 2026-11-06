@@ -9,6 +9,7 @@
 #include "engine/Recorder.h"
 #include "engine/TimelineSync.h"
 #include "model/Project.h"
+#include "ui/KeyboardPanel.h"
 #include "ui/MixerComponent.h"
 #include "ui/TimelineComponent.h"
 #include "ui/TrackListComponent.h"
@@ -41,6 +42,10 @@ public:
     void setMixerVisible (bool shouldBeVisible);
     bool isMixerVisible() const noexcept              { return mixerVisible; }
 
+    /** Shows or hides the on-screen keyboard at the bottom (remembered between sessions). */
+    void setKeyboardVisible (bool shouldBeVisible);
+    bool isKeyboardVisible() const noexcept           { return keyboardVisible; }
+
     /** Imports audio files onto a track (or new tracks) at a position, and selects the new clips. */
     void importFiles (const juce::Array<juce::File>& files, const juce::String& trackId, Tick position);
 
@@ -50,6 +55,7 @@ public:
     static constexpr const char* gridKey = "gridSize";
     static constexpr const char* mixerVisibleKey = "mixerVisible";
     static constexpr const char* mixerHeightKey = "mixerHeight";
+    static constexpr const char* keyboardVisibleKey = "keyboardVisible";
 
     void paint (juce::Graphics&) override;
     void resized() override;
@@ -95,7 +101,27 @@ private:
     ui::TrackListComponent trackList;
     std::unique_ptr<ui::TimelineComponent> timeline;
     std::unique_ptr<ui::MixerComponent> mixer;
+    std::unique_ptr<ui::KeyboardPanel> keyboard;
+    bool keyboardVisible = false;
     Divider divider;
+
+    /** "MIDI" in the toolbar, lit for a moment whenever a MIDI message arrives. */
+    struct MidiLight final : public juce::Component, public juce::SettableTooltipClient
+    {
+        const ui::Theme* theme = nullptr;
+        bool lit = false;
+        void paint (juce::Graphics& g) override
+        {
+            g.setColour (lit ? theme->accent : theme->panelRaised);
+            g.fillRoundedRectangle (getLocalBounds().toFloat().reduced (2.0f), 4.0f);
+            g.setColour (lit ? theme->accentText : theme->textDim);
+            g.setFont (juce::FontOptions (11.0f, juce::Font::bold));
+            g.drawText ("MIDI", getLocalBounds(), juce::Justification::centred);
+        }
+    } midiLight;
+    std::uint32_t lastMidiActivity = 0;
+    double midiLitUntil = 0.0;
+    int tooltipRefresh = 0;
     bool mixerVisible = false;
     int mixerHeight = 340, heightAtDragStart = 340;
     double lastMeterTime = 0.0;

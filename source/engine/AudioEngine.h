@@ -36,6 +36,23 @@ struct RecordingStatus
     std::uint32_t completed = 0;      // goes up by one each time a recording ends
 };
 
+/** A MIDI message played live (on a keyboard, or the on-screen one), with when it arrived. */
+struct LiveMidiMessage
+{
+    double timeMs = 0.0;               // juce::Time::getMillisecondCounterHiRes() when it arrived
+    std::uint8_t data[3] {};
+    std::uint8_t size = 0;
+};
+
+/** A MIDI message captured while recording: `index` counts samples from the start of the
+    recording (like a position in a recorded audio file). */
+struct RecordedMidiMessage
+{
+    std::int64_t index = 0;
+    std::uint8_t data[3] {};
+    std::uint8_t size = 0;
+};
+
 /** A transport instruction from the UI thread to the audio thread. */
 struct TransportCommand
 {
@@ -55,7 +72,8 @@ struct TransportCommand
       - simple settings (metronome on/off, volume, count-in) are atomics,
       - the position and meter levels come back as atomics.
 */
-class AudioEngine final : public juce::AudioIODeviceCallback
+class AudioEngine final : public juce::AudioIODeviceCallback,
+                          public juce::MidiInputCallback
 {
 public:
     static constexpr int numMeteredChannels = 2;
@@ -84,6 +102,18 @@ public:
 
     /** Starts a latency measurement (it replaces the normal output for a few seconds). */
     void startLatencyCapture (std::shared_ptr<LatencyCapture> capture);
+
+    /** Plays a MIDI message as if from a keyboard (UI thread: the on-screen keyboard). */
+    void sendLiveMidi (const juce::MidiMessage& message);
+
+    /** Goes up by one for every MIDI message that arrives (for an activity light). */
+    std::uint32_t getMidiActivity() const noexcept   { return midiActivity.load (std::memory_order_relaxed); }
+
+    /** UI thread: MIDI captured while recording, in order. Returns false when there's no more. */
+    bool takeRecordedMidi (RecordedMidiMessage& message)   { return recordedMidi.tryPop (message); }
+
+    /** juce::MidiInputCallback: a message from a MIDI device (on a MIDI thread). */
+    void handleIncomingMidiMessage (juce::MidiInput* source, const juce::MidiMessage& message) override;
 
     void setMetronomeEnabled (bool shouldClick) noexcept   { metronomeEnabled.store (shouldClick, std::memory_order_relaxed); }
     bool isMetronomeEnabled() const noexcept               { return metronomeEnabled.load (std::memory_order_relaxed); }
@@ -135,6 +165,24 @@ private:
 
     static constexpr int maxOutputChannels = 64;
     static constexpr int maxInputChannels = 64;
+    static constexpr int maxLiveEvents = 256;      // live MIDI messages per block
+    static constexpr int maxNoteEvents = 1024;     // note events per channel per chunk
+    static constexpr int maxSegments = 32;         // pieces of a chunk between loop jumps
+
+    /** A part of a chunk the transport played continuously: timeline [from, to) at `offset`. */
+    struct Segment
+    {
+        std::int64_t from = 0, to = 0;
+        int offset = 0;
+        bool afterJump = false;        // the playhead jumped (loop) just before this
+    };
+
+    struct LiveEvent
+    {
+        int offset = 0;                // sample within the block
+        dsp::NoteEvent event;
+        LiveMidiMessage raw;
+    };
 
     /** A latency measurement waiting for (or being run by) the audio thread. */
     struct ProbeJob
@@ -144,8 +192,11 @@ private:
 
     void handleCommands (const TimelineSnapshot& timeline) noexcept AETHER_NONBLOCKING;
     void processChunk (const TimelineSnapshot& timeline, const float* const* inputs, int numInputs,
-                       float* const* outputs, int numOutputs, int numSamples) noexcept AETHER_NONBLOCKING;
+                       float* const* outputs, int numOutputs, int numSamples, int chunkStart) noexcept AETHER_NONBLOCKING;
     void stopRecording() noexcept AETHER_NONBLOCKING;
+    void collectLiveMidi (int numSamples) noexcept AETHER_NONBLOCKING;
+    void playInstruments (const TimelineSnapshot& timeline, int chunkStart, int numSamples) noexcept AETHER_NONBLOCKING;
+    void recordMidi (int chunkStart, int recordFrom, int numSamples, std::int64_t recordBase) noexcept AETHER_NONBLOCKING;
     void monitorInputs (const TimelineSnapshot& timeline, const float* const* inputs, int numInputs, int numSamples) noexcept AETHER_NONBLOCKING;
     void startCountIn (const TimelineSnapshot& timeline) noexcept AETHER_NONBLOCKING;
     int runCountIn (int numSamples) noexcept AETHER_NONBLOCKING;
@@ -170,6 +221,10 @@ private:
     rt::SnapshotExchange<TimelineSnapshot> timelineExchange;
     rt::SnapshotExchange<ProbeJob> probeExchange;
     rt::SpscQueue<Command> commands { 256 };
+    rt::SpscQueue<LiveMidiMessage> deviceMidi { 2048 };     // from MIDI devices (JUCE calls one at a time)
+    rt::SpscQueue<LiveMidiMessage> uiMidi { 512 };          // from the on-screen keyboard
+    rt::SpscQueue<RecordedMidiMessage> recordedMidi { 8192 };
+    std::atomic<std::uint32_t> midiActivity { 0 };
     std::atomic<bool> metronomeEnabled { false };
     std::atomic<float> metronomeLevelDb { -6.0f };
     std::atomic<float> metronomeGain { 0.5f };
@@ -191,6 +246,12 @@ private:
     bool recordPending = false;               // start recording as soon as playback starts
     RecordingRing* recordingInto = nullptr;   // while recording (kept alive by the snapshot)
     std::int64_t recordedFrames = 0;
+    bool stopClipNotes = false;               // playback stopped or jumped: release clip notes
+    std::array<Segment, maxSegments> segments {};
+    int numSegments = 0;
+    std::array<LiveEvent, maxLiveEvents> liveEvents {};
+    int numLiveEvents = 0;
+    std::array<dsp::NoteEvent, maxNoteEvents> noteEvents {};
     std::int64_t positionSamples = 0;   // the playhead, in samples from the start of the timeline
     double countInSamplesPerBeat = 0.0;
     int countInTotalBeats = 0, countInBeatsPerBar = 4;

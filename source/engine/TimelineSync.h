@@ -28,7 +28,8 @@ using AudioResolver = std::function<std::shared_ptr<const AudioData> (const juce
     filled in. */
 std::unique_ptr<TimelineSnapshot> buildTimelineSnapshot (const Project& project, double sampleRate = 0.0,
                                                          const AudioResolver& resolver = {},
-                                                         MixerResources* resources = nullptr);
+                                                         MixerResources* resources = nullptr,
+                                                         const juce::String& focusedTrackId = {});
 
 /** Keeps the audio engine up to date with a project: whenever the tempo, loop or clips change,
     or an audio file finishes loading, a new TimelineSnapshot is built and handed to the engine.
@@ -53,6 +54,9 @@ public:
         `channelId` is a track id or mixer::masterId. */
     std::pair<float, float> takeChannelPeaks (const juce::String& channelId)   { return mixerResources.takePeaks (channelId); }
 
+    /** The selected track: if it's a MIDI track, what's played on a MIDI keyboard plays through it. */
+    void setFocusedTrack (const juce::String& trackId)   { if (focusedTrack != trackId) { focusedTrack = trackId; update(); } }
+
     /** Gives the engine somewhere to record into (or takes it away, with null). */
     void setRecordingRing (std::shared_ptr<RecordingRing> ring)   { recordRing = std::move (ring); update(); }
 
@@ -71,6 +75,7 @@ private:
     juce::ValueTree state;
     MixerResources mixerResources;
     std::shared_ptr<RecordingRing> recordRing;
+    juce::String focusedTrack;
 };
 
 } // namespace aether

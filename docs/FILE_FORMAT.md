@@ -151,6 +151,20 @@ A `Track`'s `kind` can now also be `"bus"`. Projects without a `Master` node get
 | | `takeLength` | Samples (of the file) from one take to the next. |
 | | `take` | Which take the clip plays, from 0. Choosing another take moves `offset` by whole `takeLength`s. |
 
+### Added in Aether 0.7.0 (still format version 1)
+
+MIDI tracks without an `Instrument` get the starter synth when opened.
+
+| Node | Property | Meaning |
+|---|---|---|
+| `Clip` | `kind` | `"midi"` for a MIDI clip (audio clips have no `kind`). |
+| (MIDI clip) | `start`, `length` | Position and length in ticks. |
+| | `contentStart` | Where in its notes the clip starts playing, in ticks (moves when the left edge is trimmed). |
+| `Note` | `tick`, `length` | Inside a MIDI clip: start (from the start of the clip's notes) and length, in ticks. |
+| | `pitch`, `velocity` | 0 to 127 (60 = middle C), 1 to 127. |
+| `Instrument` | `id`, `type`, `preset` | Inside a MIDI track: what plays its notes (`"synth"`), and the last preset chosen. |
+| | (settings) | Like an effect's (see `source/dsp/EffectTypes.cpp`): `tone`, `detune`, `sub`, `cutoff`, `resonance`, `envelope`, `attack`, `decay`, `sustain`, `release`, `touch`, `volume`. |
+
 ## Rules for changing the format
 
 1. Never rename or reuse a node type or property name (see `source/model/Ids.h`).
