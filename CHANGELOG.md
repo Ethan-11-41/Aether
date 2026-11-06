@@ -6,6 +6,45 @@ follow [Semantic Versioning](https://semver.org/) (0.x while Aether is in early 
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-06 - Milestone 5: recording
+
+### Added
+- Recording: arm audio tracks with their **R** button and press **Record** (R key, or the red
+  button). Several tracks can record at once, each from its own input. Recording starts after
+  the count-in if one is set, or straight away if you press Record during playback. Press Space
+  (or R again) to stop.
+- Recordings are saved as 24-bit WAV files in the project's Audio folder ("Vocals 1.wav",
+  "Vocals 2.wav"...). The files are updated every second while recording, so a crash or power cut
+  loses at most a second. Nothing recorded is ever deleted by undo.
+- Automatic latency compensation: what you record is moved back by the round-trip delay, so it
+  lines up with what you heard while playing.
+- Measure latency (Settings > Audio settings): Aether plays eight short chirps and listens for
+  them through your input to measure the real delay (drivers often report it wrongly). The result
+  is remembered for that exact setting (device, sample rate, buffer size) and used for
+  recordings.
+- An armed track's level meter shows its input (e.g. your microphone), so you can check the level
+  before recording.
+- Input monitoring: the **I** button on a track lets you hear its input through Aether, with the
+  track's effects (use headphones).
+- Choosing a track's input: right-click the track > Input (a single input, or a stereo pair).
+- Punch in/out (the button next to Loop, or P): only what's inside the loop region is kept.
+- Loop recording: with the loop on, every pass round the loop is kept as a take in one file. The
+  clip plays the last take; right-click it > Takes to choose another. Split a clip and choose a
+  different take for each part to combine the best bits.
+- A recording replaces what was on the track where it lands (one undo step brings it all back).
+- While recording, a red block grows on each recording track.
+- Go to start (the |◀ button, Home, or Stop when already stopped) now also scrolls the timeline
+  back to the start.
+- Automated tests for where recordings land (latency, punch, loop takes), replacing and takes,
+  recording a known signal end-to-end into WAV files and clips, stopping during the count-in,
+  monitoring, the latency measurement through a simulated cable (exact to the sample, also with
+  noise), remembering measurements per setting (198 tests), and a real-time safety test of
+  recording, monitoring and measuring.
+
+### Changed
+- The latency panel shows both the driver's round trip and what recordings are corrected by.
+- Track headers: the volume slider is a little shorter on audio tracks, to make room for R and I.
+
 ## [0.5.0] - 2026-11-06 - Milestone 4: mixer
 
 ### Added

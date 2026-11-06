@@ -503,6 +503,16 @@ void AudioEngine::monitorInputs (const TimelineSnapshot& timeline, const float* 
 
     for (const auto& track : timeline.tracks)
     {
+        // An armed track that isn't monitoring still shows its input level on its meter.
+        if (track.monitorChannel < 0 && track.armedChannel >= 0 && track.armedChannel < numInputs
+            && inputs[track.armedChannel] != nullptr)
+        {
+            const auto other = track.armedStereo && track.armedChannel + 1 < numInputs && inputs[track.armedChannel + 1] != nullptr
+                             ? track.armedChannel + 1 : track.armedChannel;
+            updatePeak (track.state->peaks[0], blockPeak (inputs[track.armedChannel], numSamples));
+            updatePeak (track.state->peaks[1], blockPeak (inputs[other], numSamples));
+        }
+
         const auto first = track.monitorChannel;
 
         if (first < 0 || first >= numInputs || inputs[first] == nullptr)

@@ -183,6 +183,12 @@ std::unique_ptr<TimelineSnapshot> buildTimelineSnapshot (const Project& project,
             channel.monitorStereo = track.isInputStereo();
         }
 
+        if (track.getKind() == TrackKind::audio && track.isArmed() && track.getInputChannel() >= 0)
+        {
+            channel.armedChannel = track.getInputChannel();
+            channel.armedStereo = track.isInputStereo();
+        }
+
         if (track.getKind() == TrackKind::audio && resolver)
             addClips (channel, *snapshot, track, sampleRate, resolver);
 

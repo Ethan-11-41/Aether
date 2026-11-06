@@ -135,6 +135,9 @@ struct TrackPlayback
 
     int monitorChannel = -1;                 // input monitoring: the sound-card input heard through
     bool monitorStereo = false;              // this channel (-1 = none); with the next one if stereo
+
+    int armedChannel = -1;                   // an armed track's input, shown on its meter even when
+    bool armedStereo = false;                // not monitoring (so you can check the level)
 };
 
 /** Everything about the project that the audio thread needs, as one read-only object. A new

@@ -216,6 +216,24 @@ TEST_CASE ("Monitoring lets you hear the input through the track", "[recording][
     CHECK (f.run (block)[10] == 0.0f);
 }
 
+TEST_CASE ("An armed track's meter shows its input level, even when not monitoring", "[recording][engine][meters]")
+{
+    Fixture f;
+    MixerResources resources;
+    f.sync = nullptr;   // drive the engine directly, with our own resources to read the meters from
+    f.engine.setTimeline (buildTimelineSnapshot (f.project, rate, {}, &resources));
+    f.run (block);
+    CHECK (resources.takePeaks (f.vocals).first > 0.0f);     // armed: the microphone shows
+    CHECK (f.run (block)[10] == 0.0f);                       // but isn't heard
+
+    edit::setArmed (f.project, { f.vocals }, false);
+    f.engine.setTimeline (buildTimelineSnapshot (f.project, rate, {}, &resources));
+    f.run (block);
+    resources.takePeaks (f.vocals);
+    f.run (block);
+    CHECK (resources.takePeaks (f.vocals).first == 0.0f);
+}
+
 //==============================================================================
 namespace
 {

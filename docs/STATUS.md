@@ -4,7 +4,7 @@ An honest list of what works. Updated at the end of every milestone.
 
 **Legend:** ✅ Working · 🟡 Partial · 🧪 Stub/placeholder · ⬜ Not started
 
-Current version: **0.5.0** (Milestone 4)
+Current version: **0.6.0** (Milestone 5)
 
 ## Milestone 0: skeleton and build pipeline
 
@@ -13,7 +13,7 @@ Current version: **0.5.0** (Milestone 4)
 | App window, dark theme, tooltips | ✅ | |
 | Audio device choice (Windows Audio shared/exclusive/low-latency, ASIO) | ✅ | Uses JUCE's standard device panel. ASIO compiles but hasn't been tested with a real ASIO interface yet. |
 | Sample rate and buffer size choice, remembered between runs | ✅ | |
-| Latency display (buffer, input, output, round trip) | ✅ | Figures are what the driver reports; real measurement comes in M5. |
+| Latency display (buffer, input, output, round trip) | ✅ | Driver figures, plus the measured round trip (since 0.6.0). |
 | Going back to the last working setting when a device fails to open | ✅ | Added in 0.1.1. JUCE's own error pop-up still appears first. |
 | Exclusive Mode with a built-in microphone | 🟡 | Fails on the first test PC. Since 0.2.2 the message shows the exact Windows error, to find out why. Use "Windows Audio" meanwhile. |
 | Log file (Help > Open log folder) | ✅ | Added in 0.2.2. |
@@ -39,7 +39,7 @@ Current version: **0.5.0** (Milestone 4)
 | Menus and keyboard shortcuts | ✅ | Shortcut editor comes in M25. |
 | Open `.aether` files by double-clicking | ✅ | Registered by the installer. |
 | Selecting several tracks at once | ✅ | Added in 0.5.0 (Ctrl+click, Shift+click). |
-| Track mute/solo/volume/pan | ✅ | Added in 0.5.0. Record arm comes with M5. |
+| Track mute/solo/volume/pan, record arm | ✅ | Added in 0.5.0 / 0.6.0. |
 | Timeline | 🧪 | Placeholder area with grid lines; real timeline in M2/M3. |
 
 ## Milestone 2: time and transport
@@ -50,7 +50,7 @@ Current version: **0.5.0** (Milestone 4)
 | Tempo (BPM) and tempo changes: jumps and gradual ramps | ✅ | Edited in the tempo lane or the transport's tempo field. |
 | Time signatures and signature changes | ✅ | Changes always start at the beginning of a bar. |
 | Loop region | ✅ | Sample-accurate. |
-| Metronome with accent, volume, count-in | ✅ | Count-in applies to playback for now; in M5 it applies to recording. |
+| Metronome with accent, volume, count-in | ✅ | The count-in applies to playback and recording. |
 | Ruler, tempo and signature lanes, track lanes, zoom, scroll, follow playback | ✅ | Track lanes are empty until clips arrive in M3. |
 | Clicking positions snap to the nearest beat (hold Alt for exact) | ✅ | A choice of grid (1/8, 1/16, triplets...) comes with clips in M3. |
 | Typing a position into the transport | ⬜ | Later. |
@@ -92,11 +92,28 @@ Current version: **0.5.0** (Milestone 4)
 | MIDI tracks' strips | 🟡 | They're there, but stay silent until instruments arrive (M6). |
 | Mouse handling of the mixer | 🟡 | The settings, sound and group edits are tested automatically; the mouse itself is checked by hand (see the M4 checklist). |
 
+## Milestone 5: recording
+
+| Feature | Status | Notes |
+|---|---|---|
+| Record armed audio tracks, several at once, each from its own input | ✅ | |
+| 24-bit WAV files in the project's Audio folder, saved every second while recording | ✅ | Always at the sound card's sample rate. |
+| Count-in before recording; recording from the middle of playback | ✅ | |
+| Automatic latency compensation | ✅ | Uses the measured round trip if measured, otherwise the driver's figure. |
+| Latency measurement (Audio settings) | ✅ | Tested against a simulated cable, to the sample. With laptop speakers and a microphone, the distance between them adds about 1 ms per 34 cm. |
+| Input monitoring (I) | ✅ | Through the track's effects and fader. Adds the round-trip delay you'd expect; there's no "direct monitoring" switch for interfaces that have it. |
+| Punch in/out (on the loop region) | ✅ | |
+| Loop recording into takes, choosing takes, splitting to combine takes | 🟡 | Simple version. Proper take lanes and comping come in M21. A pass you stopped in less than a quarter of the way through isn't offered as a take. |
+| New recordings replace what was under them | ✅ | Undo brings the old clips back. |
+| Recording MIDI | ⬜ | M6. |
+| Mixer strips: record arm | ⬜ | Arm tracks on their headers for now. |
+| Closing a project while recording | 🟡 | The recording stops and its WAV file is kept in the Audio folder, but no clip is added: stop recording first. |
+| Recording with a real sound card | 🟡 | The whole path is tested automatically with a simulated sound card; real devices are checked by hand (see the M5 checklist). |
+
 ## Everything else
 
 | Area | Status | Milestone |
 |---|---|---|
-| Recording | ⬜ | M5 |
 | MIDI tracks, MIDI input | ⬜ | M6 |
 | Export (WAV/FLAC/MP3, stems) | ⬜ | M7 |
 | Piano roll, step sequencer, instruments, effects, automation | ⬜ | M9–M14 |
