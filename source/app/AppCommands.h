@@ -41,6 +41,7 @@ namespace commands
         audioSettings       = 0x4001,
         about               = 0x5001,
         testCrashRecovery   = 0x5002,
+        openLogFolder       = 0x5003,
     };
 
     namespace categories

@@ -1,6 +1,8 @@
 // Aether - Copyright (C) 2026 The Aether authors. Licensed under the GNU AGPLv3 or later.
 #include "AudioDeviceService.h"
 
+#include "DriverErrors.h"
+
 #include <cmath>
 
 namespace aether
@@ -100,6 +102,7 @@ void AudioDeviceService::handleDeviceChange()
         // Something is open and running: remember it as the setting to go back to.
         lastWorking = WorkingConfig { deviceManager.getCurrentAudioDeviceType(), deviceManager.getAudioDeviceSetup() };
         saveState();
+        juce::Logger::writeToLog ("Audio device: " + describeCurrentDevice());
         return;
     }
 
@@ -109,17 +112,26 @@ void AudioDeviceService::handleDeviceChange()
     {
         restorePending = true;
         const auto failedType = deviceManager.getCurrentAudioDeviceType();
+        const auto driverError = driverErrorSource ? driverErrorSource() : juce::String();
+        juce::Logger::writeToLog ("Audio device: couldn't open a " + failedType + " device"
+                                  + (driverError.isNotEmpty() ? " (" + driverError + ")" : juce::String())
+                                  + "; going back to the previous setting");
         juce::WeakReference<AudioDeviceService> weakThis (this);
 
-        runDeferred ([weakThis, failedType]
+        runDeferred ([weakThis, failedType, driverError]
         {
             if (auto* self = weakThis.get())
-                self->restoreLastWorkingConfig (failedType);
+                self->restoreLastWorkingConfig (failedType, driverError);
         });
     }
 }
 
-void AudioDeviceService::restoreLastWorkingConfig (const juce::String& failedTypeName)
+void AudioDeviceService::setDriverErrorSource (std::function<juce::String()> source)
+{
+    driverErrorSource = std::move (source);
+}
+
+void AudioDeviceService::restoreLastWorkingConfig (const juce::String& failedTypeName, const juce::String& driverError)
 {
     restorePending = false;
 
@@ -135,7 +147,7 @@ void AudioDeviceService::restoreLastWorkingConfig (const juce::String& failedTyp
 
     if (error.isEmpty() && deviceManager.getCurrentAudioDevice() != nullptr)
     {
-        problemMessage = explainOpenFailure (failedTypeName, describeCurrentDevice());
+        problemMessage = explainOpenFailure (failedTypeName, describeCurrentDevice(), driverError);
         saveState();
     }
     else
@@ -149,10 +161,17 @@ void AudioDeviceService::restoreLastWorkingConfig (const juce::String& failedTyp
     deviceManager.sendChangeMessage();
 }
 
-juce::String AudioDeviceService::explainOpenFailure (const juce::String& driverTypeName, const juce::String& restoredDescription)
+juce::String AudioDeviceService::explainOpenFailure (const juce::String& driverTypeName, const juce::String& restoredDescription,
+                                                    const juce::String& driverError)
 {
     const auto intro = "That device setting couldn't be opened, so Aether went back to your previous settings ("
                        + restoredDescription + ").\n\n";
+
+    // If the driver said exactly what went wrong, explain that.
+    if (const auto specific = explainDriverError (driverError); specific.isNotEmpty())
+        return intro + "Windows reported that " + specific + "\n\n(Error code: " + driverError + ")";
+
+    const auto codeNote = driverError.isNotEmpty() ? "\n\n(Error code: " + driverError + ")" : juce::String();
 
     if (driverTypeName.containsIgnoreCase ("Exclusive"))
         return intro
@@ -160,16 +179,19 @@ juce::String AudioDeviceService::explainOpenFailure (const juce::String& driverT
                "(a web browser, Discord, Teams, a game...) is using it, or Windows doesn't allow "
                "exclusive control of it. To allow it: Windows Sound settings > the device > Properties > "
                "Advanced > tick \"Allow applications to take exclusive control of this device\". "
-               "Some built-in microphones never work in Exclusive Mode: \"Windows Audio\" works with every device.";
+               "Some built-in microphones never work in Exclusive Mode: \"Windows Audio\" works with every device."
+             + codeNote;
 
     if (driverTypeName.containsIgnoreCase ("ASIO"))
         return intro
              + "The ASIO driver refused to start. Another program may be using the audio interface, "
                "or the sample rate isn't supported. Close other audio programs, or check the interface's "
-               "own control panel.";
+               "own control panel."
+             + codeNote;
 
     return intro
-         + "Another program may be using the device in exclusive mode, or it may have been unplugged.";
+         + "Another program may be using the device in exclusive mode, or it may have been unplugged."
+         + codeNote;
 }
 
 } // namespace aether

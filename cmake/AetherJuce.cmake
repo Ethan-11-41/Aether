@@ -38,6 +38,7 @@ target_compile_definitions(aether_juce
         JUCE_PLUGINHOST_LADSPA=0
         JUCE_PLUGINHOST_LV2=0
         JUCE_STRICT_REFCOUNTEDPOINTER=1
+        JUCE_WASAPI_LOGGING=1              # Windows audio errors go to Aether's log file
         $<$<CONFIG:Debug>:DEBUG=1>
         $<$<CONFIG:Debug>:_DEBUG=1>
         $<$<NOT:$<CONFIG:Debug>>:NDEBUG=1>

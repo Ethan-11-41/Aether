@@ -3,6 +3,8 @@
 add_library(aether_core STATIC
     devices/AudioDeviceService.cpp
     devices/AudioDeviceService.h
+    devices/DriverErrors.cpp
+    devices/DriverErrors.h
     devices/LatencyInfo.cpp
     devices/LatencyInfo.h
     engine/AudioEngine.cpp
@@ -11,6 +13,9 @@ add_library(aether_core STATIC
     engine/TestToneGenerator.h
     engine/rt/RealtimeAnnotations.h
     engine/rt/SpscQueue.h
+    io/AppFolders.h
+    io/AppLog.cpp
+    io/AppLog.h
     io/Autosaver.cpp
     io/Autosaver.h
     io/JsonValueTree.cpp

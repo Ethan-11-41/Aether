@@ -4,6 +4,7 @@ include(Catch)
 add_executable(aether_tests
     unit/AudioDeviceServiceTests.cpp
     unit/AudioEngineTests.cpp
+    unit/DiagnosticsTests.cpp
     unit/LatencyInfoTests.cpp
     unit/ProjectFileTests.cpp
     unit/ProjectModelTests.cpp

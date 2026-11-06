@@ -1,6 +1,8 @@
 // Aether - Copyright (C) 2026 The Aether authors. Licensed under the GNU AGPLv3 or later.
 #include "CrashReporter.h"
 
+#include "io/AppFolders.h"
+
 #include <cstdlib>
 #include <optional>
 
@@ -55,21 +57,13 @@ namespace
 
 juce::File reportsFolder()
 {
-    return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
-               .getChildFile ("Aether").getChildFile ("CrashReports");
+    return appfolders::crashReports();
 }
 
 void install()
 {
    #if JUCE_WINDOWS
-    // On Windows, userApplicationDataDirectory is %APPDATA% (roaming); crash reports belong in
-    // %LOCALAPPDATA%, which isn't copied between computers.
-    auto folder = juce::File (juce::SystemStats::getEnvironmentVariable ("LOCALAPPDATA", {}))
-                      .getChildFile ("Aether").getChildFile ("CrashReports");
-
-    if (! juce::File::isAbsolutePath (folder.getFullPathName()))
-        folder = reportsFolder();
-
+    auto folder = reportsFolder();
     folder.createDirectory();
 
     const auto name = "Aether crash " + juce::Time::getCurrentTime().formatted ("%Y-%m-%d %H-%M-%S") + ".dmp";
@@ -82,13 +76,7 @@ void install()
 
 std::optional<juce::File> findReportNewerThan (juce::Time since)
 {
-   #if JUCE_WINDOWS
-    auto folder = juce::File (juce::SystemStats::getEnvironmentVariable ("LOCALAPPDATA", {}))
-                      .getChildFile ("Aether").getChildFile ("CrashReports");
-   #else
-    auto folder = reportsFolder();
-   #endif
-
+    const auto folder = reportsFolder();
     std::optional<juce::File> newest;
 
     for (const auto& f : folder.findChildFiles (juce::File::findFiles, false, "*.dmp"))

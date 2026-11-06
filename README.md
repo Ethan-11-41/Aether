@@ -49,6 +49,9 @@ See [docs/FILE_FORMAT.md](docs/FILE_FORMAT.md).
   which makes playing and recording in time impossible.
 - Your settings are saved in `%APPDATA%\Aether\Aether.settings`. Deleting that file resets them.
 
+**Reporting a problem:** **Help > Open log folder** shows Aether's log file (`Aether.log`) and any
+crash reports. Sending those along with a description of what happened helps a lot.
+
 ---
 
 ## Building Aether yourself on Windows

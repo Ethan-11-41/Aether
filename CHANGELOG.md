@@ -6,6 +6,20 @@ follow [Semantic Versioning](https://semver.org/) (0.x while Aether is in early 
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-11-06
+
+### Fixed
+- Text boxes (project name, track rename): selected text was drawn almost black and the typing
+  cursor was dark grey on a dark background, so you couldn't see what you were typing. Selected
+  text is now readable, the cursor is teal, and the box has a teal outline while you type.
+
+### Added
+- A log file, `%LOCALAPPDATA%\Aether\Logs\Aether.log` (Help > Open log folder), recording
+  start-up, audio device changes and errors, to help diagnose problems.
+- When a sound device can't be opened, the orange message now shows the exact reason Windows
+  gave (for example "another program is using this device") and the error code, instead of
+  only listing likely causes.
+
 ## [0.2.1] - 2026-11-05
 
 ### Fixed

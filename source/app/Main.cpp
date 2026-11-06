@@ -13,6 +13,8 @@
 #include "MainWindow.h"
 #include "devices/AudioDeviceService.h"
 #include "engine/AudioEngine.h"
+#include "io/AppFolders.h"
+#include "io/AppLog.h"
 #include "io/ProjectFormat.h"
 #include "io/ProjectSession.h"
 #include "io/RecentProjects.h"
@@ -65,6 +67,10 @@ public:
     void initialise (const juce::String& commandLine) override
     {
         crashreporter::install();
+
+        appLog = std::make_unique<AppLog> (appfolders::logs().getChildFile ("Aether.log"));
+        juce::Logger::setCurrentLogger (appLog.get());
+
         juce::LookAndFeel::setDefaultLookAndFeel (&lookAndFeel);
 
         settings = std::make_unique<AppSettings>();
@@ -76,7 +82,11 @@ public:
 
         engine = std::make_unique<AudioEngine>();
         devices = std::make_unique<AudioDeviceService> (props);
+        devices->setDriverErrorSource ([log = appLog.get()] { return log->getRecentDriverError(); });
         devices->addAudioCallback (engine.get());
+        juce::Logger::writeToLog ("Audio device: " + (devices->describeCurrentDevice().isNotEmpty()
+                                                          ? devices->describeCurrentDevice()
+                                                          : "none (" + devices->getStartupError() + ")"));
 
         recentProjects = std::make_unique<RecentProjects> (props);
         session = std::make_unique<ProjectSession> (props, *recentProjects);
@@ -115,6 +125,10 @@ public:
 
         settings = nullptr;
         juce::LookAndFeel::setDefaultLookAndFeel (nullptr);
+
+        juce::Logger::writeToLog ("Aether closed normally");
+        juce::Logger::setCurrentLogger (nullptr);
+        appLog = nullptr;
     }
 
     void systemRequestedQuit() override
@@ -173,6 +187,7 @@ private:
         });
     }
 
+    std::unique_ptr<AppLog> appLog;
     ui::AetherLookAndFeel lookAndFeel;
     std::unique_ptr<AppSettings> settings;
     std::unique_ptr<AudioEngine> engine;

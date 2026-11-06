@@ -4,6 +4,7 @@
 #include "AppCommands.h"
 #include "AudioSettingsComponent.h"
 #include "CrashReporter.h"
+#include "io/AppFolders.h"
 #include "model/EditCommands.h"
 
 namespace aether
@@ -452,6 +453,8 @@ void MainContent::testCrashRecovery()
 
 void MainContent::showError (const juce::String& title, const juce::String& message)
 {
+    juce::Logger::writeToLog ("Error shown: " + title + ": " + message.replaceCharacter ('\n', ' '));
+
     messageBox = juce::AlertWindow::showScopedAsync (
         juce::MessageBoxOptions()
             .withIconType (juce::MessageBoxIconType::WarningIcon)
@@ -515,7 +518,7 @@ void MainContent::getAllCommands (juce::Array<juce::CommandID>& list)
                      commands::undo, commands::redo,
                      commands::addAudioTrack, commands::addMidiTrack, commands::renameTrack, commands::deleteTrack,
                      commands::moveTrackUp, commands::moveTrackDown,
-                     commands::audioSettings, commands::about, commands::testCrashRecovery });
+                     commands::audioSettings, commands::about, commands::testCrashRecovery, commands::openLogFolder });
 }
 
 void MainContent::getCommandInfo (juce::CommandID id, juce::ApplicationCommandInfo& info)
@@ -640,6 +643,11 @@ void MainContent::getCommandInfo (juce::CommandID id, juce::ApplicationCommandIn
                           commands::categories::help, 0);
             break;
 
+        case commands::openLogFolder:
+            info.setInfo ("Open log folder", "Show Aether's log file and crash reports (useful when reporting a problem)",
+                          commands::categories::help, 0);
+            break;
+
         default:
             break;
     }
@@ -694,6 +702,16 @@ bool MainContent::perform (const InvocationInfo& invocation)
         case commands::audioSettings:      showAudioSettings(); return true;
         case commands::about:              showAbout(); return true;
         case commands::testCrashRecovery:  testCrashRecovery(); return true;
+
+        case commands::openLogFolder:
+        {
+            const auto logFile = appfolders::logs().getChildFile ("Aether.log");
+            if (logFile.existsAsFile())
+                logFile.revealToUser();
+            else
+                appfolders::localData().revealToUser();
+            return true;
+        }
 
         default:
             return false;
@@ -759,6 +777,7 @@ juce::PopupMenu MainContent::getMenuForIndex (int menuIndex, const juce::String&
     {
         menu.addCommandItem (cm, commands::about);
         menu.addSeparator();
+        menu.addCommandItem (cm, commands::openLogFolder);
         menu.addCommandItem (cm, commands::testCrashRecovery);
     }
 

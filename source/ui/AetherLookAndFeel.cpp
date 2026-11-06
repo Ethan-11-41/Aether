@@ -34,6 +34,16 @@ AetherLookAndFeel::AetherLookAndFeel (const Theme& themeToUse)
     setColour (juce::PopupMenu::highlightedBackgroundColourId, theme.accent);
     setColour (juce::PopupMenu::highlightedTextColourId, theme.accentText);
 
+    // Text boxes: light text, a visible (accent-coloured) typing cursor, and selected text that
+    // stays readable. JUCE's defaults draw selected text almost black and the cursor dark grey.
+    setColour (juce::TextEditor::backgroundColourId, theme.panelRaised);
+    setColour (juce::TextEditor::textColourId, theme.text);
+    setColour (juce::TextEditor::highlightColourId, theme.accent.withAlpha (0.35f));
+    setColour (juce::TextEditor::highlightedTextColourId, theme.text);
+    setColour (juce::TextEditor::outlineColourId, theme.outline);
+    setColour (juce::TextEditor::focusedOutlineColourId, theme.accent);
+    setColour (juce::CaretComponent::caretColourId, theme.accent);
+
     setColour (juce::Label::textColourId, theme.text);
     setColour (juce::ListBox::backgroundColourId, theme.panelRaised);
     setColour (juce::ListBox::outlineColourId, theme.outline);

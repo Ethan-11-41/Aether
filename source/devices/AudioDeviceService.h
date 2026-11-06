@@ -70,8 +70,14 @@ public:
         this to run it immediately. */
     void setDeferredRunner (std::function<void (std::function<void()>)> runner);
 
-    /** Explains, in plain language, why a device of the given driver type may fail to open. */
-    static juce::String explainOpenFailure (const juce::String& driverTypeName, const juce::String& restoredDescription);
+    /** Where to get the sound driver's most recent error code (e.g. "AUDCLNT_E_DEVICE_IN_USE"),
+        so problems can be explained precisely. Usually AppLog::getRecentDriverError. */
+    void setDriverErrorSource (std::function<juce::String()> source);
+
+    /** Explains, in plain language, why a device of the given driver type may have failed to open.
+        `driverError` is the driver's error code, if known. */
+    static juce::String explainOpenFailure (const juce::String& driverTypeName, const juce::String& restoredDescription,
+                                            const juce::String& driverError = {});
 
     static constexpr const char* settingsKey = "audioDeviceState";
 
@@ -83,7 +89,7 @@ private:
     };
 
     void changeListenerCallback (juce::ChangeBroadcaster*) override;
-    void restoreLastWorkingConfig (const juce::String& failedTypeName);
+    void restoreLastWorkingConfig (const juce::String& failedTypeName, const juce::String& driverError);
 
     juce::PropertySet& settings;
     juce::AudioDeviceManager deviceManager;
@@ -91,6 +97,7 @@ private:
     std::optional<WorkingConfig> lastWorking;
     bool restorePending = false;
     std::function<void (std::function<void()>)> runDeferred;
+    std::function<juce::String()> driverErrorSource;
 
     JUCE_DECLARE_WEAK_REFERENCEABLE (AudioDeviceService)
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AudioDeviceService)
