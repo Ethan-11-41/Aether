@@ -4,7 +4,7 @@ An honest list of what works. Updated at the end of every milestone.
 
 **Legend:** ✅ Working · 🟡 Partial · 🧪 Stub/placeholder · ⬜ Not started
 
-Current version: **0.9.1** (Milestone 8: Phase 1 complete)
+Current version: **0.10.0** (Milestone 9: piano roll)
 
 ## Milestone 0: skeleton and build pipeline
 
@@ -155,11 +155,24 @@ Current version: **0.9.1** (Milestone 8: Phase 1 complete)
 | Add an effect to several selected tracks | ✅ | 0.9.1. |
 | Interface font (Inter) | ✅ | 0.9.1. Themes (dark/light) and interface scaling are M25. |
 
+## Milestone 9: piano roll
+
+| Feature | Status | Notes |
+|---|---|---|
+| Piano roll window: add (click), move, resize, delete (right-click), select (Ctrl+click, Ctrl+drag) | ✅ | Tested with a simulated mouse; real use is in the M9 checklist. One piano roll window at a time (it switches to the clip you double-click). |
+| Hearing notes while editing; clicking the keys | ✅ | Plays on the clip's track only, never recorded. |
+| Velocity lane | ✅ | |
+| Quantize (strength, swing, note ends), humanize | ✅ | Quantize uses the piano roll's snap grid (1/16 if snapping is off). Groove templates are M22. |
+| Scale highlighting (key and scale, saved with the project) | ✅ | Shows only; "snap notes to the scale" could come later if wanted. |
+| Copy / paste / duplicate notes, transpose, nudge | ✅ | Notes copied in one clip can be pasted into another (within Aether). |
+| Editing several clips at once, drum view, MIDI controllers (mod wheel, sustain) in the piano roll | ⬜ | Drums: M11 (step sequencer). Controllers and automation: M14. |
+| Double-click an empty MIDI lane to make a clip | ✅ | One bar long, at that bar. |
+
 ## Everything else
 
 | Area | Status | Milestone |
 |---|---|---|
-| Piano roll, step sequencer, instruments, effects, automation | ⬜ | M9–M14 |
+| Step sequencer, instruments, effects, automation | ⬜ | M10–M14 |
 | VST3 / CLAP plug-ins | ⬜ | M15 / M28 |
 | Sound library | ⬜ | M17, M23 |
 | Import/export with other DAWs | 🟡 | MIDI file import since 0.7.0; the rest in M18, M26, M27 |

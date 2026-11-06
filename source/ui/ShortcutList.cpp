@@ -9,6 +9,7 @@ namespace
     constexpr int rowHeight = 26;
     constexpr int headingHeight = 34;
     const juce::String otherCategory = "Mouse and other keys";
+    const juce::String pianoRollCategory = "Piano roll";
 }
 
 //==============================================================================
@@ -179,6 +180,21 @@ std::vector<ShortcutList::Entry> ShortcutList::otherShortcuts()
         { otherCategory, "On-screen keyboard: play notes (after clicking it)", "A W S E D F T G Y H U J K..." },
         { otherCategory, "On-screen keyboard: octave down / up", "Z / X" },
         { otherCategory, "Import audio, MIDI or open a project", "Drag files onto the window" },
+        { otherCategory, "Open a MIDI clip in the piano roll", "Double-click it" },
+        { otherCategory, "Make a new MIDI clip and open it", "Double-click an empty part of a MIDI track" },
+
+        { pianoRollCategory, "Add a note", "Click an empty place (drag to make it longer)" },
+        { pianoRollCategory, "Delete a note", "Right-click it" },
+        { pianoRollCategory, "Move a note / change its length", "Drag it / drag its right edge" },
+        { pianoRollCategory, "Select several notes", "Ctrl+click, or Ctrl+drag a box" },
+        { pianoRollCategory, "Move selected notes up / down a semitone", "Up / Down arrow" },
+        { pianoRollCategory, "Move selected notes up / down an octave", "Shift+Up / Down arrow" },
+        { pianoRollCategory, "Move selected notes by a grid step", "Left / Right arrow" },
+        { pianoRollCategory, "Quantize (the selected notes, or all)", "Q" },
+        { pianoRollCategory, "Duplicate / copy / cut / paste notes", "Ctrl+D / Ctrl+C / Ctrl+X / Ctrl+V" },
+        { pianoRollCategory, "Select all / none", "Ctrl+A / Esc" },
+        { pianoRollCategory, "Delete the selected notes", "Delete" },
+        { pianoRollCategory, "Zoom in time / note height", "Ctrl+mouse wheel / Alt+mouse wheel" },
     };
 }
 

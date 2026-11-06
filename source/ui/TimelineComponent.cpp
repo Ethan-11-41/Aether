@@ -862,7 +862,18 @@ public:
         const auto hit = findHit (e.position);
 
         if (hit.zone == Zone::body)
-            askForClipName (hit.clip.getId());
+        {
+            // MIDI clips open in the piano roll; audio clips can be renamed.
+            if (hit.clip.isMidi() && owner.onEditNotes)
+                owner.onEditNotes (hit.clip.getId());
+            else
+                askForClipName (hit.clip.getId());
+        }
+        else if (hit.zone == Zone::none && ! e.mods.isAnyModifierKeyDown())
+        {
+            // An empty part of a MIDI track: a new clip, ready to fill.
+            owner.createMidiClipAt (rowAt (e.y), owner.view.xToTick (e.x));
+        }
     }
 
 private:
@@ -1182,8 +1193,13 @@ private:
         if (clip.isMidi())
         {
             const auto count = (int) midi::audibleNotes (clip).size();
-            menu.addSectionHeader ("MIDI clip: " + juce::String (count) + (count == 1 ? " note" : " notes")
-                                   + " (a piano roll to edit them comes in M9)");
+            menu.addSectionHeader ("MIDI clip: " + juce::String (count) + (count == 1 ? " note" : " notes"));
+            menu.addItem ("Edit notes (piano roll)...", [safeOwner, id]
+            {
+                if (safeOwner != nullptr && safeOwner->onEditNotes)
+                    safeOwner->onEditNotes (id);
+            });
+            menu.addSeparator();
             menu.addItem ("Split at the playhead (S)", [safeOwner] { if (safeOwner) safeOwner->splitClipsAtPlayhead(); });
             menu.addItem ("Duplicate (Ctrl+D)", [safeOwner] { if (safeOwner) safeOwner->duplicateSelectedClips(); });
             menu.addItem ("Delete (Delete)", [safeOwner] { if (safeOwner) safeOwner->deleteSelectedClips(); });
@@ -1271,6 +1287,13 @@ private:
             if (safeOwner != nullptr && safeOwner->onImportRequested)
                 safeOwner->onImportRequested (trackId, position);
         });
+
+        if (juce::isPositiveAndBelow (row, proj.getNumTracks()) && proj.getTrack (row).getKind() == TrackKind::midi)
+            menu.addItem ("New MIDI clip here (or double-click)", [safeOwner, row, position]
+            {
+                if (safeOwner != nullptr)
+                    safeOwner->createMidiClipAt (row, position);
+            });
 
         menu.showMenuAsync (juce::PopupMenu::Options().withMousePosition());
     }
@@ -1649,6 +1672,27 @@ void TimelineComponent::drawGrid (juce::Graphics& g, juce::Rectangle<int> area, 
                 g.drawVerticalLine ((int) std::floor (view.tickToX (t)), top + (strong ? (bottom - top) * 0.55f : 0.0f), bottom);
         }
     }
+}
+
+juce::String TimelineComponent::createMidiClipAt (int row, Tick position)
+{
+    if (! juce::isPositiveAndBelow (row, project.getNumTracks()) || project.getTrack (row).getKind() != TrackKind::midi)
+        return {};
+
+    const auto track = project.getTrack (row);
+    const auto bar = tempoMap.ticksToBarBeat (std::max<Tick> (0, position)).bar;
+    const auto start = tempoMap.barToTicks (bar);
+    const auto id = edit::addMidiClip (project, track.getId(), track.getName(), start, tempoMap.barLengthAt (start), {});
+
+    if (id.isNotEmpty())
+    {
+        setSelection ({ id });
+
+        if (onEditNotes)
+            onEditNotes (id);
+    }
+
+    return id;
 }
 
 void TimelineComponent::zoomIn()   { view.zoomBy (1.5, getWidth() * 0.5); }

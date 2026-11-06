@@ -117,6 +117,13 @@ public:
 
     std::function<void()> onClipSelectionChanged;
 
+    /** Open a MIDI clip's notes in the piano roll (double-click a MIDI clip). */
+    std::function<void (const juce::String& clipId)> onEditNotes;
+
+    /** Makes an empty one-bar MIDI clip on a MIDI track, at the bar `position` is in, and opens it
+        in the piano roll. Returns its id (empty if the row isn't a MIDI track). */
+    juce::String createMidiClipAt (int row, Tick position);
+
     //==============================================================================
     void resized() override;
     void paint (juce::Graphics&) override;

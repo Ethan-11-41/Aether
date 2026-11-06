@@ -264,3 +264,44 @@ TEST_CASE ("Dragging a box over empty space selects the clips it touches", "[ui]
     lanes->mouseUp (event (start, start, false));
     CHECK_FALSE (f.timeline->hasSelectedClips());
 }
+
+TEST_CASE ("Double-clicking a MIDI clip opens it; double-clicking an empty MIDI lane makes a clip", "[ui][timeline][midi]")
+{
+    Fixture f;
+    f.timeline->setVisible (true);
+    const auto keys = edit::addTrack (f.project, TrackKind::midi, -1, true, "Keys").getId();   // row 2
+    const auto existing = edit::addMidiClip (f.project, keys, "Riff", 0, 4 * q, { { 60, 100, 0, q } });
+    f.trackList.setSize (300, f.trackList.getIdealHeight());
+
+    juce::StringArray opened;
+    f.timeline->onEditNotes = [&] (const juce::String& id) { opened.add (id); };
+
+    auto* lanes = f.timeline->getComponentAt (500, ui::TimelineComponent::headerHeight + 10);
+    REQUIRE (lanes != nullptr);
+
+    auto event = [lanes] (juce::Point<float> at)
+    {
+        return juce::MouseEvent (juce::Desktop::getInstance().getMainMouseSource(), at, juce::ModifierKeys::leftButtonModifier,
+                                 juce::MouseInputSource::defaultPressure, 0.0f, 0.0f, 0.0f, 0.0f, lanes, lanes,
+                                 juce::Time::getCurrentTime(), at, juce::Time::getCurrentTime(), 2, false);
+    };
+
+    // 40 pixels per beat; rows are 56 pixels high, so row 2 is y 112 to 168.
+    const auto rowY = 2.0f * (float) ui::TrackListComponent::rowHeight + 20.0f;
+    lanes->mouseDoubleClick (event ({ 60.0f, rowY }));   // beat 1.5: on the clip
+    REQUIRE (opened.size() == 1);
+    CHECK (opened[0] == existing);
+
+    lanes->mouseDoubleClick (event ({ 40.0f * 9.0f + 10.0f, rowY }));   // in bar 3: empty
+    REQUIRE (opened.size() == 2);
+    const auto made = clips::findClip (f.project, opened[1]);
+    REQUIRE (made.isValid());
+    CHECK (made.isMidi());
+    CHECK (made.getStart() == 8 * q);              // the start of that bar
+    CHECK (made.getLengthTicks() == 4 * q);        // one bar long
+    CHECK (made.getTrackState()[ids::id].toString() == keys);
+
+    // An audio track's empty space: nothing is made.
+    lanes->mouseDoubleClick (event ({ 40.0f * 20.0f, 20.0f }));
+    CHECK (opened.size() == 2);
+}

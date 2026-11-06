@@ -74,6 +74,9 @@ add_library(aether_core STATIC
     model/Ids.h
     model/MidiClips.cpp
     model/MidiClips.h
+    model/NoteEdits.cpp
+    model/NoteEdits.h
+    model/Scales.h
     model/Mixer.cpp
     model/Mixer.h
     model/Project.cpp
@@ -130,6 +133,8 @@ add_library(aether_ui STATIC
     ui/MessageBanner.h
     ui/NumberDragField.cpp
     ui/NumberDragField.h
+    ui/PianoRoll.cpp
+    ui/PianoRoll.h
     ui/ShortcutList.cpp
     ui/ShortcutList.h
     ui/Theme.h

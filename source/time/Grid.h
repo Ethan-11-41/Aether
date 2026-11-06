@@ -15,13 +15,15 @@ enum class GridSize
     beat,
     eighth,
     sixteenth,
+    thirtySecond,
     eighthTriplet,
     sixteenthTriplet,
     off
 };
 
-inline constexpr std::array<GridSize, 7> allGridSizes { GridSize::bar, GridSize::beat, GridSize::eighth, GridSize::sixteenth,
-                                                        GridSize::eighthTriplet, GridSize::sixteenthTriplet, GridSize::off };
+inline constexpr std::array<GridSize, 8> allGridSizes { GridSize::bar, GridSize::beat, GridSize::eighth, GridSize::sixteenth,
+                                                        GridSize::thirtySecond, GridSize::eighthTriplet,
+                                                        GridSize::sixteenthTriplet, GridSize::off };
 
 /** "1/16", "Bar", "Off"... as shown in the grid menu. */
 const char* gridSizeName (GridSize size) noexcept;

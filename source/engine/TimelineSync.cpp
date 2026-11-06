@@ -124,6 +124,7 @@ namespace
         // What's played on a MIDI keyboard goes to armed or monitoring MIDI tracks, and to the
         // selected one (so you can just select a track and play).
         channel.liveInput = track.isArmed() || track.isMonitoring() || track.getId() == focusedTrackId;
+        channel.idHash = AudioEngine::hashTrackId (track.getId());
     }
 }
 

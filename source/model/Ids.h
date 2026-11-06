@@ -45,6 +45,8 @@ namespace aether::ids
     inline const juce::Identifier loopStart   { "loopStart" };
     inline const juce::Identifier loopEnd     { "loopEnd" };
     inline const juce::Identifier loopEnabled { "loopEnabled" };
+    inline const juce::Identifier songKey     { "songKey" };      // 0 = C ... 11 = B (for scale highlighting)
+    inline const juce::Identifier scale       { "scale" };        // e.g. "major", "minor"; "off" or missing: none
 
     // Audio clips. Lengths and offsets are in samples of the clip's audio file.
     inline const juce::Identifier file          { "file" };           // path relative to the project folder

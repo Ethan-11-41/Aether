@@ -6,6 +6,45 @@ follow [Semantic Versioning](https://semver.org/) (0.x while Aether is in early 
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-06 - Milestone 9: piano roll
+
+The first milestone of Phase 2 (making music).
+
+### Added
+- **The piano roll**, in its own window: **double-click a MIDI clip** to edit its notes, or
+  double-click an empty part of a MIDI track to make a one-bar clip and open it (also in the
+  clip's and the lane's right-click menus).
+  - **Click an empty place to add a note** (keep the button down and drag to make it longer).
+    New notes are as long as the last note you drew, resized or clicked, or a fixed length you
+    choose. **Right-click a note to delete it.**
+  - Drag notes to move them (in time and pitch), drag a note's right edge to change its length;
+    hold Alt to place freely. Ctrl+click or Ctrl+drag a box to select several.
+  - **You hear notes** as you add, move or change them (the **Sound** button turns this off).
+    Click the keys on the left to hear any note.
+  - **Velocity lane** at the bottom: drag a note's stem up or down (selected notes change
+    together); drag across stems to set several.
+  - **Quantize** (Q, or the button): moves notes onto the grid, with **strength** (how far: less
+    than 100% keeps some of the feel), **swing** (pushes every second step later, up to a triplet
+    shuffle) and optionally the note ends too.
+  - **Humanize**: small random changes to timing and velocity, so notes sound less mechanical.
+  - **Scale highlighting**: choose the song's key and a scale (major, minor, harmonic minor,
+    dorian, mixolydian, pentatonic, blues): notes outside it are shaded, the key note tinted.
+    It only shows them; every note can still be used. Saved with the project.
+  - Keys: Up / Down (a semitone; Shift: an octave), Left / Right (a grid step), Ctrl+D (duplicate),
+    Ctrl+C / X / V (copy, cut, paste at the playhead), Ctrl+A, Esc, Delete, Q. Space, undo and
+    Aether's other shortcuts work in the piano roll window too.
+  - Notes past the clip's end make the clip longer (to the end of that bar). Every edit is
+    undoable, a whole drag in one step.
+- A **1/32** grid (in the timeline too).
+- Help > Keyboard shortcuts lists the piano roll's mouse actions and keys.
+- Automated tests for every note edit (adding, moving, resizing, velocity, quantize with
+  strength and swing, humanize, duplicating, pasting, scales), the piano roll driven by a
+  simulated mouse and keyboard, note preview (only the track being edited hears it, and it's
+  never recorded), and the timeline's double-click (270 tests in all).
+
+### Changed
+- Double-clicking a MIDI clip opens the piano roll (renaming it is in its right-click menu).
+
 ## [0.9.1] - 2026-11-06
 
 From your M8 testing.
