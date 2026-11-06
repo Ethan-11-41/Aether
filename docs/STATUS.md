@@ -4,7 +4,7 @@ An honest list of what works. Updated at the end of every milestone.
 
 **Legend:** ✅ Working · 🟡 Partial · 🧪 Stub/placeholder · ⬜ Not started
 
-Current version: **0.9.0** (Milestone 8: Phase 1 complete)
+Current version: **0.9.1** (Milestone 8: Phase 1 complete)
 
 ## Milestone 0: skeleton and build pipeline
 
@@ -150,6 +150,10 @@ Current version: **0.9.0** (Milestone 8: Phase 1 complete)
 | Tooltips on every control | ✅ | Checked by an automatic sweep of every window; plain text labels don't have them. |
 | 50-track performance tests | ✅ | Engine about 17% of the available time per buffer, edits 0.6 ms, drawing 1 to 4 ms (optimised build). Checked automatically in the Windows build. Projects with hundreds of tracks or long recordings stored on disk (rather than in memory) are M29. |
 | Closing or quitting while recording keeps the take | ✅ | Fixed in 0.9.0. |
+| Exclusive Mode with a microphone that can't use it | ✅ | 0.9.1: opens without the microphone (or at another sample rate) and says so, instead of going back. |
+| Delete project (start screen) | ✅ | 0.9.1. Moves it to the Recycle Bin. |
+| Add an effect to several selected tracks | ✅ | 0.9.1. |
+| Interface font (Inter) | ✅ | 0.9.1. Themes (dark/light) and interface scaling are M25. |
 
 ## Everything else
 

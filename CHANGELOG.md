@@ -6,6 +6,36 @@ follow [Semantic Versioning](https://semver.org/) (0.x while Aether is in early 
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-11-06
+
+From your M8 testing.
+
+### Fixed
+- **Exclusive Mode** didn't open ("the device can't run at this sample rate in this mode",
+  AUDCLNT_E_UNSUPPORTED_FORMAT). When switching driver, JUCE always added your default
+  microphone, even with "None" chosen, and one of the two devices refused. Aether now picks the
+  devices itself (the same speakers; a microphone only if you had one), and if that doesn't open
+  it tries without the microphone, then at other sample rates, and tells you what it changed
+  (e.g. "your microphone can't be used with Exclusive Mode, so nothing can be recorded").
+- **Tooltips** covered the bottom half of the button you were pointing at, and once one was
+  showing, moving the mouse showed every other tooltip instantly. They now appear just below the
+  control, and only after the mouse has rested on it for a moment, every time.
+- **The on-screen keyboard** stretched its keys in a wide (full-screen) window. The keys now
+  keep their size and more of them show; once all 88 fit, the keyboard is centred.
+
+### Added
+- **Delete project** (start screen: right-click a project). It moves the project's folder to the
+  Recycle Bin, after asking. If the folder holds anything other than the project (say, your own
+  lyrics file), only the project file is moved, so nothing else is ever deleted.
+- **Effects on several tracks at once:** select tracks (Ctrl+click their names, in the mixer or
+  the track list), then **+ Effect** on one of them adds it to all, in one undo step. Clicking an
+  empty part of a mixer strip now selects it.
+
+### Changed
+- **New interface font: Inter**, built into Aether (it was Windows' Verdana). Clean and easy to
+  read at small sizes. Licence: SIL Open Font License (see CREDITS.md).
+- Audio settings: "Outputs 1 + 2" and "Input 1" instead of the drivers' longer names.
+
 ## [0.9.0] - 2026-11-06 - Milestone 8: Phase 1 hardening
 
 Phase 1 (the core of a DAW) is complete with this version.

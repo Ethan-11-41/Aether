@@ -32,7 +32,7 @@ how quickly testing rounds come back. It will keep being updated.
 
 | # | Milestone |
 |---|---|
-| M9 | Piano roll: draw notes, velocity, length, quantize (strength, swing), humanize, scale highlighting |
+| M9 | Piano roll (in its own window): click to add notes, hear them as you edit, velocity, length, quantize (strength, swing), humanize, scale highlighting |
 | M10 | Subtractive synth |
 | M11 | Drum sampler + step sequencer; patterns on the timeline; custom kits (per-pad tune, volume, pan, envelope, choke groups) |
 | M12 | Multi-sample sampler (key zones, velocity layers, ADSR) |
@@ -53,7 +53,7 @@ how quickly testing rounds come back. It will keep being updated.
 | M22 | Groove templates and sidechain routing |
 | M23 | Sound library browser: tags, search, previews, drag to timeline |
 | M24 | Project templates (beat making, band recording, podcast) |
-| M25 | Shortcut editor, dark/light themes, UI scaling |
+| M25 | Shortcut editor, themes (dark, light, and your own colours), UI scaling |
 | M26 | DAWproject import/export |
 | M27 | Reaper `.rpp` and LMMS `.mmp` import (best effort); guide for FL Studio and GarageBand |
 | M28 | CLAP plug-in hosting |
