@@ -15,6 +15,7 @@ const char* gridSizeName (GridSize size) noexcept
         case GridSize::beat:             return "Beat";
         case GridSize::eighth:           return "1/8";
         case GridSize::sixteenth:        return "1/16";
+        case GridSize::thirtySecond:     return "1/32";
         case GridSize::eighthTriplet:    return "1/8 triplet";
         case GridSize::sixteenthTriplet: return "1/16 triplet";
         case GridSize::off:              return "Off";
@@ -31,6 +32,7 @@ const char* gridSizeId (GridSize size) noexcept
         case GridSize::beat:             return "beat";
         case GridSize::eighth:           return "eighth";
         case GridSize::sixteenth:        return "sixteenth";
+        case GridSize::thirtySecond:     return "thirtySecond";
         case GridSize::eighthTriplet:    return "eighthTriplet";
         case GridSize::sixteenthTriplet: return "sixteenthTriplet";
         case GridSize::off:              return "off";
@@ -56,6 +58,7 @@ Tick gridStepAt (const TempoMap& tempo, Tick position, GridSize size) noexcept
         case GridSize::beat:             return tempo.beatLengthAt (position);
         case GridSize::eighth:           return ticksPerQuarter / 2;
         case GridSize::sixteenth:        return ticksPerQuarter / 4;
+        case GridSize::thirtySecond:     return ticksPerQuarter / 8;
         case GridSize::eighthTriplet:    return ticksPerQuarter / 3;
         case GridSize::sixteenthTriplet: return ticksPerQuarter / 6;
         case GridSize::off:              return 0;

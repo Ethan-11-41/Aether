@@ -18,6 +18,7 @@ add_executable(aether_tests
     unit/MixerEngineTests.cpp
     unit/MixerModelTests.cpp
     unit/MixerUiTests.cpp
+    unit/NoteEditTests.cpp
     unit/PerformanceTests.cpp
     unit/ProjectFileTests.cpp
     unit/ProjectModelTests.cpp

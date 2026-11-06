@@ -74,6 +74,9 @@ add_library(aether_core STATIC
     model/Ids.h
     model/MidiClips.cpp
     model/MidiClips.h
+    model/NoteEdits.cpp
+    model/NoteEdits.h
+    model/Scales.h
     model/Mixer.cpp
     model/Mixer.h
     model/Project.cpp
