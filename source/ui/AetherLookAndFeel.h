@@ -26,6 +26,11 @@ public:
     void drawAlertBox (juce::Graphics&, juce::AlertWindow&, const juce::Rectangle<int>& textArea,
                        juce::TextLayout&) override;
 
+    /** Tooltips appear just below the control the mouse is on, so they never cover it (JUCE puts
+        them at the mouse pointer, over the bottom half of the button). */
+    juce::Rectangle<int> getTooltipBounds (const juce::String& tipText, juce::Point<int> screenPos,
+                                           juce::Rectangle<int> parentArea) override;
+
 private:
     Theme theme;
 };

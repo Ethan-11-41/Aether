@@ -6,6 +6,7 @@
 
 #include "model/EditCommands.h"
 #include "model/Mixer.h"
+#include "ui/DelayedTooltipWindow.h"
 #include "ui/EffectEditor.h"
 #include "ui/MixerComponent.h"
 #include "ui/TrackListComponent.h"
@@ -160,4 +161,22 @@ TEST_CASE ("The effect editor has a control for every setting", "[ui][mixer][eff
     edit::setInsertParameter (f.project, echo, "mix", 80.0f);
     f.project.getUndoManager().undo();
     edit::removeInsert (f.project, echo);
+}
+
+TEST_CASE ("Tooltips wait for the mouse to rest on each control, every time", "[ui][tooltips]")
+{
+    ui::TooltipDelay delay (700);
+    int record = 0, loop = 0;   // two controls
+
+    CHECK (delay.filter (&record, "Record", 1000).isEmpty());   // just arrived
+    CHECK (delay.filter (&record, "Record", 1500).isEmpty());
+    CHECK (delay.filter (&record, "Record", 1700) == "Record"); // rested long enough
+
+    // Moving straight on to the next button: it waits again, instead of showing at once.
+    CHECK (delay.filter (&loop, "Loop", 1750).isEmpty());
+    CHECK (delay.filter (&loop, "Loop", 2449).isEmpty());
+    CHECK (delay.filter (&loop, "Loop", 2450) == "Loop");
+
+    // A different part of the same control, with a different tip: waits too.
+    CHECK (delay.filter (&loop, "Loop region", 2500).isEmpty());
 }

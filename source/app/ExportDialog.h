@@ -4,6 +4,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include "engine/Exporter.h"
+#include "ui/DelayedTooltipWindow.h"
 #include "ui/Theme.h"
 
 namespace aether
@@ -63,7 +64,7 @@ private:
     double progress = 0.0;
     juce::ProgressBar progressBar { progress };
 
-    juce::TooltipWindow tooltipWindow { this, 600 };   // its own window, so it shows its own tooltips
+    ui::DelayedTooltipWindow tooltipWindow { this };   // its own window, so it shows its own tooltips
     std::unique_ptr<ExportJob> job;
     std::unique_ptr<Worker> worker;
     std::unique_ptr<juce::FileChooser> chooser;

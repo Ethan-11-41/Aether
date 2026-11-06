@@ -101,6 +101,7 @@ target_compile_definitions(aether_core PUBLIC AETHER_VERSION_STRING="${PROJECT_V
 add_library(aether_ui STATIC
     ui/AetherLookAndFeel.cpp
     ui/AetherLookAndFeel.h
+    ui/DelayedTooltipWindow.h
     ui/DeviceSettingsPanel.cpp
     ui/DeviceSettingsPanel.h
     ui/EffectEditor.cpp
