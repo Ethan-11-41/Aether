@@ -11,8 +11,9 @@ namespace aether
 
 /** File > Export audio: the mix and/or stems, to WAV, FLAC or MP3.
 
-    The export runs on a background thread from a copy of the project, so you can keep working
-    (or close this window, which cancels it). The choices are remembered for next time. */
+    It sits in its own (non-blocking) window. The export runs on a background thread from a copy
+    of the project, so you can keep working (closing the window cancels it). The choices are
+    remembered for next time. */
 class ExportDialog final : public juce::Component,
                            private juce::Timer
 {
@@ -23,12 +24,16 @@ public:
     /** The options the controls describe. */
     ExportOptions getOptions() const;
 
+    /** Called when the window should close (Close button, or Escape when not exporting). */
+    std::function<void()> onCloseRequested;
+
     /** Starts exporting (as the Export button does). */
     void startExport();
     bool isExporting() const;
 
     void paint (juce::Graphics&) override;
     void resized() override;
+    bool keyPressed (const juce::KeyPress&) override;
 
 private:
     class Worker;
@@ -58,6 +63,7 @@ private:
     double progress = 0.0;
     juce::ProgressBar progressBar { progress };
 
+    juce::TooltipWindow tooltipWindow { this, 600 };   // its own window, so it shows its own tooltips
     std::unique_ptr<ExportJob> job;
     std::unique_ptr<Worker> worker;
     std::unique_ptr<juce::FileChooser> chooser;

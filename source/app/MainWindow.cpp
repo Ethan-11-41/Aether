@@ -411,8 +411,26 @@ void MainContent::showAudioSettings()
 void MainContent::closeExportWindow()
 {
     // The export window refers to the project, so it closes with it (cancelling an export).
-    if (exportWindow != nullptr)
-        delete exportWindow.getComponent();
+    exportWindow = nullptr;
+}
+
+namespace
+{
+    /** A separate window that doesn't block the main one (unlike a modal dialog). */
+    class ExportWindow final : public juce::DocumentWindow
+    {
+    public:
+        ExportWindow (juce::Colour background, std::function<void()> whenClosed)
+            : juce::DocumentWindow ("Export audio", background, juce::DocumentWindow::closeButton),
+              onClosed (std::move (whenClosed))
+        {
+        }
+
+        void closeButtonPressed() override   { onClosed(); }
+
+    private:
+        std::function<void()> onClosed;
+    };
 }
 
 void MainContent::showExportDialog()
@@ -428,15 +446,23 @@ void MainContent::showExportDialog()
         return;
     }
 
-    juce::DialogWindow::LaunchOptions options;
-    options.content.setOwned (new ExportDialog (ctx.theme, *project, ctx.session.getLocation(), ctx.settings.get()));
-    options.dialogTitle = "Export audio";
-    options.dialogBackgroundColour = ctx.theme.background;
-    options.escapeKeyTriggersCloseButton = true;
-    options.useNativeTitleBar = true;
-    options.resizable = false;
-    options.componentToCentreAround = this;
-    exportWindow = options.launchAsync();
+    // Closing deletes the window, but not from inside one of its own callbacks: a moment later.
+    juce::Component::SafePointer<MainContent> safeThis (this);
+    auto close = [safeThis]
+    {
+        juce::MessageManager::callAsync ([safeThis] { if (safeThis != nullptr) safeThis->closeExportWindow(); });
+    };
+
+    auto dialog = std::make_unique<ExportDialog> (ctx.theme, *project, ctx.session.getLocation(), ctx.settings.get());
+    dialog->onCloseRequested = close;
+
+    auto window = std::make_unique<ExportWindow> (ctx.theme.background, close);
+    window->setUsingNativeTitleBar (true);
+    window->setResizable (false, false);
+    window->setContentOwned (dialog.release(), true);
+    window->centreAroundComponent (this, window->getWidth(), window->getHeight());
+    window->setVisible (true);
+    exportWindow = std::move (window);
 }
 
 void MainContent::showAbout()

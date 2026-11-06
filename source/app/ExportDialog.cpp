@@ -124,8 +124,8 @@ ExportDialog::ExportDialog (const ui::Theme& themeToUse, const Project& projectT
             return;
         }
 
-        if (auto* window = findParentComponentOfClass<juce::DialogWindow>())
-            window->exitModalState (0);
+        if (onCloseRequested)
+            onCloseRequested();
     };
     showButton.onClick = [this]
     {
@@ -153,6 +153,7 @@ ExportDialog::ExportDialog (const ui::Theme& themeToUse, const Project& projectT
     status.setText ("The files go in the project's Exports folder unless you choose another.", juce::dontSendNotification);
     updateChoices();
     setSize (620, 470);
+    setWantsKeyboardFocus (true);
 }
 
 ExportDialog::~ExportDialog()
@@ -324,6 +325,17 @@ void ExportDialog::finished()
     status.setColour (juce::Label::textColourId, job->getWarnings().isEmpty() ? theme.text : theme.warning);
     showButton.setVisible (true);
     juce::Logger::writeToLog ("Exported " + juce::String (job->getFiles().size()) + " file(s) to " + folder.getFullPathName());
+}
+
+bool ExportDialog::keyPressed (const juce::KeyPress& key)
+{
+    if (key == juce::KeyPress::escapeKey)
+    {
+        closeButton.triggerClick();   // cancels an export, or closes the window
+        return true;
+    }
+
+    return false;
 }
 
 void ExportDialog::paint (juce::Graphics& g)

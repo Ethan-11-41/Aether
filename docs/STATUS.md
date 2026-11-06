@@ -4,7 +4,7 @@ An honest list of what works. Updated at the end of every milestone.
 
 **Legend:** ✅ Working · 🟡 Partial · 🧪 Stub/placeholder · ⬜ Not started
 
-Current version: **0.8.0** (Milestone 7)
+Current version: **0.8.1** (Milestone 7)
 
 ## Milestone 0: skeleton and build pipeline
 
@@ -133,7 +133,7 @@ Current version: **0.8.0** (Milestone 7)
 | Export the mix: WAV (16/24/32-bit float), FLAC (16/24-bit), MP3 (128-320 kbps) | ✅ | 44.1 to 96 kHz (MP3 up to 48 kHz). MP3 is constant bit rate, without tags (title, artist) for now. |
 | Stems (one file per track, soloed through its effects, sends and the master) | ✅ | Buses don't get stems of their own (their sound is in the stems of the tracks that play into them). Muted and empty tracks are skipped. |
 | Whole song or loop region; effect tails; normalize; dither for 16-bit | ✅ | |
-| Background export with progress and cancel; never overwrites | ✅ | |
+| Background export with progress and cancel; never overwrites | ✅ | The Export window blocked the main window until 0.8.1 (fixed). |
 | Clipping warning | ✅ | |
 | Export runs faster than real time | ✅ | It depends on the number of tracks and effects. A real-time "bounce" option isn't needed: Aether's own instruments and effects work offline. |
 | Plug-ins in exports | ⬜ | Plug-ins arrive in M15; some need real-time export, which will come then. |

@@ -6,6 +6,14 @@ follow [Semantic Versioning](https://semver.org/) (0.x while Aether is in early 
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-11-06
+
+### Fixed
+- While the Export window was open (also during an export), the main window couldn't be used:
+  clicking it only made the Windows error sound. The Export window is now a separate window that
+  doesn't block anything, so you can keep working while it exports, as intended.
+- The Export window's own tooltips now show.
+
 ## [0.8.0] - 2026-11-06 - Milestone 7: export
 
 ### Added
