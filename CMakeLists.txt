@@ -18,6 +18,7 @@ option(AETHER_RTSAN       "Build with Clang RealtimeSanitizer (Clang 20+, Linux 
 include(cmake/AetherCompilerSettings.cmake)   # C++20, static runtime, sanitizers, warnings
 include(cmake/AetherDependencies.cmake)       # downloads pinned versions of JUCE and Catch2
 include(cmake/AetherJuce.cmake)               # builds the JUCE modules once, as a static library
+include(cmake/AetherLame.cmake)               # the MP3 encoder (LAME), as a separate library
 
 add_subdirectory(source)
 

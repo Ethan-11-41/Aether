@@ -92,10 +92,12 @@ MidiFileContents readMidiFile (const juce::MidiFile& midiFile, const juce::Strin
     return contents;
 }
 
-MidiImportResult importMidiFile (Project& project, const juce::File& file, Tick position, int insertIndex)
+MidiImportResult importMidiFile (Project& project, const juce::File& file, Tick position, int insertIndex,
+                                 const juce::String& targetTrackId)
 {
     MidiImportResult result;
     const auto contents = readMidiFile (file);
+    result.fileTempo = std::round (contents.firstTempo * 100.0) / 100.0;
 
     if (contents.parts.empty())
     {
@@ -107,8 +109,15 @@ MidiImportResult importMidiFile (Project& project, const juce::File& file, Tick 
     undo.beginNewTransaction ("Import " + file.getFileName());
 
     // A new project takes the song's tempo (one with clips in already keeps its own).
-    if (contents.firstTempo > 0.0 && clips::allClips (project).isEmpty())
-        edit::setTempo (project, 0, std::round (contents.firstTempo * 100.0) / 100.0, false);
+    if (result.fileTempo > 0.0 && clips::allClips (project).isEmpty())
+    {
+        edit::setTempo (project, 0, result.fileTempo, false);
+        result.tempoTaken = true;
+    }
+
+    // One part, dropped on a MIDI track: it goes there.
+    const auto target = project.findTrack (targetTrackId);
+    const auto ontoTarget = contents.parts.size() == 1 && target.getKind() == TrackKind::midi;
 
     const auto tempo = timeline::buildTempoMap (project);
     position = std::max<Tick> (0, position);
@@ -125,12 +134,18 @@ MidiImportResult importMidiFile (Project& project, const juce::File& file, Tick 
         if (clipEnd < position + end)
             clipEnd = tempo.barToTicks (lastBar + 1);
 
-        const auto track = edit::addTrack (project, TrackKind::midi, insertIndex, false, part.name);
-        if (insertIndex >= 0)
-            ++insertIndex;
+        auto trackId = target.getId();
 
-        result.trackIds.add (track.getId());
-        result.clipIds.add (edit::addMidiClip (project, track.getId(), part.name, position, clipEnd - position, part.notes, false));
+        if (! ontoTarget)
+        {
+            trackId = edit::addTrack (project, TrackKind::midi, insertIndex, false, part.name).getId();
+            if (insertIndex >= 0)
+                ++insertIndex;
+
+            result.trackIds.add (trackId);
+        }
+
+        result.clipIds.add (edit::addMidiClip (project, trackId, part.name, position, clipEnd - position, part.notes, false));
     }
 
     return result;
