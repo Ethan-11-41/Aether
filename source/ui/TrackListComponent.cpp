@@ -4,6 +4,7 @@
 #include "MixerControls.h"
 #include "model/EditCommands.h"
 #include "model/Mixer.h"
+#include "model/Recording.h"
 #include "model/TrackColours.h"
 
 namespace aether::ui
@@ -19,6 +20,8 @@ public:
         : owner (ownerToUse), track (std::move (trackToShow)),
           mute (owner.theme, "M", owner.theme.warning),
           solo (owner.theme, "S", owner.theme.meterMid),
+          arm (owner.theme, "R", owner.theme.meterHigh),
+          monitor (owner.theme, "I", owner.theme.accent),
           volume (owner.theme, false),
           pan (owner.theme),
           meter (owner.theme, true)
@@ -44,6 +47,23 @@ public:
 
         for (auto* control : std::initializer_list<juce::Component*> { &mute, &solo, &volume, &pan, &meter })
             addAndMakeVisible (control);
+
+        // Recording (audio tracks only, for now: MIDI recording comes in M6).
+        if (track.getKind() == TrackKind::audio)
+        {
+            arm.isOn = [this] { return track.isArmed(); };
+            arm.onClick = [this, &list, group] { edit::setArmed (list.project, group(), ! track.isArmed()); };
+            arm.setTooltip ("Record arm: this track records when you press Record (R). "
+                            "Right-click the track to choose its input.");
+
+            monitor.isOn = [this] { return track.isMonitoring(); };
+            monitor.onClick = [this, &list, group] { edit::setMonitoring (list.project, group(), ! track.isMonitoring()); };
+            monitor.setTooltip ("Input monitoring: hear the track's input (e.g. your microphone) through Aether, with "
+                                "the track's effects. Use headphones, or the speakers will feed back into the microphone.");
+
+            addAndMakeVisible (arm);
+            addAndMakeVisible (monitor);
+        }
     }
 
     const Track& getTrack() const   { return track; }
@@ -112,6 +132,16 @@ public:
 
     juce::Rectangle<int> getBadgeArea() const   { return { 26, getHeight() / 2 + 6, 42, 18 }; }
 
+    void paintOverChildren (juce::Graphics& g) override
+    {
+        // An armed track gets a red edge, so it's obvious what will record.
+        if (track.isArmed())
+        {
+            g.setColour (owner.theme.meterHigh);
+            g.fillRect (getColourStripArea().withX (getColourStripArea().getRight()).withWidth (3).reduced (0, 1));
+        }
+    }
+
     void resized() override
     {
         if (editor != nullptr)
@@ -119,11 +149,15 @@ public:
 
         // Bottom row: badge, M, S, volume, pan; and a level meter down the right-hand edge.
         const auto rowY = getHeight() / 2 + 6;
-        mute.setBounds (74, rowY, 20, 18);
-        solo.setBounds (97, rowY, 20, 18);
+        mute.setBounds (72, rowY, 19, 18);
+        solo.setBounds (93, rowY, 19, 18);
+        arm.setBounds (114, rowY, 19, 18);
+        monitor.setBounds (135, rowY, 19, 18);
         meter.setBounds (getWidth() - 11, 8, 6, getHeight() - 16);
         pan.setBounds (getWidth() - 40, rowY - 3, 24, 24);
-        volume.setBounds (122, rowY, std::max (20, getWidth() - 46 - 122), 18);
+
+        const auto volumeX = arm.isVisible() ? 158 : 116;
+        volume.setBounds (volumeX, rowY, std::max (20, getWidth() - 46 - volumeX), 18);
     }
 
     void mouseDown (const juce::MouseEvent& e) override
@@ -197,7 +231,7 @@ private:
 
     TrackListComponent& owner;
     Track track;
-    ToggleBox mute, solo;
+    ToggleBox mute, solo, arm, monitor;
     VolumeFader volume;
     PanKnob pan;
     StereoMeter meter;
@@ -459,6 +493,40 @@ void TrackListComponent::showContextMenu (const juce::String& trackId)
                   whenStillOpen ([targets, mute = ! track.isMuted()] (TrackListComponent& list) { edit::setMuted (list.project, targets, mute); }));
     menu.addItem (track.isSoloed() ? "Unsolo" : "Solo",
                   whenStillOpen ([targets, solo = ! track.isSoloed()] (TrackListComponent& list) { edit::setSoloed (list.project, targets, solo); }));
+
+    // What it records from.
+    if (track.getKind() == TrackKind::audio)
+    {
+        juce::PopupMenu inputs;
+        const auto count = inputChannelCount ? std::max (0, inputChannelCount()) : 2;
+        const auto current = track.getInputChannel();
+        const auto stereo = track.isInputStereo();
+
+        auto addInput = [&] (int first, bool pair)
+        {
+            inputs.addItem (recording::describeInput (first, pair), true, current == first && stereo == pair,
+                            whenStillOpen ([targets, first, pair] (TrackListComponent& list) { edit::setInput (list.project, targets, first, pair); }));
+        };
+
+        for (int c = 0; c < count; ++c)
+            addInput (c, false);
+
+        if (count >= 2)
+        {
+            inputs.addSeparator();
+            for (int c = 0; c + 1 < count; c += 2)
+                addInput (c, true);
+        }
+
+        if (count == 0)
+            inputs.addItem ("(no inputs: choose a sound card input in Audio settings)", false, false, [] {});
+
+        inputs.addSeparator();
+        addInput (-1, false);
+        menu.addSubMenu ("Input (" + recording::describeInput (current, stereo) + ")", inputs);
+        menu.addItem (track.isArmed() ? "Disarm (don't record)" : "Arm for recording",
+                      whenStillOpen ([targets, armed = ! track.isArmed()] (TrackListComponent& list) { edit::setArmed (list.project, targets, armed); }));
+    }
 
     // Where the sound goes: the master, or a bus.
     if (! track.isBus() || mixer::possibleOutputs (project, trackId).size() > 0)

@@ -128,6 +128,16 @@ AudioSettingsComponent::AudioSettingsComponent (AudioDeviceService& deviceServic
     addAndMakeVisible (latencyHeading);
     addAndMakeVisible (latencyPanel);
 
+    measureButton.setButtonText ("Measure latency");
+    measureButton.setTooltip ("Plays a few short chirps and listens for them through your input, to measure the real "
+                              "delay. Recordings are then corrected by exactly that. Use speakers at a normal volume "
+                              "with the microphone nearby, or a cable from the output to the input.");
+    measureButton.onClick = [this] { startMeasuring(); };
+    addAndMakeVisible (measureButton);
+    styleHint (measureResult, theme);
+    measureResult.setJustificationType (juce::Justification::centredLeft);
+    addAndMakeVisible (measureResult);
+
     // Status bar -------------------------------------------------------------------------------
     styleHint (statusLabel, theme);
     statusLabel.setJustificationType (juce::Justification::centredLeft);
@@ -209,6 +219,7 @@ void AudioSettingsComponent::updateStatus()
     }
 
     latencyPanel.setLatency (devices.getLatencyInfo());
+    checkMeasurement();
     cpuLabel.setText ("Audio CPU " + juce::String (juce::roundToInt (devices.getCpuUsage() * 100.0)) + "%",
                       juce::dontSendNotification);
 }
@@ -290,7 +301,7 @@ void AudioSettingsComponent::resized()
         deviceSelector->setSize (selectorWidth, juce::jmax (deviceSelector->getHeight(), 100));
     }
 
-    const auto latencyCardHeight = cardPadding * 2 + 24 + 8 + ui::LatencyPanel::rowHeight * ui::LatencyPanel::numRows;
+    const auto latencyCardHeight = cardPadding * 2 + 24 + 8 + ui::LatencyPanel::rowHeight * ui::LatencyPanel::numRows + 8 + 32;
     latencyCard = right.removeFromBottom (latencyCardHeight);
     right.removeFromBottom (margin);
     soundCard = right;
@@ -318,8 +329,61 @@ void AudioSettingsComponent::resized()
         auto inner = latencyCard.reduced (cardPadding);
         latencyHeading.setBounds (inner.removeFromTop (24));
         inner.removeFromTop (8);
+        auto measureRow = inner.removeFromBottom (32);
+        measureButton.setBounds (measureRow.removeFromLeft (150));
+        measureRow.removeFromLeft (10);
+        measureResult.setBounds (measureRow);
+        inner.removeFromBottom (8);
         latencyPanel.setBounds (inner);
     }
+}
+
+void AudioSettingsComponent::startMeasuring()
+{
+    const auto latency = devices.getLatencyInfo();
+
+    if (! latency.isValid() || ! latency.hasInput || ! latency.hasOutput)
+    {
+        measureResult.setText ("Needs a sound card with an input and an output switched on.", juce::dontSendNotification);
+        return;
+    }
+
+    // Listen on the first input that's switched on.
+    int input = 0;
+    if (auto* device = devices.getDeviceManager().getCurrentAudioDevice())
+        input = std::max (0, device->getActiveInputChannels().findNextSetBit (0));
+
+    latencyCapture = std::make_shared<LatencyCapture> (latency.sampleRate, input);
+    engine.startLatencyCapture (latencyCapture);
+    measureButton.setEnabled (false);
+    measureResult.setText ("Measuring... (you'll hear 8 chirps)", juce::dontSendNotification);
+}
+
+void AudioSettingsComponent::checkMeasurement()
+{
+    if (latencyCapture == nullptr || ! latencyCapture->finished.load())
+        return;
+
+    const auto result = analyseLatencyCapture (*latencyCapture);
+    const auto rate = latencyCapture->sampleRate;
+    latencyCapture = nullptr;
+    measureButton.setEnabled (true);
+
+    if (result.ok)
+    {
+        devices.setMeasuredRoundTrip (result.roundTripSamples);
+        measureResult.setText ("Measured: " + juce::String (LatencyInfo::formatSamplesAndMs (result.roundTripSamples, rate))
+                                   + ". Recordings will be corrected by this.",
+                               juce::dontSendNotification);
+        juce::Logger::writeToLog ("Measured round-trip latency: " + juce::String (result.roundTripSamples) + " samples");
+    }
+    else
+    {
+        measureResult.setText (result.problem, juce::dontSendNotification);
+        juce::Logger::writeToLog ("Latency measurement failed: " + result.problem);
+    }
+
+    latencyPanel.setLatency (devices.getLatencyInfo());
 }
 
 } // namespace aether

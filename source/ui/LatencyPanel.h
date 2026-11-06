@@ -24,7 +24,7 @@ public:
     juce::String getTooltip() override;
 
     static constexpr int rowHeight = 24;
-    static constexpr int numRows = 4;
+    static constexpr int numRows = 5;
 
 private:
     struct Row

@@ -52,6 +52,12 @@ private:
 
     juce::Label latencyHeading;
     ui::LatencyPanel latencyPanel;
+    juce::TextButton measureButton;
+    juce::Label measureResult;
+    std::shared_ptr<LatencyCapture> latencyCapture;   // while measuring
+
+    void startMeasuring();
+    void checkMeasurement();
 
     juce::Label statusLabel, cpuLabel;
 

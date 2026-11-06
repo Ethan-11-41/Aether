@@ -17,9 +17,9 @@ namespace aether::ui
 
     - Click to select; Ctrl+click adds or removes a track from the selection, Shift+click selects
       a range. Double-click the name (or press F2) to rename.
-    - Each header has mute (M), solo (S), volume, pan and a level meter. With several tracks
-      selected, using a control on one of them changes them all (volume and pan move by the
-      same amount).
+    - Each header has mute (M), solo (S), volume, pan and a level meter; audio tracks also have
+      record arm (R) and input monitoring (I). With several tracks selected, using a control on
+      one of them changes them all (volume and pan move by the same amount).
     - Click the coloured strip, or right-click, to change the colour.
     - Drag a track up or down to reorder it.
     All changes go through the undoable functions in model/EditCommands.h and model/Mixer.h.
@@ -66,6 +66,9 @@ public:
 
     /** Called whenever the selected track changes. */
     std::function<void()> onSelectionChanged;
+
+    /** How many inputs the sound card has (for the Input menu). */
+    std::function<int()> inputChannelCount;
 
     /** Height needed to show every track (for the scrolling area). */
     int getIdealHeight() const;

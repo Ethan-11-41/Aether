@@ -62,6 +62,15 @@ public:
         about 30 times a second). */
     void updatePlayhead();
 
+    /** A recording in progress, drawn growing on its tracks up to the playhead. */
+    struct LiveRecording
+    {
+        juce::StringArray trackIds;
+        Tick start = 0;
+    };
+
+    std::function<LiveRecording()> liveRecording;
+
     /** Call when the track list scrolls, so the lanes follow. */
     void tracksScrolled();
 
