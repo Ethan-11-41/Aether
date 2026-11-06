@@ -3,30 +3,80 @@
 
 #include <array>
 #include <atomic>
+#include <cstdint>
 
 #include <juce_audio_devices/juce_audio_devices.h>
 
+#include "Metronome.h"
 #include "TestToneGenerator.h"
+#include "TimelineSnapshot.h"
 #include "rt/RealtimeAnnotations.h"
+#include "rt/SnapshotExchange.h"
+#include "rt/SpscQueue.h"
 
 namespace aether
 {
 
+/** What the transport is doing, as reported by the audio thread. */
+struct TransportStatus
+{
+    bool playing = false;
+    bool countingIn = false;
+    Tick position = 0;
+    int countInBeatsLeft = 0;
+};
+
+/** A transport instruction from the UI thread to the audio thread. */
+struct TransportCommand
+{
+    enum class Type { play, stop, locate };
+    Type type = Type::stop;
+    Tick position = 0;
+};
+
 /** The audio engine: everything that runs on the audio thread.
 
-    Milestone 0 version: plays the test tone and measures input/output levels.
-    The UI thread talks to it only through atomics (no locks), as required by the
-    real-time rules in docs/ARCHITECTURE.md.
+    Milestone 2: the transport (play, stop, position, loop, count-in) and the metronome, plus the
+    test tone and level meters from Milestone 0.
+
+    The UI thread talks to it only without locks:
+      - transport commands (play, stop, locate) go through a lock-free queue,
+      - the tempo map and loop arrive as a TimelineSnapshot through an rt::SnapshotExchange,
+      - simple settings (metronome on/off, volume, count-in) are atomics,
+      - the position and meter levels come back as atomics.
 */
 class AudioEngine final : public juce::AudioIODeviceCallback
 {
 public:
     static constexpr int numMeteredChannels = 2;
+    static constexpr int maxCountInBars = 4;
 
-    AudioEngine() = default;
+    AudioEngine();
+    ~AudioEngine() override;
 
     //==============================================================================
     // Called from the UI thread
+
+    /** Hands the engine a new tempo map / loop. Takes effect from the next audio block. */
+    void setTimeline (std::unique_ptr<TimelineSnapshot> timeline);
+
+    /** Deletes timelines the audio thread has finished with. Call regularly (e.g. from a timer). */
+    void collectGarbage();
+
+    void play();
+    void stop();
+    void locate (Tick position);
+
+    void setMetronomeEnabled (bool shouldClick) noexcept   { metronomeEnabled.store (shouldClick, std::memory_order_relaxed); }
+    bool isMetronomeEnabled() const noexcept               { return metronomeEnabled.load (std::memory_order_relaxed); }
+    void setMetronomeLevelDb (float decibels) noexcept;
+    float getMetronomeLevelDb() const noexcept             { return metronomeLevelDb.load (std::memory_order_relaxed); }
+
+    /** Bars of clicks before playback starts (0 = off). */
+    void setCountInBars (int bars) noexcept;
+    int getCountInBars() const noexcept                    { return countInBars.load (std::memory_order_relaxed); }
+
+    TransportStatus getTransportStatus() const noexcept;
 
     void setTestToneEnabled (bool shouldPlay) noexcept   { testToneRequested.store (shouldPlay, std::memory_order_relaxed); }
     bool isTestToneEnabled() const noexcept              { return testToneRequested.load (std::memory_order_relaxed); }
@@ -47,6 +97,8 @@ public:
                   float* const* outputs, int numOutputs,
                   int numSamples) noexcept AETHER_NONBLOCKING;
 
+    double getSampleRate() const noexcept   { return sampleRate; }
+
     //==============================================================================
     // juce::AudioIODeviceCallback
 
@@ -58,14 +110,46 @@ public:
                                            const juce::AudioIODeviceCallbackContext& context) override;
 
 private:
+    using Command = TransportCommand;
+
+    void handleCommands (const TimelineSnapshot& timeline) noexcept AETHER_NONBLOCKING;
+    void startCountIn (const TimelineSnapshot& timeline) noexcept AETHER_NONBLOCKING;
+    int runCountIn (int numSamples) noexcept AETHER_NONBLOCKING;
+    void runPlayback (const TimelineSnapshot& timeline, int blockOffset, int numSamples) noexcept AETHER_NONBLOCKING;
+    void clickBeats (const TempoMap& tempo, std::int64_t fromSample, std::int64_t toSample, int blockOffset) noexcept AETHER_NONBLOCKING;
+    std::int64_t tickToSample (const TempoMap& tempo, Tick tick) const noexcept AETHER_NONBLOCKING;
+    Tick sampleToTick (const TempoMap& tempo, std::int64_t sample) const noexcept AETHER_NONBLOCKING;
+
     static void updatePeak (std::atomic<float>& meter, float value) noexcept AETHER_NONBLOCKING;
     static float takePeak (std::array<std::atomic<float>, numMeteredChannels>& meters, int channel) noexcept;
 
-    TestToneGenerator testTone;
+    double sampleRate = 48000.0;
+
+    // Shared with the UI thread
+    rt::SnapshotExchange<TimelineSnapshot> timelineExchange;
+    rt::SpscQueue<Command> commands { 256 };
+    std::atomic<bool> metronomeEnabled { false };
+    std::atomic<float> metronomeLevelDb { -6.0f };
+    std::atomic<float> metronomeGain { 0.5f };
+    std::atomic<int> countInBars { 0 };
     std::atomic<bool> testToneRequested { false };
 
+    std::atomic<bool> reportPlaying { false }, reportCountingIn { false };
+    std::atomic<std::int64_t> reportTick { 0 };
+    std::atomic<int> reportCountInBeatsLeft { 0 };
     std::array<std::atomic<float>, numMeteredChannels> outputPeaks {};
     std::array<std::atomic<float>, numMeteredChannels> inputPeaks {};
+
+    // Audio thread only
+    bool playing = false;
+    bool countingIn = false;
+    std::int64_t positionSamples = 0;   // the playhead, in samples from the start of the timeline
+    double countInSamplesPerBeat = 0.0;
+    int countInTotalBeats = 0, countInBeatsPerBar = 4;
+    std::int64_t countInElapsed = 0;
+
+    TestToneGenerator testTone;
+    Metronome metronome;
 };
 
 } // namespace aether

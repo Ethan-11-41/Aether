@@ -12,13 +12,28 @@
 namespace aether::ids
 {
     // Node types
-    inline const juce::Identifier Project { "Project" };
-    inline const juce::Identifier Tracks  { "Tracks" };
-    inline const juce::Identifier Track   { "Track" };
+    inline const juce::Identifier Project        { "Project" };
+    inline const juce::Identifier Tracks         { "Tracks" };
+    inline const juce::Identifier Track          { "Track" };
+    inline const juce::Identifier Tempo          { "Tempo" };            // list of TempoPoint
+    inline const juce::Identifier TempoPoint     { "TempoPoint" };
+    inline const juce::Identifier TimeSignatures { "TimeSignatures" };   // list of TimeSignature
+    inline const juce::Identifier TimeSignature  { "TimeSignature" };
 
     // Properties
     inline const juce::Identifier id      { "id" };       // unique id (UUID text) of a track, clip, etc.
     inline const juce::Identifier name    { "name" };
     inline const juce::Identifier kind    { "kind" };     // track kind: "audio" or "midi"
     inline const juce::Identifier colour  { "colour" };   // "#RRGGBB"
+
+    // Timeline (positions are ticks: 960000 per quarter note)
+    inline const juce::Identifier tick        { "tick" };
+    inline const juce::Identifier bpm         { "bpm" };
+    inline const juce::Identifier curve       { "curve" };        // "jump" or "ramp"
+    inline const juce::Identifier bar         { "bar" };          // counting from 0
+    inline const juce::Identifier numerator   { "numerator" };
+    inline const juce::Identifier denominator { "denominator" };
+    inline const juce::Identifier loopStart   { "loopStart" };
+    inline const juce::Identifier loopEnd     { "loopEnd" };
+    inline const juce::Identifier loopEnabled { "loopEnabled" };
 }

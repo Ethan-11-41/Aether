@@ -37,6 +37,15 @@ namespace commands
         moveTrackUp         = 0x3005,
         moveTrackDown       = 0x3006,
 
+        // Transport and view
+        playStop            = 0x6001,
+        stop                = 0x6002,
+        goToStart           = 0x6003,
+        toggleLoop          = 0x6004,
+        toggleMetronome     = 0x6005,
+        zoomIn              = 0x6006,
+        zoomOut             = 0x6007,
+
         // Settings & help
         audioSettings       = 0x4001,
         about               = 0x5001,
@@ -49,6 +58,8 @@ namespace commands
         inline const juce::String file     = "File";
         inline const juce::String edit     = "Edit";
         inline const juce::String track    = "Track";
+        inline const juce::String transport = "Transport";
+        inline const juce::String view     = "View";
         inline const juce::String settings = "Settings";
         inline const juce::String help     = "Help";
     }

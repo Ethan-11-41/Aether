@@ -80,6 +80,24 @@ refused, though: see below).
 | | `name` | The name shown in the track header. |
 | | `colour` | `"#RRGGBB"`. |
 
+### Added in Aether 0.3.0 (still format version 1)
+
+New nodes and properties that have defaults don't need a new format version: files without
+them get the defaults when opened, and older versions of Aether keep them untouched.
+
+| Node | Property | Meaning |
+|---|---|---|
+| `Project` | `loopStart`, `loopEnd` | The loop region, in ticks (960000 per quarter note). Default 0 to 4 bars. |
+| | `loopEnabled` | `true` or `false`. Default `false`. |
+| `Tempo` | | The tempo changes, in time order. The first is always at tick 0. Default: one at 120 BPM. |
+| `TempoPoint` | `tick` | Where the tempo change is. |
+| | `bpm` | Tempo in quarter notes per minute (20 to 999). |
+| | `curve` | `"jump"`: the tempo stays until the next point. `"ramp"`: it changes gradually to the next point's tempo. |
+| `TimeSignatures` | | The time signatures, in bar order. The first is always at bar 0. Default: 4/4. |
+| `TimeSignature` | `bar` | The bar where it starts, counting from 0. |
+| | `numerator` | Beats per bar (1 to 32). |
+| | `denominator` | The note value of one beat: 1, 2, 4, 8, 16 or 32. |
+
 ## Rules for changing the format
 
 1. Never rename or reuse a node type or property name (see `source/model/Ids.h`).

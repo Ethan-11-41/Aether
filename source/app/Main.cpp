@@ -19,6 +19,7 @@
 #include "io/ProjectSession.h"
 #include "io/RecentProjects.h"
 #include "ui/AetherLookAndFeel.h"
+#include "ui/TransportBar.h"
 
 namespace aether
 {
@@ -81,6 +82,9 @@ public:
         props.setValue (lastLaunchKey, juce::String (juce::Time::currentTimeMillis()));
 
         engine = std::make_unique<AudioEngine>();
+        engine->setMetronomeEnabled (props.getBoolValue ("metronomeEnabled", true));   // on until there is music to hear
+        engine->setMetronomeLevelDb ((float) props.getDoubleValue (ui::TransportBar::metronomeLevelKey, -6.0));
+        engine->setCountInBars (props.getIntValue (ui::TransportBar::countInKey, 0));
         devices = std::make_unique<AudioDeviceService> (props);
         devices->setDriverErrorSource ([log = appLog.get()] { return log->getRecentDriverError(); });
         devices->addAudioCallback (engine.get());

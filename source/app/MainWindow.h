@@ -92,7 +92,7 @@ private:
 
     // Last seen state, so the timer only updates things that changed.
     juce::String lastTitle;
-    bool lastCanUndo = false, lastCanRedo = false, lastHasProject = false;
+    bool lastCanUndo = false, lastCanRedo = false, lastHasProject = false, lastRunning = false, lastLooping = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainContent)
 };

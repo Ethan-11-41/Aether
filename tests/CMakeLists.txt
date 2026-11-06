@@ -10,8 +10,12 @@ add_executable(aether_tests
     unit/ProjectModelTests.cpp
     unit/ProjectSessionTests.cpp
     unit/SpscQueueTests.cpp
+    unit/TempoMapTests.cpp
     unit/TestToneGeneratorTests.cpp
+    unit/TimelineEditTests.cpp
+    unit/TimelineViewTests.cpp
     unit/TrackListComponentTests.cpp
+    unit/TransportTests.cpp
     realtime/RealtimeSafetyTests.cpp)
 
 target_link_libraries(aether_tests PRIVATE aether_ui aether_warnings Catch2::Catch2WithMain)

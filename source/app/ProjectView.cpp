@@ -6,8 +6,18 @@
 namespace aether
 {
 
-ProjectView::ProjectView (const ui::Theme& themeToUse, Project& projectToShow, juce::ApplicationCommandManager& commands)
-    : theme (themeToUse), project (projectToShow), trackList (themeToUse, projectToShow)
+namespace
+{
+    constexpr int toolbarHeight = 54;
+    constexpr int trackColumnWidth = 300;
+}
+
+ProjectView::ProjectView (AppContext& context, Project& projectToShow)
+    : ctx (context),
+      project (projectToShow),
+      timelineSync (projectToShow, context.engine),
+      transportBar (context.theme, projectToShow, context.engine, context.commands, context.settings.get()),
+      trackList (context.theme, projectToShow)
 {
     // Toolbar buttons trigger the same commands as the menus, so they share shortcuts,
     // tooltips (which show the shortcut) and enabled/disabled state.
@@ -18,26 +28,39 @@ ProjectView::ProjectView (const ui::Theme& themeToUse, Project& projectToShow, j
                      ButtonSetup { addAudioButton, commands::addAudioTrack, "+ Audio track" },
                      ButtonSetup { addMidiButton,  commands::addMidiTrack,  "+ MIDI track" } })
     {
-        b.button.setCommandToTrigger (&commands, b.command, true);
+        b.button.setCommandToTrigger (&ctx.commands, b.command, true);
         b.button.setButtonText (b.text);
         b.button.setWantsKeyboardFocus (false);   // keep the arrow keys working in the track list
         addAndMakeVisible (b.button);
     }
 
+    addAndMakeVisible (transportBar);
+
     trackViewport.setViewedComponent (&trackList, false);
     trackViewport.setScrollBarsShown (true, false);
     addAndMakeVisible (trackViewport);
 
-    timelineNote.setText ("The timeline (bars and beats, clips, playback and recording) arrives in milestones M2 and M3.",
-                          juce::dontSendNotification);
-    timelineNote.setColour (juce::Label::textColourId, theme.textDim);
-    timelineNote.setJustificationType (juce::Justification::centred);
-    timelineNote.setFont (juce::FontOptions (14.0f));
-    addAndMakeVisible (timelineNote);
+    timeline = std::make_unique<ui::TimelineComponent> (ctx.theme, project, ctx.engine, trackViewport, trackList);
+    addAndMakeVisible (*timeline);
+
+    trackViewport.onScroll = [this] { timeline->tracksScrolled(); };
+
+    trackList.onSelectionChanged = [this]
+    {
+        ctx.commands.commandStatusChanged();
+        timeline->tracksScrolled();   // repaint the lanes: the selected one is highlighted
+    };
+}
+
+ProjectView::~ProjectView()
+{
+    trackList.onSelectionChanged = nullptr;
+    trackViewport.onScroll = nullptr;
 }
 
 void ProjectView::paint (juce::Graphics& g)
 {
+    const auto& theme = ctx.theme;
     g.fillAll (theme.background);
 
     g.setColour (theme.panel);
@@ -45,40 +68,47 @@ void ProjectView::paint (juce::Graphics& g)
     g.setColour (theme.outline);
     g.drawHorizontalLine (toolbarArea.getBottom() - 1, 0.0f, (float) getWidth());
 
-    // An empty timeline with faint vertical lines, so the layout makes sense already.
-    g.setColour (theme.meterBackground);
-    g.fillRect (timelineArea);
-    g.setColour (theme.outline.withAlpha (0.4f));
+    // Names for the timeline's top lanes, lined up with them.
+    g.setColour (theme.panel);
+    g.fillRect (laneHeaderArea);
 
-    for (int x = timelineArea.getX() + 80; x < timelineArea.getRight(); x += 80)
-        g.drawVerticalLine (x, (float) timelineArea.getY(), (float) timelineArea.getBottom());
+    auto labels = laneHeaderArea.reduced (14, 0);
+    g.setFont (juce::FontOptions (12.5f));
+    g.setColour (theme.textDim);
+    g.drawText ("Loop  /  Bars", labels.removeFromTop (ui::TimelineComponent::rulerHeight), juce::Justification::centredLeft);
+    g.drawText ("Time signature", labels.removeFromTop (ui::TimelineComponent::signatureHeight), juce::Justification::centredLeft);
+    g.drawText ("Tempo", labels.removeFromTop (ui::TimelineComponent::tempoHeight), juce::Justification::centredLeft);
 
     g.setColour (theme.outline);
-    g.drawVerticalLine (timelineArea.getX(), (float) timelineArea.getY(), (float) timelineArea.getBottom());
+    g.drawHorizontalLine (laneHeaderArea.getBottom() - 1, (float) laneHeaderArea.getX(), (float) laneHeaderArea.getRight());
+    g.drawVerticalLine (laneHeaderArea.getRight() - 1, (float) laneHeaderArea.getY(), (float) getHeight());
 }
 
 void ProjectView::resized()
 {
     auto area = getLocalBounds();
 
-    toolbarArea = area.removeFromTop (48);
+    toolbarArea = area.removeFromTop (toolbarHeight);
     {
         auto bar = toolbarArea.reduced (12, 8);
-        undoButton.setBounds (bar.removeFromLeft (70));
+        undoButton.setBounds (bar.removeFromLeft (64));
         bar.removeFromLeft (6);
-        redoButton.setBounds (bar.removeFromLeft (70));
+        redoButton.setBounds (bar.removeFromLeft (64));
+        bar.removeFromLeft (18);
+        addAudioButton.setBounds (bar.removeFromLeft (118));
+        bar.removeFromLeft (6);
+        addMidiButton.setBounds (bar.removeFromLeft (112));
         bar.removeFromLeft (24);
-        addAudioButton.setBounds (bar.removeFromLeft (130));
-        bar.removeFromLeft (6);
-        addMidiButton.setBounds (bar.removeFromLeft (130));
+        transportBar.setBounds (bar.removeFromLeft (std::min (bar.getWidth(), ui::TransportBar::idealWidth)));
     }
 
-    auto trackArea = area.removeFromLeft (300);
-    trackViewport.setBounds (trackArea);
-    trackList.setSize (trackArea.getWidth() - trackViewport.getScrollBarThickness(), trackList.getIdealHeight());
+    auto left = area.removeFromLeft (trackColumnWidth);
+    laneHeaderArea = left.removeFromTop (ui::TimelineComponent::headerHeight);
+    left.removeFromBottom (ui::TimelineComponent::scrollBarHeight);   // line up with the timeline's lanes
+    trackViewport.setBounds (left);
+    trackList.setSize (left.getWidth() - trackViewport.getScrollBarThickness(), trackList.getIdealHeight());
 
-    timelineArea = area;
-    timelineNote.setBounds (timelineArea.reduced (40));
+    timeline->setBounds (area);
 }
 
 } // namespace aether

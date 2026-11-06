@@ -3,8 +3,10 @@
 Aether is built one milestone at a time. After every milestone the app compiles, runs, passes
 its automated tests, and comes with a checklist of things to try (in `docs/testing/`).
 
-Rough estimate: about 6 months to version 1.0 at a steady pace (anywhere from 4 to 10),
-re-estimated after M2.
+Estimate (updated after M2): M0 to M2 took two days instead of the few weeks expected, mostly
+because testing rounds were quick. The later milestones are bigger and need more testing with
+real sound (recording, plug-ins, time-stretching), so the current guess is roughly **2 to 4
+months to version 1.0** at this pace. It will keep being updated.
 
 ## Phase 0: foundations
 
@@ -17,7 +19,7 @@ re-estimated after M2.
 | # | Milestone | You can… |
 |---|---|---|
 | ✅ **M1** | Project document | Add/rename/delete/reorder/colour tracks, undo/redo everything, save/load, recover after a crash, pick recent projects on a start screen |
-| M2 | Time & transport | Play/stop, loop, set BPM and time signature, add tempo changes (jumps and ramps), use the metronome with count-in |
+| ✅ **M2** | Time & transport | Play/stop, loop, set BPM and time signature, add tempo changes (jumps and ramps), use the metronome with count-in |
 | M3 | Arrangement & audio clips | Drag audio files in, see waveforms, zoom/scroll, move/trim/split/duplicate/fade/loop clips, snap to grid, nudge by grid or ms |
 | M4 | Mixer | Volume, pan, mute, solo, meters, buses, sends, master, insert slots (two temporary basic effects until M13), delay compensation |
 | M5 | Recording | Record from any input with monitoring, count-in, punch in/out, loop-record multiple takes, automatic latency compensation + calibration |

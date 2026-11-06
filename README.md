@@ -4,9 +4,10 @@ A free, open-source digital audio workstation (DAW) for Windows: record, arrange
 music, in the spirit of GarageBand, FL Studio, LMMS and Reaper. Beginner-friendly on the surface,
 with deep customisation underneath.
 
-> **Status: early development (Milestone 1 of 30).** Aether can create, save and open projects,
-> add and organise tracks with full undo/redo, autosave, and recover your work after a crash. It
-> can't play or record music yet (that's milestones M2 to M5). See [docs/STATUS.md](docs/STATUS.md)
+> **Status: early development (Milestone 2 of 30).** Aether can create, save and open projects,
+> add and organise tracks with full undo/redo, autosave and crash recovery, and has a working
+> transport: play/stop, tempo and tempo changes, time signatures, looping and a metronome with
+> count-in. It can't play audio clips or record yet (milestones M3 to M5). See [docs/STATUS.md](docs/STATUS.md)
 > for exactly what works, and [docs/ROADMAP.md](docs/ROADMAP.md) for what's coming.
 
 ---
@@ -42,6 +43,12 @@ See [docs/FILE_FORMAT.md](docs/FILE_FORMAT.md).
 | Rename / delete the selected track | F2 / Delete |
 | Move the selected track up / down | Ctrl+Up / Ctrl+Down |
 | Select the track above / below | Up / Down |
+| Play / pause | Space |
+| Go to start | Home (or Stop while stopped) |
+| Loop on/off / metronome on/off | L / K |
+| Zoom in / out | Ctrl+= / Ctrl+- (or Ctrl + mouse wheel) |
+| Scroll the timeline sideways | Shift + mouse wheel |
+| Place exactly, without snapping to beats | hold Alt while clicking or dragging |
 | Audio settings | Ctrl+, |
 
 **Tips for sound:**

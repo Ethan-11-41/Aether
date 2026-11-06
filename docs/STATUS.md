@@ -4,7 +4,7 @@ An honest list of what works. Updated at the end of every milestone.
 
 **Legend:** ✅ Working · 🟡 Partial · 🧪 Stub/placeholder · ⬜ Not started
 
-Current version: **0.2.2** (Milestone 1)
+Current version: **0.3.0** (Milestone 2)
 
 ## Milestone 0: skeleton and build pipeline
 
@@ -42,11 +42,25 @@ Current version: **0.2.2** (Milestone 1)
 | Track mute/solo/volume, record arm | ⬜ | M4 (mixer) and M5 (recording). |
 | Timeline | 🧪 | Placeholder area with grid lines; real timeline in M2/M3. |
 
+## Milestone 2: time and transport
+
+| Feature | Status | Notes |
+|---|---|---|
+| Play / pause / stop / go to start, playhead position display | ✅ | Plays the metronome only: there are no clips yet (M3). |
+| Tempo (BPM) and tempo changes: jumps and gradual ramps | ✅ | Edited in the tempo lane or the transport's tempo field. |
+| Time signatures and signature changes | ✅ | Changes always start at the beginning of a bar. |
+| Loop region | ✅ | Sample-accurate. |
+| Metronome with accent, volume, count-in | ✅ | Count-in applies to playback for now; in M5 it applies to recording. |
+| Ruler, tempo and signature lanes, track lanes, zoom, scroll, follow playback | ✅ | Track lanes are empty until clips arrive in M3. |
+| Clicking positions snap to the nearest beat (hold Alt for exact) | ✅ | A choice of grid (1/8, 1/16, triplets...) comes with clips in M3. |
+| Typing a position into the transport | ⬜ | Later. |
+| Undo/redo of tempo, signature and loop edits | ✅ | |
+| Mouse interaction in the timeline | 🟡 | Drawing and the underlying edits are tested automatically; mouse handling is checked by hand (see the M2 checklist). |
+
 ## Everything else
 
 | Area | Status | Milestone |
 |---|---|---|
-| Transport, tempo map, metronome | ⬜ | M2 |
 | Arrangement view and audio clips | ⬜ | M3 |
 | Mixer | ⬜ | M4 |
 | Recording | ⬜ | M5 |

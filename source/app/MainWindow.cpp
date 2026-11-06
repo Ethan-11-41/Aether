@@ -6,6 +6,7 @@
 #include "CrashReporter.h"
 #include "io/AppFolders.h"
 #include "model/EditCommands.h"
+#include "model/TimelineEdits.h"
 
 namespace aether
 {
@@ -14,6 +15,7 @@ namespace
 {
     constexpr const char* newProjectFolderKey = "newProjectFolder";
     constexpr const char* windowStateKey = "mainWindowState";
+    constexpr const char* metronomeKey = "metronomeEnabled";
 
     juce::String describeWhen (juce::Time t)
     {
@@ -35,7 +37,7 @@ MainContent::MainContent (AppContext& context)
     addAndMakeVisible (statusLabel);
 
     showStartScreen();
-    setSize (1200, 760);
+    setSize (1280, 780);
     startTimerHz (4);
 }
 
@@ -111,8 +113,7 @@ void MainContent::showProjectView()
     }
 
     startScreen = nullptr;
-    projectView = std::make_unique<ProjectView> (ctx.theme, *project, ctx.commands);
-    projectView->getTrackList().onSelectionChanged = [this] { ctx.commands.commandStatusChanged(); };
+    projectView = std::make_unique<ProjectView> (ctx, *project);
     addAndMakeVisible (*projectView);
     resized();
     projectView->getTrackList().grabKeyboardFocus();
@@ -518,6 +519,8 @@ void MainContent::getAllCommands (juce::Array<juce::CommandID>& list)
                      commands::undo, commands::redo,
                      commands::addAudioTrack, commands::addMidiTrack, commands::renameTrack, commands::deleteTrack,
                      commands::moveTrackUp, commands::moveTrackDown,
+                     commands::playStop, commands::stop, commands::goToStart, commands::toggleLoop,
+                     commands::toggleMetronome, commands::zoomIn, commands::zoomOut,
                      commands::audioSettings, commands::about, commands::testCrashRecovery, commands::openLogFolder });
 }
 
@@ -629,6 +632,55 @@ void MainContent::getCommandInfo (juce::CommandID id, juce::ApplicationCommandIn
             info.setActive (hasTrack && trackIndex < project->getNumTracks() - 1);
             break;
 
+        case commands::playStop:
+        {
+            const auto status = ctx.engine.getTransportStatus();
+            const auto running = status.playing || status.countingIn;
+            info.setInfo (running ? "Pause" : "Play", "Start or stop playback", commands::categories::transport, 0);
+            info.addDefaultKeypress (KeyPress::spaceKey, 0);
+            info.setActive (hasProject);
+            break;
+        }
+
+        case commands::stop:
+            info.setInfo ("Stop", "Stop playback. Press again to go back to the start.", commands::categories::transport, 0);
+            info.setActive (hasProject);
+            break;
+
+        case commands::goToStart:
+            info.setInfo ("Go to start", "Move the playhead to the start of the song", commands::categories::transport, 0);
+            info.addDefaultKeypress (KeyPress::homeKey, 0);
+            info.setActive (hasProject);
+            break;
+
+        case commands::toggleLoop:
+            info.setInfo ("Loop", "Repeat the loop region (drag in the top strip of the ruler to set it)",
+                          commands::categories::transport, 0);
+            info.addDefaultKeypress ('l', 0);
+            info.setActive (hasProject);
+            info.setTicked (hasProject && timeline::getLoop (*project).enabled);
+            break;
+
+        case commands::toggleMetronome:
+            info.setInfo ("Metronome", "Click on every beat while playing. Right-click the button for the volume.",
+                          commands::categories::transport, 0);
+            info.addDefaultKeypress ('k', 0);
+            info.setTicked (ctx.engine.isMetronomeEnabled());
+            break;
+
+        case commands::zoomIn:
+            info.setInfo ("Zoom in", "Show less of the song in more detail (or Ctrl + mouse wheel)", commands::categories::view, 0);
+            info.addDefaultKeypress ('=', ctrl);
+            info.addDefaultKeypress ('+', ctrl);
+            info.setActive (hasProject);
+            break;
+
+        case commands::zoomOut:
+            info.setInfo ("Zoom out", "Show more of the song", commands::categories::view, 0);
+            info.addDefaultKeypress ('-', ctrl);
+            info.setActive (hasProject);
+            break;
+
         case commands::audioSettings:
             info.setInfo ("Audio settings...", "Choose your sound device and buffer size", commands::categories::settings, 0);
             info.addDefaultKeypress (',', ctrl);
@@ -699,6 +751,48 @@ bool MainContent::perform (const InvocationInfo& invocation)
             if (projectView != nullptr) projectView->getTrackList().startRenamingSelected();
             return true;
 
+        case commands::playStop:
+        {
+            const auto status = ctx.engine.getTransportStatus();
+            if (status.playing || status.countingIn) ctx.engine.stop();
+            else                                     ctx.engine.play();
+            ctx.commands.commandStatusChanged();
+            return true;
+        }
+
+        case commands::stop:
+        {
+            const auto status = ctx.engine.getTransportStatus();
+            if (status.playing || status.countingIn) ctx.engine.stop();
+            else                                     ctx.engine.locate (0);
+            ctx.commands.commandStatusChanged();
+            return true;
+        }
+
+        case commands::goToStart:
+            ctx.engine.locate (0);
+            return true;
+
+        case commands::toggleLoop:
+            if (project != nullptr)
+                edit::setLoopEnabled (*project, ! timeline::getLoop (*project).enabled);
+            ctx.commands.commandStatusChanged();
+            return true;
+
+        case commands::toggleMetronome:
+            ctx.engine.setMetronomeEnabled (! ctx.engine.isMetronomeEnabled());
+            ctx.settings.get().setValue (metronomeKey, ctx.engine.isMetronomeEnabled());
+            ctx.commands.commandStatusChanged();
+            return true;
+
+        case commands::zoomIn:
+            if (projectView != nullptr) projectView->getTimeline().zoomIn();
+            return true;
+
+        case commands::zoomOut:
+            if (projectView != nullptr) projectView->getTimeline().zoomOut();
+            return true;
+
         case commands::audioSettings:      showAudioSettings(); return true;
         case commands::about:              showAbout(); return true;
         case commands::testCrashRecovery:  testCrashRecovery(); return true;
@@ -721,7 +815,7 @@ bool MainContent::perform (const InvocationInfo& invocation)
 //==============================================================================
 juce::StringArray MainContent::getMenuBarNames()
 {
-    return { "File", "Edit", "Track", "Settings", "Help" };
+    return { "File", "Edit", "Track", "Transport", "Settings", "Help" };
 }
 
 juce::PopupMenu MainContent::getMenuForIndex (int menuIndex, const juce::String&)
@@ -771,9 +865,21 @@ juce::PopupMenu MainContent::getMenuForIndex (int menuIndex, const juce::String&
     }
     else if (menuIndex == 3)
     {
-        menu.addCommandItem (cm, commands::audioSettings);
+        menu.addCommandItem (cm, commands::playStop);
+        menu.addCommandItem (cm, commands::stop);
+        menu.addCommandItem (cm, commands::goToStart);
+        menu.addSeparator();
+        menu.addCommandItem (cm, commands::toggleLoop);
+        menu.addCommandItem (cm, commands::toggleMetronome);
+        menu.addSeparator();
+        menu.addCommandItem (cm, commands::zoomIn);
+        menu.addCommandItem (cm, commands::zoomOut);
     }
     else if (menuIndex == 4)
+    {
+        menu.addCommandItem (cm, commands::audioSettings);
+    }
+    else if (menuIndex == 5)
     {
         menu.addCommandItem (cm, commands::about);
         menu.addSeparator();
@@ -821,11 +927,18 @@ void MainContent::timerCallback()
     const auto canRedo = project != nullptr && project->getUndoManager().canRedo();
     const auto hasProject = project != nullptr;
 
-    if (canUndo != lastCanUndo || canRedo != lastCanRedo || hasProject != lastHasProject)
+    const auto status = ctx.engine.getTransportStatus();
+    const auto running = status.playing || status.countingIn;
+    const auto looping = project != nullptr && timeline::getLoop (*project).enabled;
+
+    if (canUndo != lastCanUndo || canRedo != lastCanRedo || hasProject != lastHasProject
+        || running != lastRunning || looping != lastLooping)
     {
         lastCanUndo = canUndo;
         lastCanRedo = canRedo;
         lastHasProject = hasProject;
+        lastRunning = running;
+        lastLooping = looping;
         ctx.commands.commandStatusChanged();
     }
 
@@ -870,7 +983,7 @@ MainWindow::MainWindow (AppContext& context)
     content->onTitleChanged = [this] { setName (content->getWindowTitle()); };
 
     setResizable (true, true);
-    setResizeLimits (900, 600, 10000, 10000);
+    setResizeLimits (1000, 640, 10000, 10000);
 
     const auto savedState = ctx.settings.get().getValue (windowStateKey);
 

@@ -9,9 +9,15 @@ add_library(aether_core STATIC
     devices/LatencyInfo.h
     engine/AudioEngine.cpp
     engine/AudioEngine.h
+    engine/Metronome.cpp
+    engine/Metronome.h
     engine/TestToneGenerator.cpp
     engine/TestToneGenerator.h
+    engine/TimelineSnapshot.h
+    engine/TimelineSync.cpp
+    engine/TimelineSync.h
     engine/rt/RealtimeAnnotations.h
+    engine/rt/SnapshotExchange.h
     engine/rt/SpscQueue.h
     io/AppFolders.h
     io/AppLog.cpp
@@ -33,9 +39,13 @@ add_library(aether_core STATIC
     model/Ids.h
     model/Project.cpp
     model/Project.h
+    model/TimelineEdits.cpp
+    model/TimelineEdits.h
     model/Track.cpp
     model/Track.h
-    model/TrackColours.h)
+    model/TrackColours.h
+    time/TempoMap.cpp
+    time/TempoMap.h)
 
 target_include_directories(aether_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(aether_core
@@ -48,15 +58,24 @@ target_compile_definitions(aether_core PUBLIC AETHER_VERSION_STRING="${PROJECT_V
 add_library(aether_ui STATIC
     ui/AetherLookAndFeel.cpp
     ui/AetherLookAndFeel.h
+    ui/IconButton.cpp
+    ui/IconButton.h
     ui/LatencyPanel.cpp
     ui/LatencyPanel.h
     ui/LevelMeter.cpp
     ui/LevelMeter.h
     ui/MessageBanner.cpp
     ui/MessageBanner.h
+    ui/NumberDragField.cpp
+    ui/NumberDragField.h
     ui/Theme.h
+    ui/TimelineComponent.cpp
+    ui/TimelineComponent.h
+    ui/TimelineView.h
     ui/TrackListComponent.cpp
-    ui/TrackListComponent.h)
+    ui/TrackListComponent.h
+    ui/TransportBar.cpp
+    ui/TransportBar.h)
 
 target_link_libraries(aether_ui
     PUBLIC  aether_core
