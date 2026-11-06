@@ -4,7 +4,11 @@ include(Catch)
 add_executable(aether_tests
     unit/AudioDeviceServiceTests.cpp
     unit/AudioEngineTests.cpp
+    unit/AudioFileTests.cpp
+    unit/ClipEditTests.cpp
+    unit/ClipPlaybackTests.cpp
     unit/DiagnosticsTests.cpp
+    unit/GridTests.cpp
     unit/LatencyInfoTests.cpp
     unit/ProjectFileTests.cpp
     unit/ProjectModelTests.cpp
@@ -12,6 +16,7 @@ add_executable(aether_tests
     unit/SpscQueueTests.cpp
     unit/TempoMapTests.cpp
     unit/TestToneGeneratorTests.cpp
+    unit/TimelineClipTests.cpp
     unit/TimelineEditTests.cpp
     unit/TimelineViewTests.cpp
     unit/TrackListComponentTests.cpp

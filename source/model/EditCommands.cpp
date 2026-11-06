@@ -49,16 +49,19 @@ juce::Colour nextTrackColour (const Project& project)
     return colours[(size_t) project.getNumTracks() % colours.size()];
 }
 
-Track addTrack (Project& project, TrackKind kind, int insertIndex)
+Track addTrack (Project& project, TrackKind kind, int insertIndex, bool newUndoStep, const juce::String& name)
 {
     auto& undo = project.getUndoManager();
-    undo.beginNewTransaction (kind == TrackKind::midi ? "Add MIDI track" : "Add audio track");
+
+    if (newUndoStep)
+        undo.beginNewTransaction (kind == TrackKind::midi ? "Add MIDI track" : "Add audio track");
 
     juce::ValueTree track (ids::Track);
     track.setProperty (ids::id, juce::Uuid().toString(), nullptr);
     track.setProperty (ids::kind, toString (kind), nullptr);
-    track.setProperty (ids::name, nextTrackName (project, kind), nullptr);
+    track.setProperty (ids::name, name.trim().isNotEmpty() ? name.trim() : nextTrackName (project, kind), nullptr);
     track.setProperty (ids::colour, Track::colourToString (nextTrackColour (project)), nullptr);
+    track.appendChild (juce::ValueTree (ids::Clips), nullptr);
 
     auto tracks = project.getTracksNode();
     const auto index = (insertIndex < 0 || insertIndex > tracks.getNumChildren()) ? -1 : insertIndex;

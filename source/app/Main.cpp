@@ -96,7 +96,8 @@ public:
         session = std::make_unique<ProjectSession> (props, *recentProjects);
         commandManager = std::make_unique<juce::ApplicationCommandManager>();
 
-        context = std::make_unique<AppContext> (AppContext { lookAndFeel.getTheme(), *settings, *engine, *devices,
+        audioFiles = std::make_unique<AudioFileCache>();
+        context = std::make_unique<AppContext> (AppContext { lookAndFeel.getTheme(), *settings, *engine, *audioFiles, *devices,
                                                              *recentProjects, *session, *commandManager });
         mainWindow = std::make_unique<MainWindow> (*context);
 
@@ -112,6 +113,7 @@ public:
     {
         mainWindow = nullptr;
         context = nullptr;
+        audioFiles = nullptr;
         commandManager = nullptr;
         session = nullptr;          // a normal exit: no longer counts as "left open"
         recentProjects = nullptr;
@@ -196,6 +198,7 @@ private:
     std::unique_ptr<AppSettings> settings;
     std::unique_ptr<AudioEngine> engine;
     std::unique_ptr<AudioDeviceService> devices;
+    std::unique_ptr<AudioFileCache> audioFiles;
     std::unique_ptr<RecentProjects> recentProjects;
     std::unique_ptr<ProjectSession> session;
     std::unique_ptr<juce::ApplicationCommandManager> commandManager;

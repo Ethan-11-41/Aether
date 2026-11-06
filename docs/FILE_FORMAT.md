@@ -98,6 +98,25 @@ them get the defaults when opened, and older versions of Aether keep them untouc
 | | `numerator` | Beats per bar (1 to 32). |
 | | `denominator` | The note value of one beat: 1, 2, 4, 8, 16 or 32. |
 
+### Added in Aether 0.4.0 (still format version 1)
+
+Every `Track` now has a `Clips` child (tracks without one get an empty one when opened).
+
+| Node | Property | Meaning |
+|---|---|---|
+| `Clips` | | The track's clips (audio tracks only, for now). |
+| `Clip` | `id`, `name` | Unique id; the name shown on the clip. |
+| | `file` | The audio file, relative to the project folder, with `/` (e.g. `Audio/Guitar.wav`). |
+| | `start` | Where the clip starts on the timeline, in ticks (moves with the bars if the tempo changes). |
+| | `sourceRate`, `sourceLength` | The file's sample rate and length in samples. |
+| | `offset` | Where in the file the clip's audio begins (samples of the file). |
+| | `contentLength` | How much of the file is used, from `offset`. |
+| | `duration` | How long the clip is on the timeline (samples of the file). Equal to `contentLength` unless looping. |
+| | `loop`, `phase` | When `loop` is true, the content repeats to fill the duration, starting `phase` samples into it. |
+| | `gain` | Clip volume in dB (-60 to +18). |
+| | `fadeIn`, `fadeOut` | Fade lengths in samples of the file. |
+| | `fadeInCurve`, `fadeOutCurve` | `"smooth"`, `"linear"`, `"fast"` or `"slow"`. |
+
 ## Rules for changing the format
 
 1. Never rename or reuse a node type or property name (see `source/model/Ids.h`).

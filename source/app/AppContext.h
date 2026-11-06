@@ -6,6 +6,7 @@
 #include "AppSettings.h"
 #include "devices/AudioDeviceService.h"
 #include "engine/AudioEngine.h"
+#include "engine/AudioFileCache.h"
 #include "io/ProjectSession.h"
 #include "io/RecentProjects.h"
 #include "ui/Theme.h"
@@ -20,6 +21,7 @@ struct AppContext
     const ui::Theme& theme;
     AppSettings& settings;
     AudioEngine& engine;
+    AudioFileCache& audioFiles;
     AudioDeviceService& devices;
     RecentProjects& recentProjects;
     ProjectSession& session;

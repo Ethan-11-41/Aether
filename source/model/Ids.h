@@ -19,6 +19,8 @@ namespace aether::ids
     inline const juce::Identifier TempoPoint     { "TempoPoint" };
     inline const juce::Identifier TimeSignatures { "TimeSignatures" };   // list of TimeSignature
     inline const juce::Identifier TimeSignature  { "TimeSignature" };
+    inline const juce::Identifier Clips          { "Clips" };            // list of Clip, inside a Track
+    inline const juce::Identifier Clip           { "Clip" };
 
     // Properties
     inline const juce::Identifier id      { "id" };       // unique id (UUID text) of a track, clip, etc.
@@ -36,4 +38,20 @@ namespace aether::ids
     inline const juce::Identifier loopStart   { "loopStart" };
     inline const juce::Identifier loopEnd     { "loopEnd" };
     inline const juce::Identifier loopEnabled { "loopEnabled" };
+
+    // Audio clips. Lengths and offsets are in samples of the clip's audio file.
+    inline const juce::Identifier file          { "file" };           // path relative to the project folder
+    inline const juce::Identifier start         { "start" };          // timeline position (ticks)
+    inline const juce::Identifier sourceRate    { "sourceRate" };     // the file's sample rate
+    inline const juce::Identifier sourceLength  { "sourceLength" };   // the file's length
+    inline const juce::Identifier offset        { "offset" };         // where in the file the clip's audio begins
+    inline const juce::Identifier contentLength { "contentLength" };  // the part of the file that is used (repeated when looping)
+    inline const juce::Identifier duration      { "duration" };       // how long the clip is on the timeline
+    inline const juce::Identifier phase         { "phase" };          // looping clips: how far into the content it starts
+    inline const juce::Identifier loop          { "loop" };           // true: the content repeats to fill the clip
+    inline const juce::Identifier gain          { "gain" };           // clip volume in dB
+    inline const juce::Identifier fadeIn        { "fadeIn" };
+    inline const juce::Identifier fadeOut       { "fadeOut" };
+    inline const juce::Identifier fadeInCurve   { "fadeInCurve" };    // "linear", "smooth", "fast" or "slow"
+    inline const juce::Identifier fadeOutCurve  { "fadeOutCurve" };
 }

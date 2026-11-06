@@ -4,7 +4,7 @@ An honest list of what works. Updated at the end of every milestone.
 
 **Legend:** ✅ Working · 🟡 Partial · 🧪 Stub/placeholder · ⬜ Not started
 
-Current version: **0.3.0** (Milestone 2)
+Current version: **0.4.0** (Milestone 3)
 
 ## Milestone 0: skeleton and build pipeline
 
@@ -57,11 +57,28 @@ Current version: **0.3.0** (Milestone 2)
 | Undo/redo of tempo, signature and loop edits | ✅ | |
 | Mouse interaction in the timeline | 🟡 | Drawing and the underlying edits are tested automatically; mouse handling is checked by hand (see the M2 checklist). |
 
+## Milestone 3: arrangement and audio clips
+
+| Feature | Status | Notes |
+|---|---|---|
+| Import audio by drag and drop or Ctrl+I | ✅ | WAV, AIFF, FLAC, MP3, Ogg Vorbis. Copied into the project's Audio folder. |
+| Waveforms | ✅ | |
+| Clip playback, sample-accurate, through loops and tempo changes | ✅ | Audio is held in memory (about 23 MB per stereo minute). Streaming from disk for very long files: M29. |
+| Files at other sample rates | ✅ | Converted when loaded. After changing the sound card's sample rate, clips are silent for a moment while they're converted again. |
+| Move (incl. to other tracks), trim, split, duplicate, delete | ✅ | |
+| Fades (4 shapes), clip loop, clip volume, rename | ✅ | Volume via the right-click menu; a volume handle on the clip may come later. |
+| Snap grid (bar/beat/1/8/1/16/triplets/off), nudge by grid or 10 ms | ✅ | The 10 ms nudge amount can't be changed yet. |
+| Selecting several clips | 🟡 | Ctrl+click and Ctrl+A. Dragging a selection rectangle isn't there yet. |
+| Copy / cut / paste | ⬜ | Use Duplicate for now. Coming with M8 (hardening). |
+| Overlapping clips on one track | 🟡 | Both play (mixed). Crossfades and take comping come in M21. |
+| Track volume, pan, mute, solo | ⬜ | M4 (mixer). All tracks currently play at full volume. |
+| Clips on MIDI tracks | ⬜ | M6. |
+| Mouse editing of clips | 🟡 | The edits and commands are tested automatically; dragging is checked by hand (see the M3 checklist). |
+
 ## Everything else
 
 | Area | Status | Milestone |
 |---|---|---|
-| Arrangement view and audio clips | ⬜ | M3 |
 | Mixer | ⬜ | M4 |
 | Recording | ⬜ | M5 |
 | MIDI tracks, MIDI input | ⬜ | M6 |

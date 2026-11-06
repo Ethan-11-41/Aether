@@ -4,10 +4,10 @@ A free, open-source digital audio workstation (DAW) for Windows: record, arrange
 music, in the spirit of GarageBand, FL Studio, LMMS and Reaper. Beginner-friendly on the surface,
 with deep customisation underneath.
 
-> **Status: early development (Milestone 2 of 30).** Aether can create, save and open projects,
-> add and organise tracks with full undo/redo, autosave and crash recovery, and has a working
-> transport: play/stop, tempo and tempo changes, time signatures, looping and a metronome with
-> count-in. It can't play audio clips or record yet (milestones M3 to M5). See [docs/STATUS.md](docs/STATUS.md)
+> **Status: early development (Milestone 3 of 30).** Aether can create, save and open projects
+> with full undo/redo, autosave and crash recovery; play with tempo changes, time signatures,
+> looping and a metronome; and import, arrange and edit audio clips (move, trim, split, fade,
+> loop) on a snap grid. It has no mixer or recording yet (milestones M4 and M5). See [docs/STATUS.md](docs/STATUS.md)
 > for exactly what works, and [docs/ROADMAP.md](docs/ROADMAP.md) for what's coming.
 
 ---
@@ -49,6 +49,11 @@ See [docs/FILE_FORMAT.md](docs/FILE_FORMAT.md).
 | Zoom in / out | Ctrl+= / Ctrl+- (or Ctrl + mouse wheel) |
 | Scroll the timeline sideways | Shift + mouse wheel |
 | Place exactly, without snapping to beats | hold Alt while clicking or dragging |
+| Import audio files | Ctrl+I (or drag files onto the timeline) |
+| Split clips at the playhead / duplicate / delete | S / Ctrl+D / Delete |
+| Select all clips / add a clip to the selection | Ctrl+A / Ctrl+click |
+| Nudge selected clips one grid step / 10 ms | Left, Right / Shift+Left, Shift+Right |
+| Snap to grid on/off | G |
 | Audio settings | Ctrl+, |
 
 **Tips for sound:**

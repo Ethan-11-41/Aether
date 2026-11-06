@@ -13,7 +13,8 @@ namespace aether::edit
 
 /** Adds a track at `insertIndex` (or at the end if -1). Its name ("Audio 3") and colour are
     chosen automatically. Returns the new track. */
-Track addTrack (Project& project, TrackKind kind, int insertIndex = -1);
+Track addTrack (Project& project, TrackKind kind, int insertIndex = -1, bool newUndoStep = true,
+               const juce::String& name = {});
 
 /** Removes a track. Returns false if no track has that id. */
 bool deleteTrack (Project& project, const juce::String& trackId);

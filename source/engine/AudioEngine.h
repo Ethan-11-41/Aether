@@ -99,6 +99,9 @@ public:
 
     double getSampleRate() const noexcept   { return sampleRate; }
 
+    /** The sample rate the engine is running at (safe to call from the UI thread). */
+    double getCurrentSampleRate() const noexcept   { return currentRate.load (std::memory_order_relaxed); }
+
     //==============================================================================
     // juce::AudioIODeviceCallback
 
@@ -117,6 +120,8 @@ private:
     int runCountIn (int numSamples) noexcept AETHER_NONBLOCKING;
     void runPlayback (const TimelineSnapshot& timeline, int blockOffset, int numSamples) noexcept AETHER_NONBLOCKING;
     void clickBeats (const TempoMap& tempo, std::int64_t fromSample, std::int64_t toSample, int blockOffset) noexcept AETHER_NONBLOCKING;
+    void renderClips (const TimelineSnapshot& timeline, std::int64_t fromSample, std::int64_t toSample,
+                      int blockOffset) noexcept AETHER_NONBLOCKING;
     std::int64_t tickToSample (const TempoMap& tempo, Tick tick) const noexcept AETHER_NONBLOCKING;
     Tick sampleToTick (const TempoMap& tempo, std::int64_t sample) const noexcept AETHER_NONBLOCKING;
 
@@ -124,6 +129,9 @@ private:
     static float takePeak (std::array<std::atomic<float>, numMeteredChannels>& meters, int channel) noexcept;
 
     double sampleRate = 48000.0;
+    std::atomic<double> currentRate { 0.0 };
+    float* const* outputChannels = nullptr;   // the current block's output (audio thread only)
+    int numOutputChannels = 0;
 
     // Shared with the UI thread
     rt::SnapshotExchange<TimelineSnapshot> timelineExchange;

@@ -96,3 +96,50 @@ TEST_CASE ("The transport and metronome are real-time safe", "[realtime]")
     engine.collectGarbage();
     SUCCEED ("no real-time violations");
 }
+
+TEST_CASE ("Clip playback is real-time safe", "[realtime]")
+{
+    constexpr aether::Tick q = aether::ticksPerQuarter;
+    aether::AudioEngine engine;
+    engine.prepare (48000.0, 256);
+
+    auto audio = std::make_shared<aether::AudioData>();
+    audio->sampleRate = 48000.0;
+    audio->samples.setSize (2, 48000);
+    audio->samples.clear();
+
+    auto timeline = std::make_unique<aether::TimelineSnapshot>();
+    timeline->sampleRate = 48000.0;
+    timeline->loopEnabled = true;
+    timeline->loopStart = 0;
+    timeline->loopEnd = 4 * q;
+
+    aether::TrackPlayback track;
+    for (int i = 0; i < 8; ++i)
+    {
+        aether::ClipPlayback clip;
+        clip.audio = audio.get();
+        clip.start = i * 12000;
+        clip.duration = 30000;
+        clip.contentLength = 7000;
+        clip.loop = (i % 2) == 0;
+        clip.fadeIn = 1000;
+        clip.fadeOut = 2000;
+        clip.gain = 0.5f;
+        track.clips.push_back (clip);
+    }
+
+    timeline->tracks.push_back (track);
+    timeline->keepAlive.push_back (audio);
+    engine.setTimeline (std::move (timeline));
+    engine.play();
+
+    std::vector<float> left (256), right (256), mono (256);
+    float* stereo[] = { left.data(), right.data() };
+    float* single[] = { mono.data() };
+
+    for (int block = 0; block < 1000; ++block)
+        engine.process (nullptr, 0, block % 2 == 0 ? stereo : single, block % 2 == 0 ? 2 : 1, 256);
+
+    SUCCEED ("no real-time violations");
+}

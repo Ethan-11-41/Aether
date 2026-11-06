@@ -93,6 +93,7 @@ void AudioEngine::prepare (double newSampleRate, int /*maximumBlockSize*/)
         positionSamples = (std::int64_t) std::llround ((double) positionSamples * newSampleRate / sampleRate);
 
     sampleRate = newSampleRate;
+    currentRate.store (sampleRate, std::memory_order_relaxed);
     testTone.prepare (sampleRate);
     metronome.prepare (sampleRate);
 }
@@ -199,6 +200,72 @@ void AudioEngine::clickBeats (const TempoMap& tempo, std::int64_t fromSample, st
     }
 }
 
+void AudioEngine::renderClips (const TimelineSnapshot& timeline, std::int64_t fromSample, std::int64_t toSample,
+                               int blockOffset) noexcept AETHER_NONBLOCKING
+{
+    // The clip positions were worked out for one sample rate; if the device has just changed
+    // rate, stay silent until the UI thread has sent a matching timeline.
+    if (timeline.sampleRate != sampleRate || numOutputChannels <= 0)
+        return;
+
+    for (const auto& track : timeline.tracks)
+    {
+        for (const auto& clip : track.clips)
+        {
+            if (clip.start >= toSample)
+                break;   // sorted by start: the rest begin later
+
+            const auto clipEnd = clip.start + clip.duration;
+            if (clipEnd <= fromSample || clip.audio == nullptr)
+                continue;
+
+            const auto& samples = clip.audio->samples;
+            const auto audioLength = (std::int64_t) samples.getNumSamples();
+            const auto sourceChannels = samples.getNumChannels();
+            const auto first = std::max (fromSample, clip.start);
+            const auto last = std::min (toSample, clipEnd);
+
+            for (auto s = first; s < last; ++s)
+            {
+                const auto pos = s - clip.start;   // how far into the clip
+
+                const auto source = clip.loop ? clip.offset + (clip.phase + pos) % clip.contentLength
+                                              : clip.offset + pos;
+                if (source >= audioLength)
+                    break;
+
+                auto gain = clip.gain;
+
+                if (pos < clip.fadeIn)
+                    gain *= fadeShape (clip.fadeInCurve, (double) pos / (double) clip.fadeIn);
+
+                if (clip.duration - pos <= clip.fadeOut)
+                    gain *= fadeShape (clip.fadeOutCurve, (double) (clip.duration - pos - 1) / (double) clip.fadeOut);
+
+                const auto index = blockOffset + (int) (s - fromSample);
+
+                if (numOutputChannels == 1)
+                {
+                    // Mono output: average the file's channels.
+                    float sum = 0.0f;
+                    for (int ch = 0; ch < sourceChannels; ++ch)
+                        sum += samples.getSample (ch, (int) source);
+
+                    if (auto* out = outputChannels[0])
+                        out[index] += sum / (float) sourceChannels * gain;
+                }
+                else
+                {
+                    // Mono files play on both sides; stereo files left to left, right to right.
+                    for (int ch = 0; ch < 2; ++ch)
+                        if (auto* out = outputChannels[ch])
+                            out[index] += samples.getSample (std::min (ch, sourceChannels - 1), (int) source) * gain;
+                }
+            }
+        }
+    }
+}
+
 void AudioEngine::runPlayback (const TimelineSnapshot& timeline, int blockOffset, int numSamples) noexcept AETHER_NONBLOCKING
 {
     const auto& tempo = timeline.tempo;
@@ -221,6 +288,8 @@ void AudioEngine::runPlayback (const TimelineSnapshot& timeline, int blockOffset
 
         if (clicking)
             clickBeats (tempo, positionSamples, positionSamples + length, offset);
+
+        renderClips (timeline, positionSamples, positionSamples + length, offset);
 
         positionSamples += length;
         offset += length;
@@ -258,6 +327,8 @@ void AudioEngine::process (const float* const* inputs, int numInputs,
     }
 
     // Transport.
+    outputChannels = outputs;
+    numOutputChannels = numOutputs;
     int done = 0;
 
     if (countingIn)
@@ -311,12 +382,12 @@ void AudioEngine::audioDeviceStopped()
 {
 }
 
-void AudioEngine::audioDeviceIOCallbackWithContext (const float* const* inputChannelData, int numInputChannels,
-                                                    float* const* outputChannelData, int numOutputChannels,
+void AudioEngine::audioDeviceIOCallbackWithContext (const float* const* inputChannelData, int numInputs,
+                                                    float* const* outputChannelData, int numOutputs,
                                                     int numSamples,
                                                     const juce::AudioIODeviceCallbackContext&)
 {
-    process (inputChannelData, numInputChannels, outputChannelData, numOutputChannels, numSamples);
+    process (inputChannelData, numInputs, outputChannelData, numOutputs, numSamples);
 }
 
 } // namespace aether

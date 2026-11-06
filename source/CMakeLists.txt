@@ -8,9 +8,13 @@ add_library(aether_core STATIC
     devices/LatencyInfo.cpp
     devices/LatencyInfo.h
     engine/AudioEngine.cpp
+    engine/AudioFileCache.cpp
+    engine/AudioFileCache.h
     engine/AudioEngine.h
     engine/Metronome.cpp
     engine/Metronome.h
+    engine/Resampler.cpp
+    engine/Resampler.h
     engine/TestToneGenerator.cpp
     engine/TestToneGenerator.h
     engine/TimelineSnapshot.h
@@ -22,6 +26,8 @@ add_library(aether_core STATIC
     io/AppFolders.h
     io/AppLog.cpp
     io/AppLog.h
+    io/AudioImport.cpp
+    io/AudioImport.h
     io/Autosaver.cpp
     io/Autosaver.h
     io/JsonValueTree.cpp
@@ -34,6 +40,10 @@ add_library(aether_core STATIC
     io/ProjectSession.h
     io/RecentProjects.cpp
     io/RecentProjects.h
+    model/Clip.cpp
+    model/Clip.h
+    model/ClipEdits.cpp
+    model/ClipEdits.h
     model/EditCommands.cpp
     model/EditCommands.h
     model/Ids.h
@@ -44,6 +54,8 @@ add_library(aether_core STATIC
     model/Track.cpp
     model/Track.h
     model/TrackColours.h
+    time/Grid.cpp
+    time/Grid.h
     time/TempoMap.cpp
     time/TempoMap.h)
 

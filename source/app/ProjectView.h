@@ -27,6 +27,14 @@ public:
     ui::TimelineComponent& getTimeline() noexcept     { return *timeline; }
     Project& getProject() noexcept                    { return project; }
 
+    /** Imports audio files onto a track (or new tracks) at a position, and selects the new clips. */
+    void importFiles (const juce::Array<juce::File>& files, const juce::String& trackId, Tick position);
+
+    /** Asks which audio files to import, then imports them at `position` on `trackId`. */
+    void chooseFilesToImport (const juce::String& trackId, Tick position);
+
+    static constexpr const char* gridKey = "gridSize";
+
     void paint (juce::Graphics&) override;
     void resized() override;
 
@@ -47,7 +55,10 @@ private:
     TrackViewport trackViewport;
     ui::TrackListComponent trackList;
     std::unique_ptr<ui::TimelineComponent> timeline;
+    juce::ComboBox gridBox;
     juce::Rectangle<int> toolbarArea, laneHeaderArea;
+    std::unique_ptr<juce::FileChooser> fileChooser;
+    juce::ScopedMessageBox messageBox;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ProjectView)
 };

@@ -6,6 +6,40 @@ follow [Semantic Versioning](https://semver.org/) (0.x while Aether is in early 
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-06 - Milestone 3: arrangement and audio clips
+
+### Added
+- Audio clips: drag audio files (WAV, AIFF, FLAC, MP3, Ogg Vorbis) from File Explorer onto a
+  track, or use Track > Import audio file (Ctrl+I) to add them at the playhead. Several files at
+  once go on separate tracks, all starting at the same place (handy for stems). Files are copied
+  into the project's Audio folder.
+- Clips show their waveform, and play back through the transport, sample-accurately, including
+  looping. Files at a different sample rate are converted automatically (with Aether's own
+  delay-free converter, so clips stay exactly in place).
+- Clip editing, all undoable: select (Ctrl+click for several, Ctrl+A for all), move (also onto
+  another track), trim either edge, split at the playhead (S), duplicate (Ctrl+D), delete
+  (Delete), fade in/out (drag the small squares at the top corners; four fade shapes), loop
+  (the content repeats; stretch the clip to repeat it more), volume and rename (right-click).
+- Snap grid: Bar, Beat, 1/8, 1/16, 1/8 triplet, 1/16 triplet or Off (menu above the track list;
+  G switches snapping off and on; hold Alt while dragging for exact positions). Grid lines follow
+  time signature changes.
+- Nudge: Left/Right arrows move the selected clips one grid step, Shift+Left/Right by 10 ms (the
+  playhead, if no clips are selected).
+- Edit menu entries for split, duplicate, delete, select all and nudge.
+- Automated tests for clip editing and undo, audio file loading, waveform peaks, sample-rate
+  conversion, importing, clip playback (timing, offsets, looping, fades, volume, mixing, edits
+  that must not change the sound), and the timeline's clip commands (145 tests), plus a
+  real-time safety test for clip playback.
+
+### Changed
+- Clicking positions now snap to the chosen grid (was: always the beat).
+- The Delete key deletes the selected clips if any, otherwise the selected track.
+
+### Fixed
+- The Milestone 2 test checklist told you to undo the tempo/loop changes before saving, so they
+  (correctly) weren't there after reopening. The steps are now in the right order.
+- Some harmless Windows compiler warnings in the timeline.
+
 ## [0.3.0] - 2026-11-06 - Milestone 2: time and transport
 
 ### Added

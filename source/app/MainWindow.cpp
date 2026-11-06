@@ -516,7 +516,10 @@ void MainContent::getAllCommands (juce::Array<juce::CommandID>& list)
 {
     list.addArray ({ commands::newProject, commands::openProject, commands::saveProject, commands::saveProjectAs,
                      commands::closeProject, commands::showProjectFolder, commands::quit,
-                     commands::undo, commands::redo,
+                     commands::undo, commands::redo, commands::selectAll,
+                     commands::importAudio, commands::splitClips, commands::duplicateClips,
+                     commands::nudgeLeft, commands::nudgeRight, commands::nudgeLeftFine, commands::nudgeRightFine,
+                     commands::toggleSnap,
                      commands::addAudioTrack, commands::addMidiTrack, commands::renameTrack, commands::deleteTrack,
                      commands::moveTrackUp, commands::moveTrackDown,
                      commands::playStop, commands::stop, commands::goToStart, commands::toggleLoop,
@@ -615,9 +618,62 @@ void MainContent::getCommandInfo (juce::CommandID id, juce::ApplicationCommandIn
             break;
 
         case commands::deleteTrack:
-            info.setInfo ("Delete track", "Delete the selected track (you can undo this)", commands::categories::track, 0);
+        {
+            const auto clipsSelected = hasProject && projectView->getTimeline().hasSelectedClips();
+            info.setInfo (clipsSelected ? "Delete selected clips" : "Delete track",
+                          "Delete the selected clips, or the selected track if no clips are selected (you can undo this)",
+                          commands::categories::track, 0);
             info.addDefaultKeypress (KeyPress::deleteKey, 0);
-            info.setActive (hasTrack);
+            info.addDefaultKeypress (KeyPress::backspaceKey, 0);
+            info.setActive (clipsSelected || hasTrack);
+            break;
+        }
+
+        case commands::selectAll:
+            info.setInfo ("Select all clips", "Select every clip in the project", commands::categories::edit, 0);
+            info.addDefaultKeypress ('a', ctrl);
+            info.setActive (hasProject);
+            break;
+
+        case commands::importAudio:
+            info.setInfo ("Import audio file...", "Add audio files (WAV, AIFF, FLAC, MP3, Ogg) at the playhead, "
+                          "on the selected track. You can also drag files onto the timeline.", commands::categories::track, 0);
+            info.addDefaultKeypress ('i', ctrl);
+            info.setActive (hasProject);
+            break;
+
+        case commands::splitClips:
+            info.setInfo ("Split at playhead", "Cut the selected clips (or the clips on the selected track) in two at the playhead",
+                          commands::categories::edit, 0);
+            info.addDefaultKeypress ('s', 0);
+            info.setActive (hasProject);
+            break;
+
+        case commands::duplicateClips:
+            info.setInfo ("Duplicate", "Copy the selected clips and put the copies right after them", commands::categories::edit, 0);
+            info.addDefaultKeypress ('d', ctrl);
+            info.setActive (hasProject && projectView->getTimeline().hasSelectedClips());
+            break;
+
+        case commands::nudgeLeft:
+        case commands::nudgeRight:
+        case commands::nudgeLeftFine:
+        case commands::nudgeRightFine:
+        {
+            const auto left = id == commands::nudgeLeft || id == commands::nudgeLeftFine;
+            const auto fine = id == commands::nudgeLeftFine || id == commands::nudgeRightFine;
+            info.setInfo (juce::String ("Nudge ") + (left ? "left" : "right") + (fine ? " by 10 ms" : " by one grid step"),
+                          "Move the selected clips (or the playhead, if no clips are selected)", commands::categories::edit, 0);
+            info.addDefaultKeypress (left ? KeyPress::leftKey : KeyPress::rightKey, fine ? shift : 0);
+            info.setActive (hasProject);
+            break;
+        }
+
+        case commands::toggleSnap:
+            info.setInfo ("Snap to grid", "Switch snapping to the grid off or on", commands::categories::view, 0);
+            info.addDefaultKeypress ('g', 0);
+            info.setActive (hasProject);
+            info.setTicked (hasProject && projectView->getTimeline().getGrid() != GridSize::off);
             break;
 
         case commands::moveTrackUp:
@@ -743,7 +799,38 @@ bool MainContent::perform (const InvocationInfo& invocation)
 
         case commands::addAudioTrack:      addTrack (TrackKind::audio); return true;
         case commands::addMidiTrack:       addTrack (TrackKind::midi); return true;
-        case commands::deleteTrack:        deleteSelectedTrack(); return true;
+        case commands::deleteTrack:
+            if (projectView != nullptr && projectView->getTimeline().hasSelectedClips())
+                projectView->getTimeline().deleteSelectedClips();
+            else
+                deleteSelectedTrack();
+            return true;
+
+        case commands::selectAll:
+            if (projectView != nullptr) projectView->getTimeline().selectAllClips();
+            return true;
+
+        case commands::importAudio:
+            if (projectView != nullptr)
+                projectView->chooseFilesToImport (selectedTrackId(), ctx.engine.getTransportStatus().position);
+            return true;
+
+        case commands::splitClips:
+            if (projectView != nullptr) projectView->getTimeline().splitClipsAtPlayhead();
+            return true;
+
+        case commands::duplicateClips:
+            if (projectView != nullptr) projectView->getTimeline().duplicateSelectedClips();
+            return true;
+
+        case commands::nudgeLeft:       if (projectView != nullptr) projectView->getTimeline().nudge (-1, false); return true;
+        case commands::nudgeRight:      if (projectView != nullptr) projectView->getTimeline().nudge (+1, false); return true;
+        case commands::nudgeLeftFine:   if (projectView != nullptr) projectView->getTimeline().nudge (-1, true);  return true;
+        case commands::nudgeRightFine:  if (projectView != nullptr) projectView->getTimeline().nudge (+1, true);  return true;
+
+        case commands::toggleSnap:
+            if (projectView != nullptr) projectView->getTimeline().toggleSnap();
+            return true;
         case commands::moveTrackUp:        moveSelectedTrack (-1); return true;
         case commands::moveTrackDown:      moveSelectedTrack (+1); return true;
 
@@ -851,11 +938,22 @@ juce::PopupMenu MainContent::getMenuForIndex (int menuIndex, const juce::String&
     {
         menu.addCommandItem (cm, commands::undo);
         menu.addCommandItem (cm, commands::redo);
+        menu.addSeparator();
+        menu.addCommandItem (cm, commands::splitClips);
+        menu.addCommandItem (cm, commands::duplicateClips);
+        menu.addCommandItem (cm, commands::deleteTrack);
+        menu.addCommandItem (cm, commands::selectAll);
+        menu.addSeparator();
+        menu.addCommandItem (cm, commands::nudgeLeft);
+        menu.addCommandItem (cm, commands::nudgeRight);
+        menu.addCommandItem (cm, commands::nudgeLeftFine);
+        menu.addCommandItem (cm, commands::nudgeRightFine);
     }
     else if (menuIndex == 2)
     {
         menu.addCommandItem (cm, commands::addAudioTrack);
         menu.addCommandItem (cm, commands::addMidiTrack);
+        menu.addCommandItem (cm, commands::importAudio);
         menu.addSeparator();
         menu.addCommandItem (cm, commands::renameTrack);
         menu.addCommandItem (cm, commands::moveTrackUp);
@@ -874,6 +972,7 @@ juce::PopupMenu MainContent::getMenuForIndex (int menuIndex, const juce::String&
         menu.addSeparator();
         menu.addCommandItem (cm, commands::zoomIn);
         menu.addCommandItem (cm, commands::zoomOut);
+        menu.addCommandItem (cm, commands::toggleSnap);
     }
     else if (menuIndex == 4)
     {
@@ -911,6 +1010,9 @@ void MainContent::updateStatus()
 
 void MainContent::timerCallback()
 {
+    // Free timelines (and their audio) the audio thread has finished with, even with no project open.
+    ctx.engine.collectGarbage();
+
     // Keep the title, status bar and toolbar buttons up to date.
     const auto title = getWindowTitle();
 

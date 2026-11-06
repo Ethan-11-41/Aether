@@ -57,7 +57,7 @@ Separate process:   plug-in scanner
 - The Linux CI job builds the tests with Clang 20's **RealtimeSanitizer**, which aborts with a
   report if marked code allocates, locks or makes a blocking system call. A deliberately broken
   "canary" program proves the sanitizer is active.
-- A debug-build allocation alarm that also works on Windows is planned for M2.
+- A debug-build allocation alarm that also works on Windows is planned for M8 (Phase 1 hardening).
 
 ### Timing
 - Timeline positions are integers: **960,000 ticks per quarter note**, which is exact for
@@ -72,9 +72,14 @@ Separate process:   plug-in scanner
   keep their real-time length unless they are warped (Phase 3).
 
 ### Audio data
-- Phase 1: decoded audio is held in memory, loaded by a background thread, so the audio thread
-  never touches the disk. Streaming from disk for very large projects is planned for M29 and the
-  engine's audio-source interface is designed for it.
+- Phase 1: decoded audio is held in memory, loaded by a background thread
+  (`engine/AudioFileCache`), so the audio thread never touches the disk. Files at another sample
+  rate are converted on load with Aether's own windowed-sinc resampler (`engine/Resampler`), which
+  has no delay, so clips stay sample-aligned. Waveform peaks (min/max per 256 samples) are worked
+  out at the same time for drawing.
+- The engine's timeline snapshot lists every clip with all positions in samples at the engine's
+  rate, plus shared pointers that keep its audio alive; snapshots are freed on the UI thread.
+- Streaming from disk for very large projects is planned for M29.
 - Recording: the audio thread copies input into a lock-free queue; a writer thread saves WAV
   files in the project's `Audio/` folder, updating the file header every second or two so that a
   crash loses almost nothing.

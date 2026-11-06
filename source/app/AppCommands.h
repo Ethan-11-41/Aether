@@ -28,6 +28,7 @@ namespace commands
         // Edit
         undo                = 0x2001,
         redo                = 0x2002,
+        selectAll           = 0x2003,
 
         // Track
         addAudioTrack       = 0x3001,
@@ -37,6 +38,15 @@ namespace commands
         moveTrackUp         = 0x3005,
         moveTrackDown       = 0x3006,
 
+        // Clips
+        importAudio         = 0x3101,
+        splitClips          = 0x3102,
+        duplicateClips      = 0x3103,
+        nudgeLeft           = 0x3104,
+        nudgeRight          = 0x3105,
+        nudgeLeftFine       = 0x3106,
+        nudgeRightFine      = 0x3107,
+
         // Transport and view
         playStop            = 0x6001,
         stop                = 0x6002,
@@ -45,6 +55,7 @@ namespace commands
         toggleMetronome     = 0x6005,
         zoomIn              = 0x6006,
         zoomOut             = 0x6007,
+        toggleSnap          = 0x6008,
 
         // Settings & help
         audioSettings       = 0x4001,

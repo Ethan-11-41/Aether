@@ -82,8 +82,14 @@ void Project::ensureStructure()
     auto tracks = getTracksNode();
 
     for (auto track : tracks)
+    {
         if (track.hasType (ids::Track) && track[ids::id].toString().isEmpty())
             track.setProperty (ids::id, juce::Uuid().toString(), nullptr);
+
+        // Every track has a (possibly empty) list of clips.
+        if (track.hasType (ids::Track) && ! track.getChildWithName (ids::Clips).isValid())
+            track.appendChild (juce::ValueTree (ids::Clips), nullptr);
+    }
 }
 
 void Project::attachListener()

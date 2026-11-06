@@ -1,6 +1,7 @@
 // Aether - Copyright (C) 2026 The Aether authors. Licensed under the GNU AGPLv3 or later.
 #pragma once
 
+#include <functional>
 #include <memory>
 
 #include <juce_gui_basics/juce_gui_basics.h>
@@ -9,7 +10,10 @@
 #include "TimelineView.h"
 #include "TrackListComponent.h"
 #include "engine/AudioEngine.h"
+#include "engine/AudioFileCache.h"
+#include "io/ProjectFiles.h"
 #include "model/Project.h"
+#include "time/Grid.h"
 
 namespace aether::ui
 {
@@ -20,15 +24,20 @@ namespace aether::ui
       bar numbers (click or drag to move the playhead),
     - the time signature lane (click a signature to change it, right-click to add one),
     - the tempo lane (double-click to add a tempo change, drag points, right-click for options),
-    - one lane per track, lined up with the track headers on the left (clips arrive in M3),
+    - one lane per track, lined up with the track headers on the left, holding the clips:
+      drag a clip to move it (also to another track), drag its edges to trim it, drag the small
+      squares at its top corners to fade in/out, right-click for more; drop audio files here,
     - a scroll bar.
 
     Ctrl + mouse wheel zooms, Shift + mouse wheel scrolls sideways, and the mouse wheel on its
-    own scrolls the tracks up and down. The playhead follows playback.
+    own scrolls the tracks up and down. Positions snap to the grid (hold Alt for exact). The
+    playhead follows playback.
 */
 class TimelineComponent final : public juce::Component,
+                                public juce::FileDragAndDropTarget,
                                 private juce::ValueTree::Listener,
                                 private juce::ScrollBar::Listener,
+                                private juce::ChangeListener,
                                 private juce::Timer
 {
 public:
@@ -37,9 +46,11 @@ public:
     static constexpr int tempoHeight = 66;
     static constexpr int headerHeight = rulerHeight + signatureHeight + tempoHeight;
     static constexpr int scrollBarHeight = 14;
+    static constexpr double nudgeSeconds = 0.010;   // fine nudge: 10 ms
 
-    TimelineComponent (const Theme& theme, Project& project, AudioEngine& engine,
-                       juce::Viewport& trackViewport, TrackListComponent& trackList);
+    TimelineComponent (const Theme& theme, Project& project, AudioEngine& engine, AudioFileCache& audioFiles,
+                       std::function<ProjectLocation()> location, juce::Viewport& trackViewport,
+                       TrackListComponent& trackList);
     ~TimelineComponent() override;
 
     TimelineView& getView() noexcept   { return view; }
@@ -50,10 +61,53 @@ public:
     /** Call when the track list scrolls, so the lanes follow. */
     void tracksScrolled();
 
+    //==============================================================================
+    // Snap grid
+
+    void setGrid (GridSize newGrid);
+    GridSize getGrid() const noexcept   { return grid; }
+
+    /** Switches snapping off, or back on to the last grid used. */
+    void toggleSnap();
+
+    std::function<void()> onGridChanged;
+
+    //==============================================================================
+    // Clips
+
+    const juce::StringArray& getSelectedClips() const noexcept   { return selectedClips; }
+    bool hasSelectedClips() const noexcept                       { return ! selectedClips.isEmpty(); }
+    void selectClips (const juce::StringArray& clipIds);
+    void clearClipSelection();
+    void selectAllClips();
+
+    /** Splits the selected clips (or, if none, the clips on the selected track) at the playhead. */
+    bool splitClipsAtPlayhead();
+    bool duplicateSelectedClips();
+    bool deleteSelectedClips();
+
+    /** Moves the selected clips (or, if none, the playhead) one grid step, or 10 ms if `fine`. */
+    void nudge (int direction, bool fine);
+
+    /** Audio files were dropped on the timeline (track id is empty below the last track). */
+    std::function<void (const juce::Array<juce::File>&, const juce::String& trackId, Tick position)> onImportFiles;
+
+    /** "Import audio file here..." was chosen from a lane's menu. */
+    std::function<void (const juce::String& trackId, Tick position)> onImportRequested;
+
+    std::function<void()> onClipSelectionChanged;
+
+    //==============================================================================
     void resized() override;
     void paint (juce::Graphics&) override;
     void paintOverChildren (juce::Graphics&) override;
     void mouseWheelMove (const juce::MouseEvent&, const juce::MouseWheelDetails&) override;
+
+    bool isInterestedInFileDrag (const juce::StringArray& files) override;
+    void fileDragEnter (const juce::StringArray& files, int x, int y) override;
+    void fileDragMove (const juce::StringArray& files, int x, int y) override;
+    void fileDragExit (const juce::StringArray& files) override;
+    void filesDropped (const juce::StringArray& files, int x, int y) override;
 
 private:
     class Ruler;
@@ -71,18 +125,25 @@ private:
     int playheadX() const;
     Tick snap (Tick tick, const juce::ModifierKeys& mods) const;
     void drawGrid (juce::Graphics&, juce::Rectangle<int> area, bool strong) const;
+    void setSelection (const juce::StringArray& ids);
+    juce::File resolve (const juce::String& relativePath) const;
+    int trackRowAt (int yInTimeline) const;
 
     void timerCallback() override;
     void scrollBarMoved (juce::ScrollBar*, double newRangeStart) override;
+    void changeListenerCallback (juce::ChangeBroadcaster*) override;
 
-    void valueTreePropertyChanged (juce::ValueTree&, const juce::Identifier&) override  { rebuildTempoMap(); }
-    void valueTreeChildAdded (juce::ValueTree&, juce::ValueTree&) override               { rebuildTempoMap(); }
-    void valueTreeChildRemoved (juce::ValueTree&, juce::ValueTree&, int) override        { rebuildTempoMap(); }
-    void valueTreeChildOrderChanged (juce::ValueTree&, int, int) override                { rebuildTempoMap(); }
+    void valueTreePropertyChanged (juce::ValueTree&, const juce::Identifier&) override  { projectChanged(); }
+    void valueTreeChildAdded (juce::ValueTree&, juce::ValueTree&) override               { projectChanged(); }
+    void valueTreeChildRemoved (juce::ValueTree&, juce::ValueTree&, int) override        { projectChanged(); }
+    void valueTreeChildOrderChanged (juce::ValueTree&, int, int) override                { projectChanged(); }
+    void projectChanged();
 
     const Theme& theme;
     Project& project;
     AudioEngine& engine;
+    AudioFileCache& audioFiles;
+    std::function<ProjectLocation()> location;
     juce::Viewport& trackViewport;
     TrackListComponent& trackList;
     juce::ValueTree state;
@@ -90,11 +151,18 @@ private:
     TimelineView view;
     TempoMap tempoMap;   // a copy of the project's tempo, for drawing
 
+    GridSize grid = GridSize::beat, lastGrid = GridSize::beat;
+    juce::StringArray selectedClips;
+
     std::unique_ptr<Ruler> ruler;
     std::unique_ptr<SignatureLane> signatureLane;
     std::unique_ptr<TempoLane> tempoLane;
     std::unique_ptr<TrackLanes> trackLanes;
     juce::ScrollBar scrollBar { false };
+
+    bool fileDragActive = false;
+    int dropRow = -1;
+    Tick dropTick = 0;
 
     int lastPlayheadX = -1000;
     bool updatingScrollBar = false;
