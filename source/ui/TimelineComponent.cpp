@@ -908,10 +908,10 @@ private:
 
         if (peaks == nullptr)
         {
-            const auto state = owner.audioFiles.getState (file);
+            const auto loadState = owner.audioFiles.getState (file);
             g.setColour (owner.theme.textDim);
             g.setFont (juce::FontOptions (11.0f));
-            g.drawText (state == AudioFileCache::State::failed ? "Missing or unreadable file" : "Loading...",
+            g.drawText (loadState == AudioFileCache::State::failed ? "Missing or unreadable file" : "Loading...",
                         area.reduced (6.0f, 2.0f), juce::Justification::centredLeft, true);
             return;
         }
