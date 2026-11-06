@@ -7,6 +7,8 @@ add_library(aether_core STATIC
     devices/DriverErrors.h
     devices/LatencyInfo.cpp
     devices/LatencyInfo.h
+    dsp/EffectTypes.cpp
+    dsp/EffectTypes.h
     engine/AudioEngine.cpp
     engine/AudioFileCache.cpp
     engine/AudioFileCache.h
@@ -47,6 +49,8 @@ add_library(aether_core STATIC
     model/EditCommands.cpp
     model/EditCommands.h
     model/Ids.h
+    model/Mixer.cpp
+    model/Mixer.h
     model/Project.cpp
     model/Project.h
     model/TimelineEdits.cpp

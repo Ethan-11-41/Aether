@@ -13,7 +13,8 @@ namespace aether
 enum class TrackKind
 {
     audio,   // recorded or imported sound
-    midi     // notes that play an instrument
+    midi,    // notes that play an instrument
+    bus      // no clips: other tracks play into it (for shared effects or group volume)
 };
 
 juce::String toString (TrackKind kind);
@@ -36,7 +37,16 @@ public:
     juce::String getId() const              { return state[ids::id].toString(); }
     juce::String getName() const            { return state[ids::name].toString(); }
     TrackKind getKind() const;
+    bool isBus() const                      { return getKind() == TrackKind::bus; }
     juce::Colour getColour() const;
+
+    // Mixer settings (see model/Mixer.h)
+    double getVolumeDb() const;
+    double getPan() const;
+    bool isMuted() const                    { return (bool) state[ids::mute]; }
+    bool isSoloed() const                   { return (bool) state[ids::solo]; }
+    /** The id of the bus this track plays into, or empty for the master. */
+    juce::String getOutput() const          { return state[ids::output].toString(); }
 
     juce::ValueTree getState() const        { return state; }
 

@@ -21,6 +21,11 @@ namespace aether::ids
     inline const juce::Identifier TimeSignature  { "TimeSignature" };
     inline const juce::Identifier Clips          { "Clips" };            // list of Clip, inside a Track
     inline const juce::Identifier Clip           { "Clip" };
+    inline const juce::Identifier Master         { "Master" };           // the master channel (volume, effects)
+    inline const juce::Identifier Sends          { "Sends" };            // list of Send, inside a Track
+    inline const juce::Identifier Send           { "Send" };
+    inline const juce::Identifier Inserts        { "Inserts" };          // list of Insert (effects), inside a Track or Master
+    inline const juce::Identifier Insert         { "Insert" };
 
     // Properties
     inline const juce::Identifier id      { "id" };       // unique id (UUID text) of a track, clip, etc.
@@ -54,4 +59,18 @@ namespace aether::ids
     inline const juce::Identifier fadeOut       { "fadeOut" };
     inline const juce::Identifier fadeInCurve   { "fadeInCurve" };    // "linear", "smooth", "fast" or "slow"
     inline const juce::Identifier fadeOutCurve  { "fadeOutCurve" };
+
+    // Mixer
+    inline const juce::Identifier volume   { "volume" };     // dB; -100 or less means silent
+    inline const juce::Identifier pan      { "pan" };        // -1 (left) to +1 (right)
+    inline const juce::Identifier mute     { "mute" };
+    inline const juce::Identifier solo     { "solo" };
+    inline const juce::Identifier output   { "output" };     // id of the bus a track plays into; empty = master
+    inline const juce::Identifier target   { "target" };     // a send's bus
+    inline const juce::Identifier level    { "level" };      // a send's level in dB
+    inline const juce::Identifier preFader { "preFader" };   // a send taken before the volume fader
+    inline const juce::Identifier type     { "type" };       // an insert's effect type, e.g. "reverb"
+    inline const juce::Identifier bypass   { "bypass" };     // an insert that is switched off
+    // An insert's settings are stored as properties named after the effect's parameters
+    // (see dsp/EffectTypes.cpp), e.g. "mix" or "feedback".
 }

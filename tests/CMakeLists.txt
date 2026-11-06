@@ -10,6 +10,7 @@ add_executable(aether_tests
     unit/DiagnosticsTests.cpp
     unit/GridTests.cpp
     unit/LatencyInfoTests.cpp
+    unit/MixerModelTests.cpp
     unit/ProjectFileTests.cpp
     unit/ProjectModelTests.cpp
     unit/ProjectSessionTests.cpp

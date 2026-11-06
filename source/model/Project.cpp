@@ -75,6 +75,14 @@ void Project::ensureStructure()
         signatures.appendChild (sig, nullptr);
     }
 
+    // The master channel (from Milestone 4).
+    if (! state.getChildWithName (ids::Master).isValid())
+    {
+        juce::ValueTree master (ids::Master);
+        master.setProperty (ids::volume, 0.0, nullptr);
+        state.appendChild (master, nullptr);
+    }
+
     if (! state.hasProperty (ids::loopStart))   state.setProperty (ids::loopStart, (juce::int64) 0, nullptr);
     if (! state.hasProperty (ids::loopEnd))     state.setProperty (ids::loopEnd, (juce::int64) (16 * 960000), nullptr);
     if (! state.hasProperty (ids::loopEnabled)) state.setProperty (ids::loopEnabled, false, nullptr);
