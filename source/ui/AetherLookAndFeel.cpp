@@ -1,6 +1,8 @@
 // Aether - Copyright (C) 2026 The Aether authors. Licensed under the GNU AGPLv3 or later.
 #include "AetherLookAndFeel.h"
 
+#include "AetherFonts.h"
+
 namespace aether::ui
 {
 
@@ -152,6 +154,24 @@ juce::Rectangle<int> AetherLookAndFeel::getTooltipBounds (const juce::String& ti
     x = juce::jlimit (parentArea.getX(), std::max (parentArea.getX(), parentArea.getRight() - w), x);
     y = juce::jlimit (parentArea.getY(), std::max (parentArea.getY(), parentArea.getBottom() - h), y);
     return { x, y, w, h };
+}
+
+juce::Typeface::Ptr AetherLookAndFeel::getTypefaceForFont (const juce::Font& font)
+{
+    // Text that doesn't ask for a particular font family uses Inter.
+    if (font.getTypefaceName() == juce::Font::getDefaultSansSerifFontName())
+    {
+        if (regular == nullptr)
+        {
+            regular = juce::Typeface::createSystemTypefaceFor (AetherFonts::InterRegular_ttf, (size_t) AetherFonts::InterRegular_ttfSize);
+            semiBold = juce::Typeface::createSystemTypefaceFor (AetherFonts::InterSemiBold_ttf, (size_t) AetherFonts::InterSemiBold_ttfSize);
+        }
+
+        if (auto face = font.isBold() ? semiBold : regular)
+            return face;
+    }
+
+    return LookAndFeel_V4::getTypefaceForFont (font);
 }
 
 } // namespace aether::ui

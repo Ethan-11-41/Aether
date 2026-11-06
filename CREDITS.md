@@ -23,6 +23,7 @@ redistribute under the licence shown. "Shipped" means it is part of the installe
 | [Inno Setup](https://jrsoftware.org/isinfo.php) | 6 or 7 | Inno Setup licence | Building Setup.exe | No (build tool) |
 | [LAME](https://lame.sourceforge.io) | 3.100 | LGPL-2.0-or-later | MP3 export | Yes, as a separate library (libmp3lame.dll) |
 | Clang RealtimeSanitizer (LLVM) | 20 | Apache-2.0 with LLVM exception | Real-time safety tests | No (test tool) |
+| [Inter](https://rsms.me/inter/) font (Regular and SemiBold) | 4.1 | SIL Open Font License 1.1 | The interface's text | Yes, built into Aether.exe |
 
 The complete list of code bundled inside JUCE, with exact licences, is in JUCE's
 `JUCE.spdx.json` file.
@@ -38,9 +39,14 @@ official LAME 3.100 source release
 and kept as a separate library that Aether loads only when exporting an MP3. You may replace
 `libmp3lame.dll` with your own build of LAME (any version with the same functions).
 
+**About Inter:** the font files in `resources/fonts` are Inter-Regular.ttf and Inter-SemiBold.ttf,
+unmodified, from the official Inter 4.1 release (https://github.com/rsms/inter/releases/tag/v4.1,
+Inter-4.1.zip, SHA-256 `9883fdd4a49d4fb66bd8177ba6625ef9a64aa45899767dde3d36aa425756b11e`).
+Copyright (c) 2016 The Inter Project Authors. Its licence is in `resources/fonts/Inter-LICENSE.txt`
+and is installed as `licenses/Inter-LICENSE.txt`.
+
 Planned for later milestones (will be added to this table when actually used): VST3 SDK (MIT),
-Signalsmith Stretch (MIT), CLAP SDK (MIT), r8brain-free-src (MIT), Inter font (SIL OFL 1.1),
-Lucide icons (ISC).
+Signalsmith Stretch (MIT), CLAP SDK (MIT), r8brain-free-src (MIT), Lucide icons (ISC).
 
 ## Sounds
 

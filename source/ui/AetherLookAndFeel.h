@@ -26,6 +26,9 @@ public:
     void drawAlertBox (juce::Graphics&, juce::AlertWindow&, const juce::Rectangle<int>& textArea,
                        juce::TextLayout&) override;
 
+    /** The interface font: Inter (built in), SemiBold for bold text. */
+    juce::Typeface::Ptr getTypefaceForFont (const juce::Font& font) override;
+
     /** Tooltips appear just below the control the mouse is on, so they never cover it (JUCE puts
         them at the mouse pointer, over the bottom half of the button). */
     juce::Rectangle<int> getTooltipBounds (const juce::String& tipText, juce::Point<int> screenPos,
@@ -33,6 +36,7 @@ public:
 
 private:
     Theme theme;
+    juce::Typeface::Ptr regular, semiBold;
 };
 
 } // namespace aether::ui
