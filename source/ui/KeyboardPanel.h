@@ -21,6 +21,10 @@ class KeyboardPanel final : public juce::Component,
 {
 public:
     static constexpr int idealHeight = 112;
+    static constexpr float keyWidth = 24.0f;   // white keys, in pixels
+
+    /** The piano keys (for the tests). */
+    juce::MidiKeyboardComponent& getKeys() noexcept;
 
     KeyboardPanel (const Theme& theme, std::function<void (const juce::MidiMessage&)> sendToEngine);
     ~KeyboardPanel() override;

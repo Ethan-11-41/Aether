@@ -149,4 +149,27 @@ bool hasRecoverableAutosave (const ProjectLocation& location)
     return ! mainFile.existsAsFile() || autosave.getLastModificationTime() > mainFile.getLastModificationTime();
 }
 
+juce::File whatToDelete (const juce::File& projectFile)
+{
+    const ProjectLocation location (projectFile);
+    const auto folder = location.getFolder();
+
+    if (folder.getFileName() != projectFile.getFileNameWithoutExtension())
+        return projectFile;
+
+    // Only what Aether puts there: the project file and its own folders.
+    for (const auto& entry : juce::RangedDirectoryIterator (folder, false, "*", juce::File::findFilesAndDirectories))
+    {
+        const auto f = entry.getFile();
+        const auto ours = f == projectFile || f == location.getAudioFolder() || f == location.getBackupsFolder()
+                       || f == location.getAutosaveFolder() || f.getFileName() == "Exports"
+                       || f.getFileName().startsWith (".") || f.getFileName().endsWithIgnoreCase (".tmp");
+
+        if (! ours)
+            return projectFile;
+    }
+
+    return folder;
+}
+
 } // namespace aether::projectfiles

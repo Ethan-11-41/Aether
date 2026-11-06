@@ -265,7 +265,7 @@ void MixerComponent::Strip::mouseMove (const juce::MouseEvent& e)
     {
         case Area::name:      tip = "Click to select (Ctrl+click: several, Shift+click: a range). Right-click for more."; break;
         case Area::insert:    tip = "Click to change the effect's settings. Click the light to switch it on or off. Right-click for more."; break;
-        case Area::addInsert: tip = "Add an effect"; break;
+        case Area::addInsert: tip = "Add an effect. With several tracks selected (Ctrl+click their names), it's added to all of them."; break;
         case Area::send:      tip = "Send level: drag left/right (double-click for 0 dB). Right-click for more."; break;
         case Area::addSend:   tip = "Send some of this channel's sound to a bus too (e.g. one with a reverb)"; break;
         case Area::output:    tip = "Where this channel's sound goes: the master, or a bus"; break;
@@ -339,7 +339,11 @@ void MixerComponent::Strip::mouseDown (const juce::MouseEvent& e)
 
         case Area::addSend:  showAddSendMenu(); break;
         case Area::output:   showOutputMenu(); break;
-        case Area::none:     break;
+        case Area::none:
+            // Clicking an empty part of a strip selects its track (Ctrl / Shift to select several).
+            if (! isMaster() && ! popup)
+                owner.trackList.selectTrack (channelId, e.mods);
+            break;
     }
 }
 
@@ -408,7 +412,14 @@ void MixerComponent::Strip::showAddEffectMenu()
 {
     auto& proj = owner.project;
     juce::PopupMenu menu;
-    menu.addSectionHeader ("Add an effect");
+
+    // With several tracks selected (this one among them), the effect goes on all of them.
+    auto channels = group();
+    if (channels.isEmpty())
+        channels.add (channelId);
+
+    menu.addSectionHeader (channels.size() > 1 ? "Add an effect to the " + juce::String (channels.size()) + " selected tracks"
+                                               : juce::String ("Add an effect"));
 
     for (const auto& type : dsp::effectTypes())
     {
@@ -416,13 +427,16 @@ void MixerComponent::Strip::showAddEffectMenu()
             continue;
 
         const auto typeId = type.id;
-        menu.addItem (type.name, whileStripExists (this, [this, &proj, typeId]
+        menu.addItem (type.name, whileStripExists (this, [this, &proj, typeId, channels]
         {
-            const auto insertId = edit::addInsert (proj, channelId, typeId);
-            const auto index = (int) mixer::insertsOf (proj, channelId).size() - 1;
+            const auto added = edit::addInsertToChannels (proj, channels, typeId);
+            const auto inserts = mixer::insertsOf (proj, channelId);
+            const auto index = (int) inserts.size() - 1;
 
-            if (insertId.isNotEmpty())
-                EffectEditor::show (owner.theme, proj, insertId, localAreaToGlobal (insertArea (index)));
+            // Opens this strip's new effect (the others have the same settings to start with).
+            if (! added.isEmpty() && index >= 0 && added.contains (inserts[(size_t) index][ids::id].toString()))
+                EffectEditor::show (owner.theme, proj, inserts[(size_t) index][ids::id].toString(),
+                                    localAreaToGlobal (insertArea (index)));
         }));
     }
 

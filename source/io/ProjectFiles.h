@@ -69,6 +69,12 @@ namespace projectfiles
     /** True if the project has an autosave that is newer than the saved project, i.e. there are
         changes that were never saved (usually because Aether closed unexpectedly). */
     bool hasRecoverableAutosave (const ProjectLocation& location);
+
+    /** What "Delete project" removes: the project's whole folder if it's laid out the way Aether
+        makes projects (a folder named like the project, holding only the project, its Audio,
+        Backups, Autosave and Exports), otherwise just the project file, so nothing else that
+        happens to be in the same folder is ever deleted. */
+    juce::File whatToDelete (const juce::File& projectFile);
 }
 
 } // namespace aether

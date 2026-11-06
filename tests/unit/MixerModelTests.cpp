@@ -350,3 +350,26 @@ TEST_CASE ("Projects from before the mixer get a master channel", "[model][mixer
     CHECK (mixer::masterNode (*project).isValid());
     CHECK_FALSE (project->hasUnsavedChanges());
 }
+
+TEST_CASE ("An effect can be added to several tracks in one undo step", "[mixer][model]")
+{
+    Project project;
+    const auto a = edit::addTrack (project, TrackKind::audio).getId();
+    const auto b = edit::addTrack (project, TrackKind::audio).getId();
+    const auto c = edit::addTrack (project, TrackKind::audio).getId();
+
+    // Track c is full already.
+    for (int i = 0; i < mixer::maxInsertsPerChannel; ++i)
+        edit::addInsert (project, c, "delay");
+
+    const auto added = edit::addInsertToChannels (project, { a, b, c }, "reverb");
+    CHECK (added.size() == 2);
+    CHECK (mixer::insertsOf (project, a).size() == 1);
+    CHECK (mixer::insertsOf (project, b).size() == 1);
+    CHECK (mixer::insertsOf (project, a)[0][ids::type].toString() == "reverb");
+    CHECK (project.getUndoManager().getUndoDescription() == "Add Reverb to 2 tracks");
+
+    project.getUndoManager().undo();
+    CHECK (mixer::insertsOf (project, a).empty());
+    CHECK (mixer::insertsOf (project, b).empty());
+}

@@ -326,3 +326,28 @@ TEST_CASE ("Dropped files are recognised as projects, audio or MIDI", "[io]")
     CHECK_FALSE (filetypes::isImportable (juce::File ("/a/b.txt"), audio));
     CHECK_FALSE (filetypes::isImportable (juce::File ("/a/b.aether"), audio));
 }
+
+TEST_CASE ("Deleting a project removes its own folder, and never anything else", "[io][project]")
+{
+    using namespace aether;
+    const auto parent = juce::File::getSpecialLocation (juce::File::tempDirectory).getChildFile ("aether-delete-test-" + juce::Uuid().toString());
+    parent.createDirectory();
+
+    // A project made by Aether: its whole folder goes.
+    ProjectLocation location;
+    REQUIRE (projectfiles::createProjectFolder (parent, "Song", location).wasOk());
+    location.getMainFile().replaceWithText ("{}");
+    location.getFolder().getChildFile ("Exports").createDirectory();
+    CHECK (projectfiles::whatToDelete (location.getMainFile()) == location.getFolder());
+
+    // Something else in that folder (a lyrics file, say): only the project file goes.
+    location.getFolder().getChildFile ("lyrics.txt").replaceWithText ("la la");
+    CHECK (projectfiles::whatToDelete (location.getMainFile()) == location.getMainFile());
+
+    // A project saved loose in some other folder: only the project file.
+    const auto loose = parent.getChildFile ("Loose song.aether");
+    loose.replaceWithText ("{}");
+    CHECK (projectfiles::whatToDelete (loose) == loose);
+
+    parent.deleteRecursively();
+}
