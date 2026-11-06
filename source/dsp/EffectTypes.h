@@ -46,8 +46,10 @@ const EffectType* findEffectType (const juce::String& id);
 
 namespace delay
 {
-    /** The Delay's "Time" choices, as lengths in quarter notes. */
-    const std::vector<double>& timeChoicesInQuarters();
+    /** The Delay's "Time" choices, as lengths in quarter notes. (A fixed table, so the audio
+        thread can read it without anything being set up the first time.) */
+    inline constexpr std::array<double, 11> timeChoicesInQuarters { 0.125, 1.0 / 6.0, 0.25, 1.0 / 3.0, 0.375, 0.5,
+                                                                    2.0 / 3.0, 0.75, 1.0, 1.5, 2.0 };
 }
 
 } // namespace aether::dsp

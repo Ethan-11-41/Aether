@@ -7,6 +7,8 @@ add_library(aether_core STATIC
     devices/DriverErrors.h
     devices/LatencyInfo.cpp
     devices/LatencyInfo.h
+    dsp/Effect.h
+    dsp/Effects.cpp
     dsp/EffectTypes.cpp
     dsp/EffectTypes.h
     engine/AudioEngine.cpp
@@ -15,6 +17,10 @@ add_library(aether_core STATIC
     engine/AudioEngine.h
     engine/Metronome.cpp
     engine/Metronome.h
+    engine/MixerResources.cpp
+    engine/MixerResources.h
+    engine/MixerRouting.cpp
+    engine/MixerRouting.h
     engine/Resampler.cpp
     engine/Resampler.h
     engine/TestToneGenerator.cpp

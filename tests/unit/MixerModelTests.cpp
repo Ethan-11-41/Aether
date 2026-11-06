@@ -307,7 +307,7 @@ TEST_CASE ("Effect settings are shown in plain units", "[model][effects]")
     CHECK (echo->parameters[1].format (35.0f) == "35 %");
     CHECK (echo->parameters[2].format (8000.0f) == "8.0 kHz");
     CHECK (echo->parameters[2].format (500.0f) == "500 Hz");
-    CHECK (dsp::delay::timeChoicesInQuarters().size() == (size_t) echo->parameters[0].choices.size());
+    CHECK (dsp::delay::timeChoicesInQuarters.size() == (size_t) echo->parameters[0].choices.size());
 
     for (const auto& type : dsp::effectTypes())
         CHECK (type.parameters.size() <= (size_t) dsp::maxEffectParameters);

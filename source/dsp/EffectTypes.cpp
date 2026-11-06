@@ -26,15 +26,6 @@ juce::String EffectParameter::format (float value) const
     return juce::String (value, 1) + (unit.isNotEmpty() ? " " + unit : juce::String());
 }
 
-namespace delay
-{
-    const std::vector<double>& timeChoicesInQuarters()
-    {
-        static const std::vector<double> lengths { 0.125, 1.0 / 6.0, 0.25, 1.0 / 3.0, 0.375, 0.5, 2.0 / 3.0, 0.75, 1.0, 1.5, 2.0 };
-        return lengths;
-    }
-}
-
 const std::vector<EffectType>& effectTypes()
 {
     static const std::vector<EffectType> types = []

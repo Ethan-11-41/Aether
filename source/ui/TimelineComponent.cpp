@@ -249,9 +249,12 @@ public:
             const auto sigBar = clicked->bar;
             menu.addSectionHeader (sigBar == 0 ? "Time signature of the song" : "Time signature from bar " + juce::String (sigBar + 1));
 
-            for (auto [n, d] : commonSignatures)
+            for (const auto& signature : commonSignatures)
+            {
+                const auto n = signature.first, d = signature.second;
                 menu.addItem (juce::String (n) + "/" + juce::String (d), true, clicked->numerator == n && clicked->denominator == d,
-                              [&proj, sigBar, n = n, d = d] { edit::setTimeSignature (proj, sigBar, n, d); });
+                              [&proj, sigBar, n, d] { edit::setTimeSignature (proj, sigBar, n, d); });
+            }
 
             if (sigBar > 0)
             {
@@ -263,9 +266,12 @@ public:
         {
             menu.addSectionHeader ("Change the time signature from bar " + juce::String (bar + 1));
 
-            for (auto [n, d] : commonSignatures)
+            for (const auto& signature : commonSignatures)
+            {
+                const auto n = signature.first, d = signature.second;
                 menu.addItem (juce::String (n) + "/" + juce::String (d),
-                              [&proj, bar, n = n, d = d] { edit::setTimeSignature (proj, bar, n, d); });
+                              [&proj, bar, n, d] { edit::setTimeSignature (proj, bar, n, d); });
+            }
         }
 
         if (menu.getNumItems() > 0)
@@ -538,7 +544,7 @@ public:
 
     juce::String getTooltip() override
     {
-        const auto hit = hitTest (getMouseXYRelative().toFloat());
+        const auto hit = findHit (getMouseXYRelative().toFloat());
 
         switch (hit.zone)
         {
@@ -599,7 +605,7 @@ public:
 
     void mouseMove (const juce::MouseEvent& e) override
     {
-        switch (hitTest (e.position).zone)
+        switch (findHit (e.position).zone)
         {
             case Zone::trimStart:
             case Zone::trimEnd:  setMouseCursor (juce::MouseCursor::LeftRightResizeCursor); break;
@@ -612,7 +618,7 @@ public:
 
     void mouseDown (const juce::MouseEvent& e) override
     {
-        const auto hit = hitTest (e.position);
+        const auto hit = findHit (e.position);
         const auto row = rowAt (e.y);
         owner.trackList.grabKeyboardFocus();
         drag = {};
@@ -745,7 +751,7 @@ public:
 
     void mouseDoubleClick (const juce::MouseEvent& e) override
     {
-        const auto hit = hitTest (e.position);
+        const auto hit = findHit (e.position);
 
         if (hit.zone == Zone::body)
             askForClipName (hit.clip.getId());
@@ -828,7 +834,7 @@ private:
         return boxes;
     }
 
-    Hit hitTest (juce::Point<float> p) const
+    Hit findHit (juce::Point<float> p) const
     {
         const auto boxes = layoutClips();
 
@@ -1010,9 +1016,9 @@ private:
         menu.addItem ("Loop this clip", true, clip.isLooping(), [&proj, id, loop = ! clip.isLooping()] { edit::setClipLooping (proj, id, loop); });
 
         juce::PopupMenu volume;
-        for (auto [name, change] : { std::pair { "Louder (+1.5 dB)", 1.5 }, std::pair { "Quieter (-1.5 dB)", -1.5 },
-                                     std::pair { "Quieter (-6 dB)", -6.0 } })
-            volume.addItem (name, [&proj, id, change = change, current = clip.getGainDb()] { edit::setClipGain (proj, id, current + change); });
+        for (const auto& step : { std::pair { "Louder (+1.5 dB)", 1.5 }, std::pair { "Quieter (-1.5 dB)", -1.5 },
+                                  std::pair { "Quieter (-6 dB)", -6.0 } })
+            volume.addItem (step.first, [&proj, id, change = step.second, current = clip.getGainDb()] { edit::setClipGain (proj, id, current + change); });
         volume.addItem ("Back to 0 dB", clip.getGainDb() != 0.0, false, [&proj, id] { edit::setClipGain (proj, id, 0.0); });
         menu.addSubMenu ("Volume (now " + juce::String (clip.getGainDb(), 1) + " dB)", volume);
 
@@ -1021,9 +1027,10 @@ private:
             juce::PopupMenu shapes;
             const auto current = isFadeIn ? clip.getFadeInCurve() : clip.getFadeOutCurve();
 
-            for (auto [name, curve] : { std::pair { "Smooth", FadeCurve::smooth }, std::pair { "Straight line", FadeCurve::linear },
-                                        std::pair { "Fast", FadeCurve::fast }, std::pair { "Slow", FadeCurve::slow } })
-                shapes.addItem (name, true, current == curve, [&proj, id, isFadeIn, curve = curve] { edit::setClipFadeCurve (proj, id, isFadeIn, curve); });
+            for (const auto& shape : { std::pair { "Smooth", FadeCurve::smooth }, std::pair { "Straight line", FadeCurve::linear },
+                                       std::pair { "Fast", FadeCurve::fast }, std::pair { "Slow", FadeCurve::slow } })
+                shapes.addItem (shape.first, true, current == shape.second,
+                                [&proj, id, isFadeIn, curve = shape.second] { edit::setClipFadeCurve (proj, id, isFadeIn, curve); });
 
             menu.addSubMenu (isFadeIn ? "Fade-in shape" : "Fade-out shape", shapes);
         }

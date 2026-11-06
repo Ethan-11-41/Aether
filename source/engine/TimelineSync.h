@@ -7,6 +7,7 @@
 
 #include "AudioEngine.h"
 #include "AudioFileCache.h"
+#include "MixerResources.h"
 #include "TimelineSnapshot.h"
 #include "io/ProjectFiles.h"
 #include "model/Project.h"
@@ -18,10 +19,16 @@ namespace aether
     Returns null if it isn't ready yet. */
 using AudioResolver = std::function<std::shared_ptr<const AudioData> (const juce::String& relativePath)>;
 
-/** Builds the audio engine's view of a project: tempo, loop and (if `resolver` is given) every
-    clip that has its audio ready, with positions in samples at `sampleRate`. */
+/** Builds the audio engine's view of a project: tempo, loop, the mixer (every track, bus and
+    the master, with their settings, routing and effects) and (if `resolver` is given) every clip
+    that has its audio ready, with positions in samples at `sampleRate`.
+
+    `resources` keeps the mixer's working objects (effect tails, fades) from one build to the
+    next; without it, everything starts afresh. With no sample rate, only the tempo and loop are
+    filled in. */
 std::unique_ptr<TimelineSnapshot> buildTimelineSnapshot (const Project& project, double sampleRate = 0.0,
-                                                         const AudioResolver& resolver = {});
+                                                         const AudioResolver& resolver = {},
+                                                         MixerResources* resources = nullptr);
 
 /** Keeps the audio engine up to date with a project: whenever the tempo, loop or clips change,
     or an audio file finishes loading, a new TimelineSnapshot is built and handed to the engine.
@@ -42,6 +49,10 @@ public:
     /** Sends the current timeline to the engine now. */
     void update();
 
+    /** A mixer channel's highest level (linear, left and right) since the last call, for meters.
+        `channelId` is a track id or mixer::masterId. */
+    std::pair<float, float> takeChannelPeaks (const juce::String& channelId)   { return mixerResources.takePeaks (channelId); }
+
 private:
     void valueTreePropertyChanged (juce::ValueTree&, const juce::Identifier&) override  { update(); }
     void valueTreeChildAdded (juce::ValueTree&, juce::ValueTree&) override               { update(); }
@@ -55,6 +66,7 @@ private:
     AudioFileCache& cache;
     std::function<ProjectLocation()> location;
     juce::ValueTree state;
+    MixerResources mixerResources;
 };
 
 } // namespace aether
