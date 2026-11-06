@@ -601,6 +601,16 @@ public:
         for (const auto& box : layoutClips())
             drawClip (g, box);
 
+        // The selection box, while dragging one.
+        if (selectionBox.active)
+        {
+            const auto area = juce::Rectangle<float> (selectionBox.start, selectionBox.end);
+            g.setColour (colours.accent.withAlpha (0.15f));
+            g.fillRect (area);
+            g.setColour (colours.accent);
+            g.drawRect (area, 1.0f);
+        }
+
         // A recording in progress: a red block growing up to the playhead.
         if (owner.liveRecording)
         {
@@ -698,7 +708,13 @@ public:
 
         if (hit.zone == Zone::none)
         {
-            owner.clearClipSelection();
+            // A click moves the playhead; dragging from here draws a box that selects clips
+            // (Ctrl adds them to the selection).
+            selectionBox = { e.position, e.position, false, e.mods.isCommandDown() ? owner.selectedClips : juce::StringArray() };
+
+            if (! e.mods.isCommandDown())
+                owner.clearClipSelection();
+
             owner.engine.locate (std::max<Tick> (0, owner.snap (owner.view.xToTick (e.x), e.mods)));
             return;
         }
@@ -736,7 +752,12 @@ public:
     void mouseDrag (const juce::MouseEvent& e) override
     {
         if (drag.zone == Zone::none)
+        {
+            if (! e.mods.isPopupMenu() && (selectionBox.active || e.getDistanceFromDragStart() > 4))
+                dragBox (e.position);
+
             return;
+        }
 
         auto& proj = owner.project;
         const auto& tempo = owner.tempoMap;
@@ -804,7 +825,36 @@ public:
     void mouseUp (const juce::MouseEvent&) override
     {
         drag = {};
+
+        if (selectionBox.active)
+        {
+            selectionBox = {};
+            repaint();
+        }
     }
+
+    /** The selection box: every clip it touches is selected. */
+    void dragBox (juce::Point<float> to)
+    {
+        selectionBox.active = true;
+        selectionBox.end = to;
+        const auto area = juce::Rectangle<float> (selectionBox.start, selectionBox.end);
+        auto selection = selectionBox.base;
+
+        for (const auto& clipBox : layoutClips())
+            if (clipBox.bounds.intersects (area))
+                selection.addIfNotAlreadyThere (clipBox.clip.getId());
+
+        owner.setSelection (selection);
+        repaint();
+    }
+
+    struct BoxState
+    {
+        juce::Point<float> start, end;
+        bool active = false;
+        juce::StringArray base;   // already selected (Ctrl held)
+    } selectionBox;
 
     void mouseDoubleClick (const juce::MouseEvent& e) override
     {
@@ -1438,6 +1488,36 @@ bool TimelineComponent::deleteSelectedClips()
     if (deleted)
         setSelection ({});
     return deleted;
+}
+
+bool TimelineComponent::copySelectedClips()
+{
+    if (selectedClips.isEmpty())
+        return false;
+
+    clipboard = clips::copy (project, selectedClips);
+    return ! clipboard.empty();
+}
+
+bool TimelineComponent::cutSelectedClips()
+{
+    if (! copySelectedClips())
+        return false;
+
+    const auto cut = edit::deleteClips (project, selectedClips, selectedClips.size() == 1 ? "Cut clip" : "Cut clips");
+    if (cut)
+        setSelection ({});
+    return cut;
+}
+
+bool TimelineComponent::pasteClips()
+{
+    const auto pasted = edit::pasteClips (project, clipboard, engine.getTransportStatus().position, trackList.getSelectedTrackId());
+
+    if (! pasted.isEmpty())
+        setSelection (pasted);
+
+    return ! pasted.isEmpty();
 }
 
 void TimelineComponent::nudge (int direction, bool fine)

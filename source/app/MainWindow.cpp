@@ -583,6 +583,7 @@ void MainContent::getAllCommands (juce::Array<juce::CommandID>& list)
     list.addArray ({ commands::newProject, commands::openProject, commands::saveProject, commands::saveProjectAs, commands::exportAudio,
                      commands::closeProject, commands::showProjectFolder, commands::quit,
                      commands::undo, commands::redo, commands::selectAll,
+                     commands::copyClips, commands::cutClips, commands::pasteClips, commands::deselect,
                      commands::importAudio, commands::splitClips, commands::duplicateClips,
                      commands::nudgeLeft, commands::nudgeRight, commands::nudgeLeftFine, commands::nudgeRightFine,
                      commands::toggleSnap, commands::toggleMixer, commands::addBus, commands::record, commands::togglePunch, commands::toggleKeyboard,
@@ -709,6 +710,30 @@ void MainContent::getCommandInfo (juce::CommandID id, juce::ApplicationCommandIn
             info.setActive (clipsSelected || hasTrack);
             break;
         }
+
+        case commands::copyClips:
+            info.setInfo ("Copy", "Copy the selected clips (paste them with Ctrl+V)", commands::categories::edit, 0);
+            info.addDefaultKeypress ('c', ctrl);
+            info.setActive (hasProject && projectView->getTimeline().hasSelectedClips());
+            break;
+
+        case commands::cutClips:
+            info.setInfo ("Cut", "Copy the selected clips and remove them (paste them with Ctrl+V)", commands::categories::edit, 0);
+            info.addDefaultKeypress ('x', ctrl);
+            info.setActive (hasProject && projectView->getTimeline().hasSelectedClips());
+            break;
+
+        case commands::pasteClips:
+            info.setInfo ("Paste", "Paste the copied clips at the playhead, starting on the selected track", commands::categories::edit, 0);
+            info.addDefaultKeypress ('v', ctrl);
+            info.setActive (hasProject && projectView->getTimeline().canPaste());
+            break;
+
+        case commands::deselect:
+            info.setInfo ("Deselect", "Unselect all clips", commands::categories::edit, 0);
+            info.addDefaultKeypress (KeyPress::escapeKey, 0);
+            info.setActive (hasProject && projectView->getTimeline().hasSelectedClips());
+            break;
 
         case commands::selectAll:
             info.setInfo ("Select all clips", "Select every clip in the project", commands::categories::edit, 0);
@@ -924,6 +949,24 @@ bool MainContent::perform (const InvocationInfo& invocation)
             if (projectView != nullptr) projectView->getTimeline().selectAllClips();
             return true;
 
+        case commands::copyClips:
+            if (projectView != nullptr) projectView->getTimeline().copySelectedClips();
+            ctx.commands.commandStatusChanged();
+            return true;
+
+        case commands::cutClips:
+            if (projectView != nullptr) projectView->getTimeline().cutSelectedClips();
+            ctx.commands.commandStatusChanged();
+            return true;
+
+        case commands::pasteClips:
+            if (projectView != nullptr) projectView->getTimeline().pasteClips();
+            return true;
+
+        case commands::deselect:
+            if (projectView != nullptr) projectView->getTimeline().clearClipSelection();
+            return true;
+
         case commands::importAudio:
             if (projectView != nullptr)
                 projectView->chooseFilesToImport (selectedTrackId(), ctx.engine.getTransportStatus().position);
@@ -1080,10 +1123,15 @@ juce::PopupMenu MainContent::getMenuForIndex (int menuIndex, const juce::String&
         menu.addCommandItem (cm, commands::undo);
         menu.addCommandItem (cm, commands::redo);
         menu.addSeparator();
+        menu.addCommandItem (cm, commands::cutClips);
+        menu.addCommandItem (cm, commands::copyClips);
+        menu.addCommandItem (cm, commands::pasteClips);
+        menu.addSeparator();
         menu.addCommandItem (cm, commands::splitClips);
         menu.addCommandItem (cm, commands::duplicateClips);
         menu.addCommandItem (cm, commands::deleteTrack);
         menu.addCommandItem (cm, commands::selectAll);
+        menu.addCommandItem (cm, commands::deselect);
         menu.addSeparator();
         menu.addCommandItem (cm, commands::nudgeLeft);
         menu.addCommandItem (cm, commands::nudgeRight);

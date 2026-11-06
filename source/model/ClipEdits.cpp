@@ -406,7 +406,7 @@ juce::StringArray edit::duplicateClips (Project& project, const juce::StringArra
     return newIds;
 }
 
-bool edit::deleteClips (Project& project, const juce::StringArray& clipIds)
+bool edit::deleteClips (Project& project, const juce::StringArray& clipIds, const juce::String& undoName)
 {
     juce::Array<Clip> toDelete;
     for (const auto& id : clipIds)
@@ -416,12 +416,72 @@ bool edit::deleteClips (Project& project, const juce::StringArray& clipIds)
     if (toDelete.isEmpty())
         return false;
 
-    project.getUndoManager().beginNewTransaction (toDelete.size() == 1 ? "Delete clip" : "Delete clips");
+    project.getUndoManager().beginNewTransaction (undoName.isNotEmpty() ? undoName
+                                                  : toDelete.size() == 1 ? "Delete clip" : "Delete clips");
 
     for (auto& clip : toDelete)
         clip.getState().getParent().removeChild (clip.getState(), &project.getUndoManager());
 
     return true;
+}
+
+ClipClipboard clips::copy (const Project& project, const juce::StringArray& clipIds)
+{
+    ClipClipboard clipboard;
+    Tick earliest = std::numeric_limits<Tick>::max();
+    int topmost = std::numeric_limits<int>::max();
+
+    for (const auto& id : clipIds)
+        if (const auto clip = findClip (project, id); clip.isValid())
+        {
+            earliest = std::min (earliest, clip.getStart());
+            topmost = std::min (topmost, project.indexOfTrack (clip.getTrackState()[ids::id].toString()));
+        }
+
+    for (const auto& id : clipIds)
+        if (const auto clip = findClip (project, id); clip.isValid())
+        {
+            const auto trackId = clip.getTrackState()[ids::id].toString();
+            clipboard.push_back ({ clip.getState().createCopy(), trackId, project.indexOfTrack (trackId) - topmost,
+                                   clip.getStart() - earliest });
+        }
+
+    return clipboard;
+}
+
+juce::StringArray edit::pasteClips (Project& project, const ClipClipboard& clipboard, Tick position, const juce::String& trackId)
+{
+    juce::StringArray newIds;
+    const auto targetIndex = std::max (0, project.indexOfTrack (trackId));
+    auto& undo = project.getUndoManager();
+    bool started = false;
+
+    for (const auto& item : clipboard)
+    {
+        const auto kind = Clip (item.clip).isMidi() ? TrackKind::midi : TrackKind::audio;
+        auto fits = [&] (const Track& t) { return t.isValid() && t.getKind() == kind; };
+
+        auto track = project.getTrack (targetIndex + item.trackOffset);
+        if (! fits (track))
+            track = project.findTrack (item.trackId);   // back where it came from
+        if (! fits (track))
+            continue;
+
+        if (! started)
+        {
+            undo.beginNewTransaction (clipboard.size() == 1 ? "Paste clip" : "Paste clips");
+            started = true;
+        }
+
+        auto copy = item.clip.createCopy();
+        const auto id = juce::Uuid().toString();
+        copy.setProperty (ids::id, id, nullptr);
+        copy.setProperty (ids::start, (juce::int64) std::max<Tick> (0, position + item.offset), nullptr);
+        clips::clipsNodeOf (track.getState()).appendChild (copy, &undo);
+        newIds.add (id);
+    }
+
+    return newIds;
 }
 
 bool edit::setClipFades (Project& project, const juce::String& clipId, juce::int64 fadeIn, juce::int64 fadeOut, bool newUndoStep)

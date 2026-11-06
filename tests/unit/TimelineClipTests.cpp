@@ -7,6 +7,7 @@
 
 #include "model/ClipEdits.h"
 #include "model/EditCommands.h"
+#include "model/MidiClips.h"
 #include "model/TimelineEdits.h"
 #include "ui/TimelineComponent.h"
 
@@ -180,4 +181,86 @@ TEST_CASE ("Going to the start scrolls the timeline back to the start", "[ui][ti
     f.engine.locate (0);                                       // Go to start (Home)
     f.timeline->updatePlayhead();
     CHECK (f.timeline->getView().getViewStart() == 0);
+}
+
+TEST_CASE ("Copy and paste put the clips at the playhead, keeping their layout", "[ui][timeline][clipboard]")
+{
+    Fixture f;
+    const auto trackC = edit::addTrack (f.project, TrackKind::audio).getId();
+    f.timeline->selectClips ({ f.clipA, f.clipB });
+    REQUIRE (f.timeline->copySelectedClips());
+    REQUIRE (f.timeline->canPaste());
+
+    // Paste at beat 20 on track B: A's copy goes there, B's copy one track below (track C).
+    f.trackList.selectTrack (f.trackB);
+    f.engine.locate (20 * q);
+    REQUIRE (f.timeline->pasteClips());
+    REQUIRE (f.timeline->getSelectedClips().size() == 2);   // the copies are selected
+
+    const auto first = f.clip (f.timeline->getSelectedClips()[0]);
+    const auto second = f.clip (f.timeline->getSelectedClips()[1]);
+    CHECK (first.getStart() == 20 * q);
+    CHECK (second.getStart() == 24 * q);                    // still 4 beats after the first
+    CHECK (first.getTrackState() == f.project.findTrack (f.trackB).getState());
+    CHECK (second.getTrackState() == f.project.findTrack (trackC).getState());
+    CHECK (f.project.getUndoManager().getUndoDescription() == "Paste clips");
+
+    // Pasting where there's no track below: that clip goes back to the track it came from.
+    f.trackList.selectTrack (trackC);
+    REQUIRE (f.timeline->pasteClips());
+    CHECK (f.clip (f.timeline->getSelectedClips()[1]).getTrackState() == f.project.findTrack (f.trackB).getState());
+}
+
+TEST_CASE ("Cut removes the clips in one undo step, and they can be pasted", "[ui][timeline][clipboard]")
+{
+    Fixture f;
+    f.timeline->selectClips ({ f.clipA });
+    REQUIRE (f.timeline->cutSelectedClips());
+    CHECK_FALSE (f.clip (f.clipA).isValid());
+    CHECK_FALSE (f.timeline->hasSelectedClips());
+    CHECK (f.project.getUndoManager().getUndoDescription() == "Cut clip");
+
+    f.trackList.selectTrack (f.trackA);
+    f.engine.locate (0);
+    REQUIRE (f.timeline->pasteClips());
+    CHECK (clips::allClips (f.project).size() == 2);
+
+    // A MIDI clip can't be pasted onto an audio track (and its own track is gone): nothing happens.
+    const auto keys = edit::addTrack (f.project, TrackKind::midi).getId();
+    const auto midiClip = edit::addMidiClip (f.project, keys, "m", 0, q, {});
+    f.timeline->selectClips ({ midiClip });
+    REQUIRE (f.timeline->copySelectedClips());
+    edit::deleteTracks (f.project, { keys });
+    f.trackList.selectTrack (f.trackA);
+    CHECK_FALSE (f.timeline->pasteClips());
+}
+
+TEST_CASE ("Dragging a box over empty space selects the clips it touches", "[ui][timeline][selection]")
+{
+    Fixture f;
+    f.timeline->setVisible (true);
+    auto* lanes = f.timeline->getComponentAt (500, ui::TimelineComponent::headerHeight + 10);
+    REQUIRE (lanes != nullptr);
+
+    auto event = [lanes] (juce::Point<float> at, juce::Point<float> down, bool dragged)
+    {
+        return juce::MouseEvent (juce::Desktop::getInstance().getMainMouseSource(), at, juce::ModifierKeys(),
+                                 juce::MouseInputSource::defaultPressure, 0.0f, 0.0f, 0.0f, 0.0f, lanes, lanes,
+                                 juce::Time::getCurrentTime(), down, juce::Time::getCurrentTime(), 1, dragged);
+    };
+
+    // 40 pixels per beat, rows 56 pixels high: clip A is beats 4-8 on row 0, clip B beats 8-10 on row 1.
+    const juce::Point<float> start (150.0f, 5.0f);   // beat 3.75, above nothing
+    lanes->mouseDown (event (start, start, false));
+    lanes->mouseDrag (event ({ 330.0f, 100.0f }, start, true));
+    CHECK (f.timeline->getSelectedClips().size() == 2);
+
+    lanes->mouseDrag (event ({ 330.0f, 30.0f }, start, true));   // only the first row now
+    CHECK (f.timeline->getSelectedClips() == juce::StringArray { f.clipA });
+    lanes->mouseUp (event ({ 330.0f, 30.0f }, start, true));
+
+    // A plain click on empty space clears the selection.
+    lanes->mouseDown (event (start, start, false));
+    lanes->mouseUp (event (start, start, false));
+    CHECK_FALSE (f.timeline->hasSelectedClips());
 }

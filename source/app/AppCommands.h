@@ -30,6 +30,10 @@ namespace commands
         undo                = 0x2001,
         redo                = 0x2002,
         selectAll           = 0x2003,
+        copyClips           = 0x2004,
+        cutClips            = 0x2005,
+        pasteClips          = 0x2006,
+        deselect            = 0x2007,
 
         // Track
         addAudioTrack       = 0x3001,

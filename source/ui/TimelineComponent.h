@@ -12,6 +12,7 @@
 #include "engine/AudioEngine.h"
 #include "engine/AudioFileCache.h"
 #include "io/ProjectFiles.h"
+#include "model/ClipEdits.h"
 #include "model/Project.h"
 #include "time/Grid.h"
 
@@ -99,6 +100,12 @@ public:
     bool duplicateSelectedClips();
     bool deleteSelectedClips();
 
+    /** Copy / cut the selected clips, and paste them at the playhead on the selected track. */
+    bool copySelectedClips();
+    bool cutSelectedClips();
+    bool pasteClips();
+    bool canPaste() const noexcept   { return ! clipboard.empty(); }
+
     /** Moves the selected clips (or, if none, the playhead) one grid step, or 10 ms if `fine`. */
     void nudge (int direction, bool fine);
 
@@ -166,6 +173,7 @@ private:
 
     GridSize grid = GridSize::beat, lastGrid = GridSize::beat;
     juce::StringArray selectedClips;
+    ClipClipboard clipboard;   // per project view, so it never refers to another project's files
 
     std::unique_ptr<Ruler> ruler;
     std::unique_ptr<SignatureLane> signatureLane;
