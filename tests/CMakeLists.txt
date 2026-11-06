@@ -16,6 +16,7 @@ add_executable(aether_tests
     unit/ProjectFileTests.cpp
     unit/ProjectModelTests.cpp
     unit/ProjectSessionTests.cpp
+    unit/RecordingEngineTests.cpp
     unit/RecordingModelTests.cpp
     unit/SpscQueueTests.cpp
     unit/TempoMapTests.cpp
