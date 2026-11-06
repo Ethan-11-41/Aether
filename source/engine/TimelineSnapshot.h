@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "AudioFileCache.h"
+#include "RecordingRing.h"
 #include "dsp/Effect.h"
 #include "model/Clip.h"
 #include "rt/RealtimeAnnotations.h"
@@ -131,6 +132,12 @@ struct TrackPlayback
     float outputGain = 1.0f;                 // 0 when solo means the channel's output isn't heard
     int destination = -1;                    // index into TimelineSnapshot::tracks of the bus it
                                              // plays into (always later in the list); -1 = master
+
+    int monitorChannel = -1;                 // input monitoring: the sound-card input heard through
+    bool monitorStereo = false;              // this channel (-1 = none); with the next one if stereo
+
+    int armedChannel = -1;                   // an armed track's input, shown on its meter even when
+    bool armedStereo = false;                // not monitoring (so you can check the level)
 };
 
 /** Everything about the project that the audio thread needs, as one read-only object. A new
@@ -150,6 +157,10 @@ struct TimelineSnapshot
     TrackPlayback master;
 
     std::vector<std::shared_ptr<const AudioData>> keepAlive;   // the audio the clips point to
+
+    /** While recording is set up: where the audio thread puts the recorded input. Being part of
+        the snapshot keeps it alive for as long as the audio thread might use it. */
+    std::shared_ptr<RecordingRing> recordRing;
 };
 
 } // namespace aether

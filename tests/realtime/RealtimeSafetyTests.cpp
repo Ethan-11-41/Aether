@@ -16,6 +16,8 @@
 #include "model/ClipEdits.h"
 #include "model/EditCommands.h"
 #include "model/Mixer.h"
+#include "model/Recording.h"
+#include "model/TimelineEdits.h"
 
 TEST_CASE ("AudioEngine::process is real-time safe in every state", "[realtime]")
 {
@@ -200,5 +202,51 @@ TEST_CASE ("The mixer, buses, sends and effects are real-time safe", "[realtime]
     }
 
     engine.collectGarbage();
+    SUCCEED ("no real-time violations");
+}
+
+TEST_CASE ("Recording, monitoring and latency measurement are real-time safe", "[realtime]")
+{
+    using namespace aether;
+    Project project;
+    const auto a = edit::addTrack (project, TrackKind::audio).getId();
+    const auto b = edit::addTrack (project, TrackKind::audio).getId();
+    edit::setMonitoring (project, { a, b }, true);
+    edit::setInput (project, { b }, 0, true);
+    edit::setLoopRange (project, 0, ticksPerQuarter);
+    edit::setLoopEnabled (project, true);
+
+    AudioEngine engine;
+    engine.prepare (48000.0, 2048);
+    engine.setCountInBars (1);
+
+    auto ring = std::make_shared<RecordingRing> (std::vector<int> { 0, 1, 5 }, 4096);   // small: it will overflow
+    auto timeline = buildTimelineSnapshot (project, 48000.0);
+    timeline->recordRing = ring;
+    engine.setTimeline (std::move (timeline));
+    engine.record();
+
+    std::vector<float> in1 (2048, 0.1f), in2 (2048, -0.1f), left (2048), right (2048);
+    const float* inputs[] = { in1.data(), in2.data() };
+    float* outputs[] = { left.data(), right.data() };
+    juce::AudioBuffer<float> drained (3, 4096);
+
+    for (int blockNumber = 0; blockNumber < 400; ++blockNumber)
+    {
+        if (blockNumber == 200)
+        {
+            engine.stop();
+            engine.startLatencyCapture (std::make_shared<LatencyCapture> (48000.0, 0));
+        }
+
+        if (blockNumber == 100)
+            ring->pop (drained, 4096);   // the "disk writer" catches up once
+
+        const auto blockSize = 1 + (blockNumber * 53) % 2048;
+        engine.process (inputs, blockNumber % 4 == 0 ? 1 : 2, outputs, 2, blockSize);
+    }
+
+    engine.collectGarbage();
+    CHECK (ring->getDroppedFrames() > 0);
     SUCCEED ("no real-time violations");
 }

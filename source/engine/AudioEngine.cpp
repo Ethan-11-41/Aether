@@ -22,7 +22,8 @@ namespace
 }
 
 AudioEngine::AudioEngine()
-    : timelineExchange (std::make_unique<TimelineSnapshot>())
+    : timelineExchange (std::make_unique<TimelineSnapshot>()),
+      probeExchange (std::make_unique<ProbeJob>())
 {
     metronome.prepare (sampleRate);
     testTone.prepare (sampleRate);
@@ -40,6 +41,29 @@ void AudioEngine::setTimeline (std::unique_ptr<TimelineSnapshot> timeline)
 void AudioEngine::collectGarbage()
 {
     timelineExchange.collectGarbage();
+    probeExchange.collectGarbage();
+}
+
+void AudioEngine::record()
+{
+    commands.tryPush ({ Command::Type::record, 0 });
+}
+
+RecordingStatus AudioEngine::getRecordingStatus() const noexcept
+{
+    RecordingStatus status;
+    status.completed = reportRecordingsCompleted.load (std::memory_order_acquire);
+    status.recording = reportRecording.load (std::memory_order_acquire);
+    status.startSample = reportRecordStart.load (std::memory_order_relaxed);
+    status.frames = reportRecordedFrames.load (std::memory_order_relaxed);
+    return status;
+}
+
+void AudioEngine::startLatencyCapture (std::shared_ptr<LatencyCapture> capture)
+{
+    auto job = std::make_unique<ProbeJob>();
+    job->capture = std::move (capture);
+    probeExchange.publish (std::move (job));
 }
 
 void AudioEngine::play()
@@ -130,6 +154,19 @@ void AudioEngine::handleCommands (const TimelineSnapshot& timeline) noexcept AET
             case Command::Type::stop:
                 playing = false;
                 countingIn = false;
+                stopRecording();
+                break;
+
+            case Command::Type::record:
+                recordPending = timeline.recordRing != nullptr && recordingInto == nullptr;
+
+                if (! playing && ! countingIn)
+                {
+                    if (countInBars.load (std::memory_order_relaxed) > 0)
+                        startCountIn (timeline);
+                    else
+                        playing = true;
+                }
                 break;
 
             case Command::Type::locate:
@@ -445,7 +482,56 @@ void AudioEngine::runPlayback (const TimelineSnapshot& timeline, int blockOffset
     }
 }
 
-void AudioEngine::processChunk (const TimelineSnapshot& timeline, float* const* outputs, int numOutputs, int numSamples) noexcept AETHER_NONBLOCKING
+void AudioEngine::stopRecording() noexcept AETHER_NONBLOCKING
+{
+    recordPending = false;
+
+    if (recordingInto == nullptr)
+        return;
+
+    recordingInto = nullptr;
+    reportRecordedFrames.store (recordedFrames, std::memory_order_relaxed);
+    reportRecording.store (false, std::memory_order_relaxed);
+    reportRecordingsCompleted.fetch_add (1, std::memory_order_release);
+}
+
+void AudioEngine::monitorInputs (const TimelineSnapshot& timeline, const float* const* inputs, int numInputs,
+                                 int numSamples) noexcept AETHER_NONBLOCKING
+{
+    if (inputs == nullptr)
+        return;
+
+    for (const auto& track : timeline.tracks)
+    {
+        // An armed track that isn't monitoring still shows its input level on its meter.
+        if (track.monitorChannel < 0 && track.armedChannel >= 0 && track.armedChannel < numInputs
+            && inputs[track.armedChannel] != nullptr)
+        {
+            const auto other = track.armedStereo && track.armedChannel + 1 < numInputs && inputs[track.armedChannel + 1] != nullptr
+                             ? track.armedChannel + 1 : track.armedChannel;
+            updatePeak (track.state->peaks[0], blockPeak (inputs[track.armedChannel], numSamples));
+            updatePeak (track.state->peaks[1], blockPeak (inputs[other], numSamples));
+        }
+
+        const auto first = track.monitorChannel;
+
+        if (first < 0 || first >= numInputs || inputs[first] == nullptr)
+            continue;
+
+        const auto second = track.monitorStereo && first + 1 < numInputs && inputs[first + 1] != nullptr ? first + 1 : first;
+        auto* left = track.state->input.getWritePointer (0);
+        auto* right = track.state->input.getWritePointer (1);
+
+        for (int i = 0; i < numSamples; ++i)
+        {
+            left[i] += inputs[first][i];
+            right[i] += inputs[second][i];
+        }
+    }
+}
+
+void AudioEngine::processChunk (const TimelineSnapshot& timeline, const float* const* inputs, int numInputs,
+                                float* const* outputs, int numOutputs, int numSamples) noexcept AETHER_NONBLOCKING
 {
     // Start with the test tone, or silence.
     if (testTone.isSounding())
@@ -459,6 +545,10 @@ void AudioEngine::processChunk (const TimelineSnapshot& timeline, float* const* 
                 std::memset (outputs[ch], 0, sizeof (float) * (size_t) numSamples);
     }
 
+    // Only ever write into a record ring the current snapshot holds (and so keeps alive).
+    if (recordingInto != nullptr && recordingInto != timeline.recordRing.get())
+        stopRecording();
+
     // A snapshot made for another sample rate (the device has just changed) stays silent until
     // the UI thread sends a matching one.
     const auto mixing = timeline.sampleRate <= 0.0 || timeline.sampleRate == sampleRate;
@@ -469,6 +559,7 @@ void AudioEngine::processChunk (const TimelineSnapshot& timeline, float* const* 
             track.state->input.clear (0, numSamples);
 
         timeline.master.state->input.clear (0, numSamples);
+        monitorInputs (timeline, inputs, numInputs, numSamples);
     }
 
     // Transport: count-in, then playback (which puts the clips into their channels).
@@ -478,7 +569,34 @@ void AudioEngine::processChunk (const TimelineSnapshot& timeline, float* const* 
         done = runCountIn (numSamples);
 
     if (playing && done < numSamples)
+    {
+        // Recording starts with playback (after any count-in), at this exact sample.
+        if (recordPending && timeline.recordRing != nullptr)
+        {
+            recordPending = false;
+            recordingInto = timeline.recordRing.get();
+            recordedFrames = 0;
+            reportRecordStart.store (positionSamples, std::memory_order_relaxed);
+            reportRecordedFrames.store (0, std::memory_order_relaxed);
+            reportRecording.store (true, std::memory_order_release);
+        }
+
+        // Record continuously (also across loop jumps: the file is one long take).
+        if (recordingInto != nullptr)
+        {
+            std::array<const float*, maxInputChannels> from {};
+            const auto count = std::min (numInputs, maxInputChannels);
+
+            for (int ch = 0; ch < count; ++ch)
+                from[(size_t) ch] = inputs != nullptr && inputs[ch] != nullptr ? inputs[ch] + done : nullptr;
+
+            recordingInto->push (from.data(), count, numSamples - done);
+            recordedFrames += numSamples - done;
+            reportRecordedFrames.store (recordedFrames, std::memory_order_relaxed);
+        }
+
         runPlayback (timeline, done, numSamples - done);
+    }
 
     if (mixing)
         mixChannels (timeline, outputs, numOutputs, numSamples);
@@ -513,6 +631,8 @@ void AudioEngine::process (const float* const* inputs, int numInputs,
 
     // Work through the block in pieces the mixer's buffers can hold.
     std::array<float*, maxOutputChannels> chunkOutputs {};
+    std::array<const float*, maxInputChannels> chunkInputs {};
+    const auto usedInputs = inputs != nullptr ? std::min (numInputs, maxInputChannels) : 0;
 
     for (int start = 0; start < numSamples; start += mixChunkSize)
     {
@@ -521,8 +641,16 @@ void AudioEngine::process (const float* const* inputs, int numInputs,
         for (int ch = 0; ch < usedOutputs; ++ch)
             chunkOutputs[(size_t) ch] = outputs[ch] != nullptr ? outputs[ch] + start : nullptr;
 
-        processChunk (timeline, chunkOutputs.data(), usedOutputs, length);
+        for (int ch = 0; ch < usedInputs; ++ch)
+            chunkInputs[(size_t) ch] = inputs[ch] != nullptr ? inputs[ch] + start : nullptr;
+
+        processChunk (timeline, chunkInputs.data(), usedInputs, chunkOutputs.data(), usedOutputs, length);
     }
+
+    // A latency measurement replaces the output while it runs.
+    const auto& probe = probeExchange.acquire();
+    if (probe.capture != nullptr && ! probe.capture->finished.load (std::memory_order_relaxed))
+        probe.capture->process (inputs, numInputs, outputs, numOutputs, numSamples);
 
     reportPlaying.store (playing, std::memory_order_relaxed);
     reportCountingIn.store (countingIn, std::memory_order_relaxed);

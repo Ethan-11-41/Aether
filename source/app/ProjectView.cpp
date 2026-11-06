@@ -6,6 +6,7 @@
 #include <map>
 
 #include "io/AudioImport.h"
+#include "model/TimelineEdits.h"
 
 namespace aether
 {
@@ -86,6 +87,37 @@ ProjectView::ProjectView (AppContext& context, Project& projectToShow)
 
     trackViewport.onScroll = [this] { timeline->tracksScrolled(); };
 
+    // Recording. Recordings are corrected by the measured latency (or the driver's figure).
+    recorder = std::make_unique<Recorder> (project, ctx.engine, timelineSync,
+                                           [&session = ctx.session] { return session.getLocation(); },
+                                           [&devices = ctx.devices] { return devices.getLatencyInfo().recordingCorrectionSamples(); },
+                                           [&devices = ctx.devices] { return devices.getNumInputChannels(); });
+    recorder->onFinished = [this] (const juce::StringArray& clipIds)
+    {
+        if (! clipIds.isEmpty())
+            timeline->selectClips (clipIds);
+
+        ctx.commands.commandStatusChanged();
+    };
+    recorder->onProblem = [this] (const juce::String& problem) { showProblem ("Recording", problem); };
+
+    timeline->liveRecording = [this]
+    {
+        ui::TimelineComponent::LiveRecording live;
+        const auto status = recorder->getStatus();
+        const auto rate = ctx.engine.getCurrentSampleRate();
+
+        if (recorder->isActive() && status.recording && rate > 0.0)
+        {
+            live.trackIds = recorder->getRecordingTracks();
+            live.start = timeline::buildTempoMap (project).secondsToTicks ((double) status.startSample / rate);
+        }
+
+        return live;
+    };
+
+    trackList.inputChannelCount = [&devices = ctx.devices] { return devices.getNumInputChannels(); };
+
     // The mixer, below the timeline.
     mixer = std::make_unique<ui::MixerComponent> (ctx.theme, project, trackList);
     addChildComponent (*mixer);
@@ -110,6 +142,31 @@ ProjectView::ProjectView (AppContext& context, Project& projectToShow)
     };
 
     startTimerHz (30);   // the level meters
+}
+
+void ProjectView::toggleRecording()
+{
+    if (recorder->isActive())
+    {
+        recorder->stop();
+        return;
+    }
+
+    const auto problem = recorder->start();
+
+    if (problem.isNotEmpty())
+        showProblem ("Can't record yet", problem);
+}
+
+void ProjectView::showProblem (const juce::String& title, const juce::String& message)
+{
+    messageBox = juce::AlertWindow::showScopedAsync (juce::MessageBoxOptions()
+                                                         .withIconType (juce::MessageBoxIconType::InfoIcon)
+                                                         .withTitle (title)
+                                                         .withMessage (message)
+                                                         .withButton ("OK", 0)
+                                                         .withAssociatedComponent (this),
+                                                     nullptr);
 }
 
 void ProjectView::setMixerVisible (bool shouldBeVisible)
@@ -189,6 +246,8 @@ void ProjectView::chooseFilesToImport (const juce::String& trackId, Tick positio
 ProjectView::~ProjectView()
 {
     stopTimer();
+    recorder = nullptr;   // a recording still running is stopped (its files are kept)
+    timeline->liveRecording = nullptr;
     trackList.onSelectionChanged = nullptr;
     trackViewport.onScroll = nullptr;
 

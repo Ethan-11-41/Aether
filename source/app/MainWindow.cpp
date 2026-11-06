@@ -6,6 +6,7 @@
 #include "CrashReporter.h"
 #include "io/AppFolders.h"
 #include "model/EditCommands.h"
+#include "model/Recording.h"
 #include "model/TimelineEdits.h"
 
 namespace aether
@@ -520,7 +521,7 @@ void MainContent::getAllCommands (juce::Array<juce::CommandID>& list)
                      commands::undo, commands::redo, commands::selectAll,
                      commands::importAudio, commands::splitClips, commands::duplicateClips,
                      commands::nudgeLeft, commands::nudgeRight, commands::nudgeLeftFine, commands::nudgeRightFine,
-                     commands::toggleSnap, commands::toggleMixer, commands::addBus,
+                     commands::toggleSnap, commands::toggleMixer, commands::addBus, commands::record, commands::togglePunch,
                      commands::addAudioTrack, commands::addMidiTrack, commands::renameTrack, commands::deleteTrack,
                      commands::moveTrackUp, commands::moveTrackDown,
                      commands::playStop, commands::stop, commands::goToStart, commands::toggleLoop,
@@ -712,6 +713,22 @@ void MainContent::getCommandInfo (juce::CommandID id, juce::ApplicationCommandIn
             info.setActive (hasProject);
             break;
 
+        case commands::record:
+            info.setInfo ("Record", "Record the armed tracks (the R button on a track arms it). Press again, or Space, "
+                          "to stop.", commands::categories::transport, 0);
+            info.addDefaultKeypress ('r', 0);
+            info.setActive (hasProject);
+            info.setTicked (hasProject && projectView->isRecording());
+            break;
+
+        case commands::togglePunch:
+            info.setInfo ("Punch in/out", "Only record inside the loop region (set it in the strip at the top of the ruler)",
+                          commands::categories::transport, 0);
+            info.addDefaultKeypress ('p', 0);
+            info.setActive (hasProject);
+            info.setTicked (hasProject && (bool) project->getState()[ids::punch]);
+            break;
+
         case commands::goToStart:
             info.setInfo ("Go to start", "Move the playhead to the start of the song", commands::categories::transport, 0);
             info.addDefaultKeypress (KeyPress::homeKey, 0);
@@ -858,8 +875,9 @@ bool MainContent::perform (const InvocationInfo& invocation)
         case commands::playStop:
         {
             const auto status = ctx.engine.getTransportStatus();
-            if (status.playing || status.countingIn) ctx.engine.stop();
-            else                                     ctx.engine.play();
+            if (projectView != nullptr && projectView->isRecording()) projectView->stopRecording();
+            else if (status.playing || status.countingIn)            ctx.engine.stop();
+            else                                                      ctx.engine.play();
             ctx.commands.commandStatusChanged();
             return true;
         }
@@ -867,11 +885,24 @@ bool MainContent::perform (const InvocationInfo& invocation)
         case commands::stop:
         {
             const auto status = ctx.engine.getTransportStatus();
-            if (status.playing || status.countingIn) ctx.engine.stop();
-            else                                     ctx.engine.locate (0);
+            if (projectView != nullptr && projectView->isRecording()) projectView->stopRecording();
+            else if (status.playing || status.countingIn)            ctx.engine.stop();
+            else                                                      ctx.engine.locate (0);
             ctx.commands.commandStatusChanged();
             return true;
         }
+
+        case commands::record:
+            if (projectView != nullptr)
+                projectView->toggleRecording();
+            ctx.commands.commandStatusChanged();
+            return true;
+
+        case commands::togglePunch:
+            if (project != nullptr)
+                edit::setPunch (*project, ! (bool) project->getState()[ids::punch]);
+            ctx.commands.commandStatusChanged();
+            return true;
 
         case commands::goToStart:
             ctx.engine.locate (0);
@@ -990,8 +1021,10 @@ juce::PopupMenu MainContent::getMenuForIndex (int menuIndex, const juce::String&
         menu.addCommandItem (cm, commands::playStop);
         menu.addCommandItem (cm, commands::stop);
         menu.addCommandItem (cm, commands::goToStart);
+        menu.addCommandItem (cm, commands::record);
         menu.addSeparator();
         menu.addCommandItem (cm, commands::toggleLoop);
+        menu.addCommandItem (cm, commands::togglePunch);
         menu.addCommandItem (cm, commands::toggleMetronome);
     }
     else if (menuIndex == 4)

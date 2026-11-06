@@ -10,8 +10,8 @@ namespace aether
 
     "Latency" is the delay between something happening and you hearing it. Smaller buffers mean
     lower latency but more risk of crackles if the computer can't keep up.
-    Note: drivers do not always report their latency correctly. Milestone M5 adds a measurement
-    tool that corrects for this when recording.
+    Note: drivers do not always report their latency correctly, so it can be measured (Audio
+    settings > Measure latency); recordings are then corrected by the measured figure.
 */
 struct LatencyInfo
 {
@@ -21,6 +21,7 @@ struct LatencyInfo
     int outputLatencySamples = 0;
     bool hasInput = true;    // false when no input (e.g. microphone) is selected
     bool hasOutput = true;   // false when no output is selected
+    int measuredRoundTripSamples = -1;   // measured with "Measure latency" (-1 = not measured)
 
     bool isValid() const noexcept { return sampleRate > 0.0; }
 
@@ -28,6 +29,10 @@ struct LatencyInfo
     double inputMs() const noexcept         { return samplesToMs (inputLatencySamples, sampleRate); }
     double outputMs() const noexcept        { return samplesToMs (outputLatencySamples, sampleRate); }
     int roundTripSamples() const noexcept   { return inputLatencySamples + outputLatencySamples; }
+
+    /** What recordings are corrected by: the measured round trip if there is one, otherwise
+        what the driver reports. */
+    int recordingCorrectionSamples() const noexcept   { return measuredRoundTripSamples >= 0 ? measuredRoundTripSamples : roundTripSamples(); }
     double roundTripMs() const noexcept     { return samplesToMs (roundTripSamples(), sampleRate); }
 
     /** Converts a number of samples to milliseconds. Returns 0 for an invalid sample rate. */

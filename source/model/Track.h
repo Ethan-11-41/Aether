@@ -48,6 +48,13 @@ public:
     /** The id of the bus this track plays into, or empty for the master. */
     juce::String getOutput() const          { return state[ids::output].toString(); }
 
+    // Recording (see model/Recording.h)
+    bool isArmed() const                    { return (bool) state[ids::armed]; }
+    bool isMonitoring() const               { return (bool) state[ids::monitor]; }
+    /** The first input channel it records from (0 = input 1), or -1 for none. */
+    int getInputChannel() const             { return state.hasProperty (ids::input) ? (int) state[ids::input] : 0; }
+    bool isInputStereo() const              { return (bool) state[ids::inputStereo]; }
+
     juce::ValueTree getState() const        { return state; }
 
     bool operator== (const Track& other) const   { return state == other.state; }

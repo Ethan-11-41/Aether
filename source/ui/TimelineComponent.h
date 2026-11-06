@@ -31,7 +31,7 @@ namespace aether::ui
 
     Ctrl + mouse wheel zooms, Shift + mouse wheel scrolls sideways, and the mouse wheel on its
     own scrolls the tracks up and down. Positions snap to the grid (hold Alt for exact). The
-    playhead follows playback.
+    view follows the playhead during playback, and when it jumps off screen (e.g. Go to start).
 */
 class TimelineComponent final : public juce::Component,
                                 public juce::FileDragAndDropTarget,
@@ -57,6 +57,19 @@ public:
 
     void zoomIn();
     void zoomOut();
+
+    /** Redraws the playhead where the engine says it is, scrolling to keep it in view (called
+        about 30 times a second). */
+    void updatePlayhead();
+
+    /** A recording in progress, drawn growing on its tracks up to the playhead. */
+    struct LiveRecording
+    {
+        juce::StringArray trackIds;
+        Tick start = 0;
+    };
+
+    std::function<LiveRecording()> liveRecording;
 
     /** Call when the track list scrolls, so the lanes follow. */
     void tracksScrolled();
@@ -165,6 +178,7 @@ private:
     Tick dropTick = 0;
 
     int lastPlayheadX = -1000;
+    Tick lastPlayheadPosition = 0;
     bool updatingScrollBar = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TimelineComponent)

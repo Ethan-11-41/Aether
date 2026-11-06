@@ -58,6 +58,8 @@ namespace commands
         zoomOut             = 0x6007,
         toggleSnap          = 0x6008,
         toggleMixer         = 0x6009,
+        record              = 0x600A,
+        togglePunch         = 0x600B,
 
         // Settings & help
         audioSettings       = 0x4001,

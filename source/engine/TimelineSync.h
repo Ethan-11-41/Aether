@@ -53,6 +53,9 @@ public:
         `channelId` is a track id or mixer::masterId. */
     std::pair<float, float> takeChannelPeaks (const juce::String& channelId)   { return mixerResources.takePeaks (channelId); }
 
+    /** Gives the engine somewhere to record into (or takes it away, with null). */
+    void setRecordingRing (std::shared_ptr<RecordingRing> ring)   { recordRing = std::move (ring); update(); }
+
 private:
     void valueTreePropertyChanged (juce::ValueTree&, const juce::Identifier&) override  { update(); }
     void valueTreeChildAdded (juce::ValueTree&, juce::ValueTree&) override               { update(); }
@@ -67,6 +70,7 @@ private:
     std::function<ProjectLocation()> location;
     juce::ValueTree state;
     MixerResources mixerResources;
+    std::shared_ptr<RecordingRing> recordRing;
 };
 
 } // namespace aether

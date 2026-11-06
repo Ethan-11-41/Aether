@@ -8,6 +8,7 @@
 
 #include "io/AudioImport.h"
 #include "model/ClipEdits.h"
+#include "model/Recording.h"
 #include "model/TimelineEdits.h"
 
 namespace aether::ui
@@ -598,6 +599,31 @@ public:
         for (const auto& box : layoutClips())
             drawClip (g, box);
 
+        // A recording in progress: a red block growing up to the playhead.
+        if (owner.liveRecording)
+        {
+            const auto live = owner.liveRecording();
+            const auto playhead = owner.engine.getTransportStatus().position;
+
+            for (const auto& id : live.trackIds)
+            {
+                const auto row = proj.indexOfTrack (id);
+                if (row < 0)
+                    continue;
+
+                const auto x1 = (float) owner.view.tickToX (live.start);
+                const auto x2 = (float) owner.view.tickToX (std::max (live.start, playhead));
+                const auto area = juce::Rectangle<float> (x1, (float) (row * rowHeight - scrollY) + 2.0f, std::max (2.0f, x2 - x1), (float) rowHeight - 4.0f);
+
+                g.setColour (colours.meterHigh.withAlpha (0.35f));
+                g.fillRoundedRectangle (area, 4.0f);
+                g.setColour (colours.meterHigh);
+                g.drawRoundedRectangle (area, 4.0f, 1.5f);
+                g.setFont (juce::FontOptions (11.5f, juce::Font::bold));
+                g.drawText ("Recording", area.reduced (6.0f, 3.0f), juce::Justification::topLeft, false);
+            }
+        }
+
         // Where dropped files would go.
         if (owner.fileDragActive)
         {
@@ -913,6 +939,7 @@ private:
 
         juce::String title = clip.getName();
         if (clip.isLooping())          title << juce::String::fromUTF8 ("  \xe2\x9f\xb3");   // ⟳
+        if (clip.getNumTakes() > 1)    title << "  take " << (clip.getTake() + 1) << "/" << clip.getNumTakes();
         if (clip.getGainDb() != 0.0)   title << "  " << (clip.getGainDb() > 0 ? "+" : "") << juce::String (clip.getGainDb(), 1) << " dB";
         g.drawText (title, header.reduced (5.0f, 0.0f), juce::Justification::centredLeft, true);
 
@@ -1064,6 +1091,18 @@ private:
             }
 
             menu.addSectionHeader (info);
+        }
+
+        // Loop recording: choose which pass plays.
+        if (clip.getNumTakes() > 1)
+        {
+            juce::PopupMenu takeMenu;
+            for (int t = 0; t < clip.getNumTakes(); ++t)
+                takeMenu.addItem ("Take " + juce::String (t + 1), true, t == clip.getTake(),
+                                  [&proj, id, t] { edit::setClipTake (proj, id, t); });
+
+            menu.addSubMenu ("Takes (" + juce::String (clip.getNumTakes()) + ")", takeMenu);
+            menu.addSeparator();
         }
 
         menu.addItem ("Split at the playhead (S)", [safeOwner] { if (safeOwner) safeOwner->splitClipsAtPlayhead(); });
@@ -1499,11 +1538,20 @@ int TimelineComponent::playheadX() const
 
 void TimelineComponent::timerCallback()
 {
+    updatePlayhead();
+}
+
+void TimelineComponent::updatePlayhead()
+{
     const auto status = engine.getTransportStatus();
     auto x = playheadX();
 
-    // Follow the playhead while playing: when it reaches the right edge, turn the page.
-    if (status.playing && (x > getWidth() - 30 || x < 0))
+    // Follow the playhead while playing: when it reaches the right edge, turn the page. And when
+    // it jumps while stopped (Go to start, Home, nudging) to somewhere off screen, scroll there.
+    const auto jumped = ! status.playing && status.position != lastPlayheadPosition;
+    lastPlayheadPosition = status.position;
+
+    if ((status.playing || jumped) && (x > getWidth() - 30 || x < 0))
     {
         view.setViewStart (std::max<Tick> (0, status.position - view.ticksForWidth (getWidth() * 0.1)));
         x = playheadX();

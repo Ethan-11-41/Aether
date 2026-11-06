@@ -90,6 +90,15 @@ juce::Path IconButton::makeIcon (Icon icon, juce::Rectangle<float> r, bool alt)
         case Icon::record:
             p.addEllipse (r.reduced (w * 0.12f));
             break;
+
+        case Icon::punch:
+        {
+            // Punch in/out: a recording dot between two markers.
+            p.addRectangle (x, y, w * 0.12f, h);
+            p.addRectangle (x + w * 0.88f, y, w * 0.12f, h);
+            p.addEllipse (juce::Rectangle<float> (w * 0.4f, w * 0.4f).withCentre (r.getCentre()));
+            break;
+        }
     }
 
     return p;
@@ -111,7 +120,7 @@ void IconButton::paintButton (juce::Graphics& g, bool isMouseOver, bool isButton
     auto bounds = getLocalBounds().toFloat().reduced (0.5f);
     const auto on = getToggleState();
 
-    auto background = on ? theme.accent : theme.panelRaised;
+    auto background = on ? (icon == Icon::record ? theme.meterHigh : theme.accent) : theme.panelRaised;
     if (! isEnabled())     background = background.withMultipliedAlpha (0.5f);
     else if (isButtonDown) background = background.darker (0.15f);
     else if (isMouseOver)  background = background.brighter (0.08f);

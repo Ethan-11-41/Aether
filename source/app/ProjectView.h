@@ -6,6 +6,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include "AppContext.h"
+#include "engine/Recorder.h"
 #include "engine/TimelineSync.h"
 #include "model/Project.h"
 #include "ui/MixerComponent.h"
@@ -29,6 +30,12 @@ public:
     ui::TimelineComponent& getTimeline() noexcept     { return *timeline; }
     ui::MixerComponent& getMixer() noexcept           { return *mixer; }
     Project& getProject() noexcept                    { return project; }
+
+    /** Starts recording the armed tracks, or stops if already recording. Problems (e.g. no
+        track armed) are explained in a message box. */
+    void toggleRecording();
+    void stopRecording()                              { recorder->stop(); }
+    bool isRecording() const noexcept                 { return recorder->isActive(); }
 
     /** Shows or hides the mixer below the timeline (remembered between sessions). */
     void setMixerVisible (bool shouldBeVisible);
@@ -75,9 +82,12 @@ private:
 
     void timerCallback() override;
 
+    void showProblem (const juce::String& title, const juce::String& message);
+
     AppContext& ctx;
     Project& project;
     TimelineSync timelineSync;
+    std::unique_ptr<Recorder> recorder;
 
     juce::TextButton undoButton, redoButton, addAudioButton, addMidiButton, addBusButton, mixerButton;
     ui::TransportBar transportBar;

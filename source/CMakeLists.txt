@@ -15,12 +15,18 @@ add_library(aether_core STATIC
     engine/AudioFileCache.cpp
     engine/AudioFileCache.h
     engine/AudioEngine.h
+    engine/LatencyProbe.cpp
+    engine/LatencyProbe.h
     engine/Metronome.cpp
     engine/Metronome.h
     engine/MixerResources.cpp
     engine/MixerResources.h
     engine/MixerRouting.cpp
     engine/MixerRouting.h
+    engine/Recorder.cpp
+    engine/Recorder.h
+    engine/RecordingRing.cpp
+    engine/RecordingRing.h
     engine/Resampler.cpp
     engine/Resampler.h
     engine/TestToneGenerator.cpp
@@ -59,6 +65,8 @@ add_library(aether_core STATIC
     model/Mixer.h
     model/Project.cpp
     model/Project.h
+    model/Recording.cpp
+    model/Recording.h
     model/TimelineEdits.cpp
     model/TimelineEdits.h
     model/Track.cpp

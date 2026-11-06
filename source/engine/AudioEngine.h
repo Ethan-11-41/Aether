@@ -7,6 +7,7 @@
 
 #include <juce_audio_devices/juce_audio_devices.h>
 
+#include "LatencyProbe.h"
 #include "Metronome.h"
 #include "TestToneGenerator.h"
 #include "TimelineSnapshot.h"
@@ -26,10 +27,19 @@ struct TransportStatus
     int countInBeatsLeft = 0;
 };
 
+/** What recording is doing, as reported by the audio thread. */
+struct RecordingStatus
+{
+    bool recording = false;
+    std::int64_t startSample = 0;     // where on the timeline (samples) the recording began
+    std::int64_t frames = 0;          // how much has been recorded so far
+    std::uint32_t completed = 0;      // goes up by one each time a recording ends
+};
+
 /** A transport instruction from the UI thread to the audio thread. */
 struct TransportCommand
 {
-    enum class Type { play, stop, locate };
+    enum class Type { play, stop, locate, record };
     Type type = Type::stop;
     Tick position = 0;
 };
@@ -66,6 +76,14 @@ public:
     void play();
     void stop();
     void locate (Tick position);
+
+    /** Starts recording (after the count-in, if there is one; straight away if already playing)
+        into the timeline's record ring (see TimelineSnapshot::recordRing). */
+    void record();
+    RecordingStatus getRecordingStatus() const noexcept;
+
+    /** Starts a latency measurement (it replaces the normal output for a few seconds). */
+    void startLatencyCapture (std::shared_ptr<LatencyCapture> capture);
 
     void setMetronomeEnabled (bool shouldClick) noexcept   { metronomeEnabled.store (shouldClick, std::memory_order_relaxed); }
     bool isMetronomeEnabled() const noexcept               { return metronomeEnabled.load (std::memory_order_relaxed); }
@@ -116,9 +134,19 @@ private:
     using Command = TransportCommand;
 
     static constexpr int maxOutputChannels = 64;
+    static constexpr int maxInputChannels = 64;
+
+    /** A latency measurement waiting for (or being run by) the audio thread. */
+    struct ProbeJob
+    {
+        std::shared_ptr<LatencyCapture> capture;
+    };
 
     void handleCommands (const TimelineSnapshot& timeline) noexcept AETHER_NONBLOCKING;
-    void processChunk (const TimelineSnapshot& timeline, float* const* outputs, int numOutputs, int numSamples) noexcept AETHER_NONBLOCKING;
+    void processChunk (const TimelineSnapshot& timeline, const float* const* inputs, int numInputs,
+                       float* const* outputs, int numOutputs, int numSamples) noexcept AETHER_NONBLOCKING;
+    void stopRecording() noexcept AETHER_NONBLOCKING;
+    void monitorInputs (const TimelineSnapshot& timeline, const float* const* inputs, int numInputs, int numSamples) noexcept AETHER_NONBLOCKING;
     void startCountIn (const TimelineSnapshot& timeline) noexcept AETHER_NONBLOCKING;
     int runCountIn (int numSamples) noexcept AETHER_NONBLOCKING;
     void runPlayback (const TimelineSnapshot& timeline, int blockOffset, int numSamples) noexcept AETHER_NONBLOCKING;
@@ -140,6 +168,7 @@ private:
 
     // Shared with the UI thread
     rt::SnapshotExchange<TimelineSnapshot> timelineExchange;
+    rt::SnapshotExchange<ProbeJob> probeExchange;
     rt::SpscQueue<Command> commands { 256 };
     std::atomic<bool> metronomeEnabled { false };
     std::atomic<float> metronomeLevelDb { -6.0f };
@@ -150,12 +179,18 @@ private:
     std::atomic<bool> reportPlaying { false }, reportCountingIn { false };
     std::atomic<std::int64_t> reportTick { 0 };
     std::atomic<int> reportCountInBeatsLeft { 0 };
+    std::atomic<bool> reportRecording { false };
+    std::atomic<std::int64_t> reportRecordStart { 0 }, reportRecordedFrames { 0 };
+    std::atomic<std::uint32_t> reportRecordingsCompleted { 0 };
     std::array<std::atomic<float>, numMeteredChannels> outputPeaks {};
     std::array<std::atomic<float>, numMeteredChannels> inputPeaks {};
 
     // Audio thread only
     bool playing = false;
     bool countingIn = false;
+    bool recordPending = false;               // start recording as soon as playback starts
+    RecordingRing* recordingInto = nullptr;   // while recording (kept alive by the snapshot)
+    std::int64_t recordedFrames = 0;
     std::int64_t positionSamples = 0;   // the playhead, in samples from the start of the timeline
     double countInSamplesPerBeat = 0.0;
     int countInTotalBeats = 0, countInBeatsPerBar = 4;

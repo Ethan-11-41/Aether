@@ -4,11 +4,11 @@ A free, open-source digital audio workstation (DAW) for Windows: record, arrange
 music, in the spirit of GarageBand, FL Studio, LMMS and Reaper. Beginner-friendly on the surface,
 with deep customisation underneath.
 
-> **Status: early development (Milestone 4 of 30).** Aether can create, save and open projects
+> **Status: early development (Milestone 5 of 30).** Aether can create, save and open projects
 > with full undo/redo, autosave and crash recovery; play with tempo changes, time signatures,
-> looping and a metronome; import, arrange and edit audio clips on a snap grid; and mix them
-> with volume, pan, mute, solo, buses, sends and two simple effects. It can't record yet
-> (milestone M5). See [docs/STATUS.md](docs/STATUS.md)
+> looping and a metronome; record audio (with latency compensation, punch in/out and loop
+> takes); import, arrange and edit audio clips on a snap grid; and mix them with volume, pan,
+> mute, solo, buses, sends and two simple effects. MIDI and instruments come next (M6). See [docs/STATUS.md](docs/STATUS.md)
 > for exactly what works, and [docs/ROADMAP.md](docs/ROADMAP.md) for what's coming.
 
 ---
@@ -47,7 +47,9 @@ See [docs/FILE_FORMAT.md](docs/FILE_FORMAT.md).
 | Move the selected track up / down | Ctrl+Up / Ctrl+Down |
 | Select the track above / below | Up / Down |
 | Play / pause | Space |
-| Go to start | Home (or Stop while stopped) |
+| Record / stop recording | R / R or Space |
+| Punch in/out on/off | P |
+| Go to start (also scrolls back to the start) | Home (or Stop while stopped) |
 | Loop on/off / metronome on/off | L / K |
 | Zoom in / out | Ctrl+= / Ctrl+- (or Ctrl + mouse wheel) |
 | Scroll the timeline sideways | Shift + mouse wheel |

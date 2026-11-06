@@ -86,11 +86,19 @@ Separate process:   plug-in scanner
 - The engine's timeline snapshot lists every clip with all positions in samples at the engine's
   rate, plus shared pointers that keep its audio alive; snapshots are freed on the UI thread.
 - Streaming from disk for very large projects is planned for M29.
-- Recording: the audio thread copies input into a lock-free queue; a writer thread saves WAV
-  files in the project's `Audio/` folder, updating the file header every second or two so that a
-  crash loses almost nothing.
-- Latency compensation: recorded clips are moved earlier by the driver-reported input + output
-  latency plus a correction measured by a built-in loopback test (drivers often misreport).
+- Recording (`engine/Recorder`, `engine/RecordingRing`): the audio thread copies the chosen
+  inputs into a lock-free ring (`RecordingRing`, part of the engine snapshot so it can't be freed
+  while in use); a writer thread saves one 24-bit WAV per armed track in the project's `Audio/`
+  folder, updating the header every second so a crash loses at most a second. Each recording is
+  one continuous file, even through loop jumps.
+- When recording stops, `recording::place` (`model/Recording`) works out where the clip goes:
+  latency compensation, punch range, and loop takes (each pass is a take: the clip's offset
+  moves by whole loop lengths to choose one). The clips are added in one undo step, replacing
+  what was under them.
+- Latency compensation: recorded clips read their file `latency` samples in, where latency is the
+  round trip measured by `engine/LatencyProbe` (chirps out, matched against the input by
+  cross-correlation), or the driver's figure until measured. Measurements are kept per device
+  setting.
 
 ### Mixer
 - Tracks → buses → master, with pre- or post-fader sends. Feedback loops are refused when

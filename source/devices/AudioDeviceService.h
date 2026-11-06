@@ -40,8 +40,16 @@ public:
     void addAudioCallback (juce::AudioIODeviceCallback* callback);
     void removeAudioCallback (juce::AudioIODeviceCallback* callback);
 
-    /** Latency of the currently open device (invalid if no device is open). */
+    /** Latency of the currently open device (invalid if no device is open), including the
+        measured round trip if this exact setting (driver, devices, sample rate, buffer size)
+        has been measured. */
     LatencyInfo getLatencyInfo() const;
+
+    /** Remembers a measured round trip for the current setting (-1 forgets it). */
+    void setMeasuredRoundTrip (int samples);
+
+    /** How many inputs the current device has switched on. */
+    int getNumInputChannels() const;
 
     /** e.g. "Windows Audio · Speakers (Realtek(R) Audio) · 48 kHz". Empty if no device is open. */
     juce::String describeCurrentDevice() const;
@@ -89,6 +97,7 @@ private:
     };
 
     void changeListenerCallback (juce::ChangeBroadcaster*) override;
+    juce::String measuredLatencyKey() const;
     void restoreLastWorkingConfig (const juce::String& failedTypeName, const juce::String& driverError);
 
     juce::PropertySet& settings;

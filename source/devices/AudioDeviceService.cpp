@@ -65,9 +65,48 @@ LatencyInfo AudioDeviceService::getLatencyInfo() const
         info.hasOutput = ! device->getActiveOutputChannels().isZero();
         info.inputLatencySamples = info.hasInput ? device->getInputLatencyInSamples() : 0;
         info.outputLatencySamples = info.hasOutput ? device->getOutputLatencyInSamples() : 0;
+
+        const auto key = measuredLatencyKey();
+        if (key.isNotEmpty() && settings.containsKey (key))
+            info.measuredRoundTripSamples = settings.getIntValue (key, -1);
     }
 
     return info;
+}
+
+juce::String AudioDeviceService::measuredLatencyKey() const
+{
+    auto* device = deviceManager.getCurrentAudioDevice();
+
+    if (device == nullptr)
+        return {};
+
+    // A measurement only applies to exactly the setting it was made with.
+    const auto setup = deviceManager.getAudioDeviceSetup();
+    return "measuredLatency|" + deviceManager.getCurrentAudioDeviceType() + "|" + setup.inputDeviceName + "|"
+         + setup.outputDeviceName + "|" + juce::String (device->getCurrentSampleRate()) + "|"
+         + juce::String (device->getCurrentBufferSizeSamples());
+}
+
+void AudioDeviceService::setMeasuredRoundTrip (int samples)
+{
+    const auto key = measuredLatencyKey();
+
+    if (key.isEmpty())
+        return;
+
+    if (samples < 0)
+        settings.removeValue (key);
+    else
+        settings.setValue (key, samples);
+}
+
+int AudioDeviceService::getNumInputChannels() const
+{
+    if (auto* device = deviceManager.getCurrentAudioDevice())
+        return device->getActiveInputChannels().countNumberOfSetBits();
+
+    return 0;
 }
 
 juce::String AudioDeviceService::describeCurrentDevice() const

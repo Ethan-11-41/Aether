@@ -68,7 +68,9 @@ TransportBar::TransportBar (const Theme& themeToUse, Project& projectToControl, 
       toStartButton (themeToUse, IconButton::Icon::toStart, "Go to start"),
       stopButton (themeToUse, IconButton::Icon::stop, "Stop"),
       playButton (themeToUse, IconButton::Icon::play, "Play"),
+      recordButton (themeToUse, IconButton::Icon::record, "Record"),
       loopButton (themeToUse, IconButton::Icon::loop, "Loop"),
+      punchButton (themeToUse, IconButton::Icon::punch, "Punch in/out"),
       metronomeButton (themeToUse, IconButton::Icon::metronome, "Metronome"),
       positionDisplay (std::make_unique<PositionDisplay> (themeToUse)),
       tempoField (themeToUse, TempoMap::minBpm, TempoMap::maxBpm, 1, "BPM")
@@ -76,7 +78,9 @@ TransportBar::TransportBar (const Theme& themeToUse, Project& projectToControl, 
     for (auto [button, command] : { std::pair { &toStartButton, commands::goToStart },
                                     std::pair { &stopButton, commands::stop },
                                     std::pair { &playButton, commands::playStop },
+                                    std::pair { &recordButton, commands::record },
                                     std::pair { &loopButton, commands::toggleLoop },
+                                    std::pair { &punchButton, commands::togglePunch },
                                     std::pair { &metronomeButton, commands::toggleMetronome } })
     {
         button->setCommandToTrigger (&commandManager, command, true);
@@ -212,13 +216,13 @@ void TransportBar::resized()
     auto area = getLocalBounds();
     constexpr int button = 38, gap = 6;
 
-    for (auto* b : { &toStartButton, &stopButton, &playButton, &loopButton, &metronomeButton })
+    for (auto* b : { &toStartButton, &stopButton, &playButton, &recordButton, &loopButton, &punchButton, &metronomeButton })
     {
         b->setBounds (area.removeFromLeft (button).withSizeKeepingCentre (button, button - 4));
         area.removeFromLeft (gap);
     }
 
-    countInBox.setBounds (area.removeFromLeft (130).withSizeKeepingCentre (130, 30));
+    countInBox.setBounds (area.removeFromLeft (118).withSizeKeepingCentre (118, 30));
     area.removeFromLeft (gap * 3);
     positionDisplay->setBounds (area.removeFromLeft (120).withSizeKeepingCentre (120, 40));
     area.removeFromLeft (gap);

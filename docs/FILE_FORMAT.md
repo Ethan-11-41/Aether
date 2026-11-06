@@ -138,6 +138,19 @@ A `Track`'s `kind` can now also be `"bus"`. Projects without a `Master` node get
 | | (settings) | One property per setting, named as in `source/dsp/EffectTypes.cpp`: reverb `size`, `damping`, `width`, `mix` (percent); delay `time` (index into 1/32, 1/16 T, 1/16, 1/8 T, 1/16 D, 1/8, 1/4 T, 1/8 D, 1/4, 1/4 D, 1/2), `feedback` (%), `tone` (Hz), `pingPong` (0/1), `mix` (%). |
 | `Master` | `volume` | The master volume in dB. |
 
+### Added in Aether 0.6.0 (still format version 1)
+
+| Node | Property | Meaning |
+|---|---|---|
+| `Project` | `punch` | `true`: recording only keeps what's inside the loop region. Default `false`. |
+| `Track` | `armed` | `true`: the track records when Record is pressed. Default `false`. |
+| | `monitor` | `true`: the track's input is heard through it. Default `false`. |
+| | `input` | The input it records from: 0 = input 1, 1 = input 2, ...; -1 = none. Default 0. |
+| | `inputStereo` | `true`: that input and the next one, as a stereo pair. Default `false`. |
+| `Clip` | `takes` | Loop recording: how many passes (takes) its file holds. Default 1. |
+| | `takeLength` | Samples (of the file) from one take to the next. |
+| | `take` | Which take the clip plays, from 0. Choosing another take moves `offset` by whole `takeLength`s. |
+
 ## Rules for changing the format
 
 1. Never rename or reuse a node type or property name (see `source/model/Ids.h`).
