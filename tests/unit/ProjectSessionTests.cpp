@@ -3,6 +3,7 @@
 
 #include "io/ProjectSession.h"
 #include "model/EditCommands.h"
+#include "model/TimelineEdits.h"
 
 using namespace aether;
 
@@ -169,4 +170,34 @@ TEST_CASE ("Opening a bad file leaves the current project open", "[session]")
     CHECK (session.open (junk).failed());
     REQUIRE (session.hasProject());
     CHECK (session.getProject()->getName() == "Keep Me");
+}
+
+TEST_CASE ("Tempo, time signature and loop changes survive save, close and reopen", "[session][timeline]")
+{
+    Fixture f;
+    juce::File file;
+
+    {
+        ProjectSession session (f.settings, f.recent, 0);
+        REQUIRE (session.createNew (f.folder, "Timeline Song").wasOk());
+        auto& project = *session.getProject();
+        edit::setTempo (project, 0, 93.0);
+        edit::addTempoChange (project, 16 * ticksPerQuarter, 140.0);
+        edit::setTimeSignature (project, 0, 3, 4);
+        edit::setLoopRange (project, 4 * ticksPerQuarter, 8 * ticksPerQuarter);
+        edit::setLoopEnabled (project, true);
+        REQUIRE (session.save().wasOk());
+        file = session.getLocation().getMainFile();
+        session.close();
+    }
+
+    INFO (file.loadFileAsString());
+    ProjectSession session (f.settings, f.recent, 0);
+    REQUIRE (session.open (file).wasOk());
+    const auto map = timeline::buildTempoMap (*session.getProject());
+    CHECK (map.tempoAt (0) == 93.0);
+    CHECK (map.getTempoPoints().size() == 2);
+    CHECK (map.getTimeSignatures().front().numerator == 3);
+    CHECK (timeline::getLoop (*session.getProject()).enabled);
+    CHECK (timeline::getLoop (*session.getProject()).start == 4 * ticksPerQuarter);
 }

@@ -78,11 +78,15 @@ with no gap. Close and reopen Aether: the metronome and count-in settings are re
 2. **Shift** + mouse wheel scrolls sideways; the scroll bar at the bottom also works. The mouse
    wheel on its own scrolls the tracks up and down (when there are more than fit).
 
-## 7. Undo, save
+## 7. Save, then undo
 
-1. Press **Ctrl+Z** several times: tempo, signature and loop changes are undone one at a time.
-   A whole drag is undone in one step.
-2. Save, close and reopen: tempo changes, signatures and the loop are all still there.
+1. With some tempo, signature and loop changes made, save (Ctrl+S), close Aether and reopen the
+   project: the tempo changes, signatures and the loop are all still there.
+2. Now make a few more changes and press **Ctrl+Z** several times: they are undone one at a time
+   (a whole drag is undone in one step). Ctrl+Y redoes them.
+
+(An earlier version of this checklist had these two steps the other way round, so the changes
+were undone before saving. Saving keeps whatever is on screen at the time.)
 
 ## Reporting back
 
