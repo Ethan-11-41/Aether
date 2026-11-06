@@ -133,6 +133,12 @@ Separate process:   plug-in scanner
   thread) and are placed in the next block by their arrival time. While recording they are also
   passed, numbered like samples of the recording, to the Recorder, which turns them into notes.
 
+- The piano roll (`ui/PianoRoll`) edits notes through `model/NoteEdits`, which refers to notes
+  by their ValueTree nodes: a node stays the same object through edits, undo and redo, so the
+  selection survives them. Note preview uses its own queue (`AudioEngine::sendPreviewNote`),
+  matched on the audio thread by a hash of the track id in the snapshot, so a previewed note only
+  reaches that track's instrument and is never recorded.
+
 ### Mixer
 - Tracks → buses → master, with pre- or post-fader sends. Feedback loops are refused when
   editing, and broken if a hand-edited file contains one (`engine/MixerRouting`).

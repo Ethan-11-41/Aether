@@ -32,7 +32,7 @@ how quickly testing rounds come back. It will keep being updated.
 
 | # | Milestone |
 |---|---|
-| M9 | Piano roll (in its own window): click to add notes, hear them as you edit, velocity, length, quantize (strength, swing), humanize, scale highlighting |
+| ✅ **M9** | Piano roll (in its own window): click to add notes, hear them as you edit, velocity, length, quantize (strength, swing), humanize, scale highlighting |
 | M10 | Subtractive synth |
 | M11 | Drum sampler + step sequencer; patterns on the timeline; custom kits (per-pad tune, volume, pan, envelope, choke groups) |
 | M12 | Multi-sample sampler (key zones, velocity layers, ADSR) |

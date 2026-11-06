@@ -4,14 +4,15 @@ A free, open-source digital audio workstation (DAW) for Windows: record, arrange
 music, in the spirit of GarageBand, FL Studio, LMMS and Reaper. Beginner-friendly on the surface,
 with deep customisation underneath.
 
-> **Status: early development (Milestone 8 of 30: Phase 1, the core, is complete).** Aether can
-> create, save and open projects with full undo/redo, autosave and crash recovery; play with
+> **Status: early development (Milestone 9 of 30; Phase 1, the core, is complete).** Aether
+> can create, save and open projects with full undo/redo, autosave and crash recovery; play with
 > tempo changes, time signatures, looping and a metronome; record audio (with latency
 > compensation, punch in/out and loop takes) and MIDI from a keyboard (or the on-screen one)
-> into MIDI tracks played by a starter synth; import, arrange, copy and paste audio and MIDI clips
-> on a snap grid; import MIDI files; mix with volume, pan, mute, solo, buses, sends and two simple
-> effects; and export the mix and stems to WAV, FLAC or MP3. Next: Phase 2, starting with the
-> piano roll (M9). See [docs/STATUS.md](docs/STATUS.md) for exactly what works, and
+> into MIDI tracks played by a starter synth; write and edit notes in a piano roll (with
+> quantize, swing, humanize and scale highlighting); import, arrange, copy and paste audio and
+> MIDI clips on a snap grid; import MIDI files; mix with volume, pan, mute, solo, buses, sends and
+> two simple effects; and export the mix and stems to WAV, FLAC or MP3. Next: a subtractive synth
+> (M10). See [docs/STATUS.md](docs/STATUS.md) for exactly what works, and
 > [docs/ROADMAP.md](docs/ROADMAP.md) for what's coming.
 
 ---
@@ -65,6 +66,9 @@ See [docs/FILE_FORMAT.md](docs/FILE_FORMAT.md).
 | Select all clips / add a clip to the selection | Ctrl+A / Ctrl+click |
 | Select clips with a box / deselect | drag on an empty part of the timeline / Esc |
 | Copy / cut / paste clips (paste goes to the playhead, on the selected track) | Ctrl+C / Ctrl+X / Ctrl+V |
+| Edit a MIDI clip's notes in the piano roll / make a new MIDI clip | double-click the clip / an empty part of a MIDI track |
+| Piano roll: add / delete a note | click an empty place / right-click the note |
+| Piano roll: transpose / quantize / duplicate | Up, Down (Shift: octave) / Q / Ctrl+D |
 | Nudge selected clips one grid step / 10 ms | Left, Right / Shift+Left, Shift+Right |
 | Snap to grid on/off | G |
 | Audio settings | Ctrl+, |

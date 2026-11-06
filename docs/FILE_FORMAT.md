@@ -165,6 +165,15 @@ MIDI tracks without an `Instrument` get the starter synth when opened.
 | `Instrument` | `id`, `type`, `preset` | Inside a MIDI track: what plays its notes (`"synth"`), and the last preset chosen. |
 | | (settings) | Like an effect's (see `source/dsp/EffectTypes.cpp`): `tone`, `detune`, `sub`, `cutoff`, `resonance`, `envelope`, `attack`, `decay`, `sustain`, `release`, `touch`, `volume`. |
 
+### Added in Aether 0.10.0 (still format version 1)
+
+| Node | Property | Meaning |
+|---|---|---|
+| (the project) | `songKey` | The song's key for scale highlighting: 0 = C, 1 = C#, ... 11 = B. Default 0. |
+| | `scale` | The scale highlighted in the piano roll: `"off"` (default), `"major"`, `"minor"`, `"harmonicMinor"`, `"dorian"`, `"mixolydian"`, `"pentatonicMajor"`, `"pentatonicMinor"`, `"blues"` or `"chromatic"`. Unknown values count as `"off"`. |
+
+The timeline's snap setting (in the settings file, not the project) can also be `"thirtySecond"`.
+
 ## Rules for changing the format
 
 1. Never rename or reuse a node type or property name (see `source/model/Ids.h`).
