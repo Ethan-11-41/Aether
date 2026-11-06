@@ -33,17 +33,17 @@ MixerComponent::Strip::Strip (MixerComponent& ownerToUse, juce::String id)
       fader (owner.theme, true),
       meter (owner.theme, true)
 {
-    auto& project = owner.project;
+    auto& proj = owner.project;
     const auto id_ = channelId;
     auto groupOf = [this] { return group(); };
 
-    connectVolume (fader, project, [id_] { return id_; }, groupOf);
+    connectVolume (fader, proj, [id_] { return id_; }, groupOf);
     addAndMakeVisible (fader);
     addAndMakeVisible (meter);
 
     if (! isMaster())
     {
-        connectPan (pan, project, [id_] { return id_; }, groupOf);
+        connectPan (pan, proj, [id_] { return id_; }, groupOf);
 
         mute.isOn = [this] { return owner.project.findTrack (channelId).isMuted(); };
         mute.onClick = [this] { edit::setMuted (owner.project, group(), ! owner.project.findTrack (channelId).isMuted()); };
@@ -92,40 +92,40 @@ void MixerComponent::Strip::resized()
 
 void MixerComponent::Strip::paint (juce::Graphics& g)
 {
-    const auto& theme = owner.theme;
-    auto& project = owner.project;
-    const auto track = project.findTrack (channelId);
+    const auto& colours = owner.theme;
+    auto& proj = owner.project;
+    const auto track = proj.findTrack (channelId);
     const auto selected = ! isMaster() && owner.trackList.isTrackSelected (channelId);
 
-    g.fillAll (selected ? theme.panelRaised : theme.panel);
-    g.setColour (theme.outline);
+    g.fillAll (selected ? colours.panelRaised : colours.panel);
+    g.setColour (colours.outline);
     g.drawVerticalLine (getWidth() - 1, 0.0f, (float) getHeight());
 
     if (selected)
     {
-        g.setColour (theme.accent.withAlpha (0.6f));
+        g.setColour (colours.accent.withAlpha (0.6f));
         g.drawRect (getLocalBounds().withTrimmedRight (1), 1);
     }
 
     // Name, under a bar of the track's colour.
-    const auto colour = isMaster() ? theme.accent : track.getColour();
+    const auto colour = isMaster() ? colours.accent : track.getColour();
     g.setColour (colour);
     g.fillRect (0, 0, getWidth() - 1, 3);
-    g.setColour (theme.text);
+    g.setColour (colours.text);
     g.setFont (juce::FontOptions (12.5f, juce::Font::bold));
     g.drawText (isMaster() ? juce::String ("Master") : track.getName() + (track.isBus() ? juce::String (" (bus)") : juce::String()),
                 nameArea().reduced (6, 0).withTrimmedTop (3), juce::Justification::centred, true);
 
     auto label = [&] (const juce::String& text, int y)
     {
-        g.setColour (theme.textDim.withAlpha (0.8f));
+        g.setColour (colours.textDim.withAlpha (0.8f));
         g.setFont (juce::FontOptions (9.0f, juce::Font::bold));
         g.drawText (text, 6, y, getWidth() - 12, labelHeight, juce::Justification::centredLeft);
     };
 
     // Effects.
     label ("EFFECTS", nameHeight);
-    const auto inserts = mixer::insertsOf (project, channelId);
+    const auto inserts = mixer::insertsOf (proj, channelId);
 
     for (int i = 0; i < mixer::maxInsertsPerChannel; ++i)
     {
@@ -136,24 +136,24 @@ void MixerComponent::Strip::paint (juce::Graphics& g)
             const auto bypassed = (bool) inserts[(size_t) i][ids::bypass];
             const auto* type = dsp::findEffectType (inserts[(size_t) i][ids::type].toString());
 
-            g.setColour (theme.panelRaised.brighter (0.08f));
+            g.setColour (colours.panelRaised.brighter (0.08f));
             g.fillRoundedRectangle (area.toFloat(), 3.0f);
 
             // The on/off light.
             const auto light = juce::Rectangle<float> (7.0f, 7.0f).withCentre ({ (float) area.getX() + powerWidth * 0.5f, (float) area.getCentreY() });
-            g.setColour (bypassed ? theme.outline : theme.accent);
+            g.setColour (bypassed ? colours.outline : colours.accent);
             g.fillEllipse (light);
 
-            g.setColour (bypassed ? theme.textDim : theme.text);
+            g.setColour (bypassed ? colours.textDim : colours.text);
             g.setFont (juce::FontOptions (11.0f));
             g.drawText (type != nullptr ? type->name : juce::String ("(unknown)"), area.withTrimmedLeft (powerWidth),
                         juce::Justification::centredLeft, true);
         }
         else if (i == (int) inserts.size())
         {
-            g.setColour (theme.outline);
+            g.setColour (colours.outline);
             g.drawRoundedRectangle (area.toFloat().reduced (0.5f), 3.0f, 1.0f);
-            g.setColour (theme.textDim);
+            g.setColour (colours.textDim);
             g.setFont (juce::FontOptions (11.0f));
             g.drawText ("+ Effect", area, juce::Justification::centred);
         }
@@ -163,7 +163,7 @@ void MixerComponent::Strip::paint (juce::Graphics& g)
     {
         // Sends: the bus's name, with a bar showing the level.
         label ("SENDS", sendsLabelTop);
-        const auto sends = mixer::sendsOf (project, channelId);
+        const auto sends = mixer::sendsOf (proj, channelId);
 
         for (int i = 0; i < maxVisibleSends; ++i)
         {
@@ -173,29 +173,29 @@ void MixerComponent::Strip::paint (juce::Graphics& g)
             {
                 const auto& send = sends[(size_t) i];
                 const auto level = (double) send[ids::level];
-                const auto bus = project.findTrack (send[ids::target].toString());
+                const auto bus = proj.findTrack (send[ids::target].toString());
 
-                g.setColour (theme.meterBackground);
+                g.setColour (colours.meterBackground);
                 g.fillRoundedRectangle (area.toFloat(), 3.0f);
                 g.setColour (bus.getColour().withAlpha (0.45f));
                 g.fillRoundedRectangle (area.toFloat().withWidth ((float) (area.getWidth() * mixer::volumeToFaderPosition (level))), 3.0f);
 
-                g.setColour (theme.text);
+                g.setColour (colours.text);
                 g.setFont (juce::FontOptions (11.0f));
                 auto text = area.reduced (4, 0);
                 if ((bool) send[ids::preFader])
                 {
-                    g.setColour (theme.warning);
+                    g.setColour (colours.warning);
                     g.drawText ("PRE", text.removeFromRight (24), juce::Justification::centredRight);
-                    g.setColour (theme.text);
+                    g.setColour (colours.text);
                 }
                 g.drawText (bus.getName(), text, juce::Justification::centredLeft, true);
             }
             else if (i == (int) sends.size())
             {
-                g.setColour (theme.outline);
+                g.setColour (colours.outline);
                 g.drawRoundedRectangle (area.toFloat().reduced (0.5f), 3.0f, 1.0f);
-                g.setColour (theme.textDim);
+                g.setColour (colours.textDim);
                 g.setFont (juce::FontOptions (11.0f));
                 g.drawText ("+ Send", area, juce::Justification::centred);
             }
@@ -204,47 +204,47 @@ void MixerComponent::Strip::paint (juce::Graphics& g)
 
     // Output.
     const auto output = outputArea();
-    g.setColour (theme.panelRaised);
+    g.setColour (colours.panelRaised);
     g.fillRoundedRectangle (output.toFloat(), 3.0f);
-    g.setColour (isMaster() ? theme.textDim : theme.text);
+    g.setColour (isMaster() ? colours.textDim : colours.text);
     g.setFont (juce::FontOptions (11.0f));
     const auto outputName = isMaster() ? juce::String ("Speakers")
                           : track.getOutput().isEmpty() ? juce::String ("Master")
-                          : project.findTrack (track.getOutput()).getName();
+                          : proj.findTrack (track.getOutput()).getName();
     g.drawText (juce::String (juce::CharPointer_UTF8 ("\xe2\x86\x92 ")) + outputName, output.reduced (4, 0),
                 juce::Justification::centredLeft, true);
 
     if (! isMaster())
     {
         // The pan value next to the knob.
-        g.setColour (theme.textDim);
+        g.setColour (colours.textDim);
         g.setFont (juce::FontOptions (11.0f));
         g.drawText (mixer::formatPan (track.getPan()), getWidth() / 2 + 2, panTop, getWidth() / 2 - 6, panHeight,
                     juce::Justification::centredLeft);
     }
 
     // Volume, in dB.
-    g.setColour (theme.text);
+    g.setColour (colours.text);
     g.setFont (juce::FontOptions (11.5f));
-    g.drawText (mixer::formatVolume (mixer::getVolumeDb (project, channelId)),
+    g.drawText (mixer::formatVolume (mixer::getVolumeDb (proj, channelId)),
                 0, getHeight() - readoutHeight, getWidth(), readoutHeight, juce::Justification::centred);
 }
 
 MixerComponent::Strip::Hit MixerComponent::Strip::hitTestAreas (juce::Point<int> p) const
 {
-    auto& project = owner.project;
+    auto& proj = owner.project;
 
     if (nameArea().contains (p))
         return { Area::name, -1 };
 
-    const auto inserts = (int) mixer::insertsOf (project, channelId).size();
+    const auto inserts = (int) mixer::insertsOf (proj, channelId).size();
     for (int i = 0; i < mixer::maxInsertsPerChannel; ++i)
         if (insertArea (i).contains (p))
             return i < inserts ? Hit { Area::insert, i } : i == inserts ? Hit { Area::addInsert, i } : Hit {};
 
     if (! isMaster())
     {
-        const auto sends = (int) mixer::sendsOf (project, channelId).size();
+        const auto sends = (int) mixer::sendsOf (proj, channelId).size();
         for (int i = 0; i < maxVisibleSends; ++i)
             if (sendArea (i).contains (p))
                 return i < sends ? Hit { Area::send, i } : i == sends ? Hit { Area::addSend, i } : Hit {};
@@ -280,7 +280,7 @@ void MixerComponent::Strip::mouseMove (const juce::MouseEvent& e)
 
 void MixerComponent::Strip::mouseDown (const juce::MouseEvent& e)
 {
-    auto& project = owner.project;
+    auto& proj = owner.project;
     const auto hit = hitTestAreas (e.getPosition());
     const auto popup = e.mods.isPopupMenu();
     draggingSendId = {};
@@ -304,15 +304,15 @@ void MixerComponent::Strip::mouseDown (const juce::MouseEvent& e)
 
         case Area::insert:
         {
-            const auto insert = mixer::insertsOf (project, channelId)[(size_t) hit.index];
+            const auto insert = mixer::insertsOf (proj, channelId)[(size_t) hit.index];
             const auto insertId = insert[ids::id].toString();
 
             if (popup)
                 showInsertMenu (insertId);
             else if (e.x < insertArea (hit.index).getX() + powerWidth)
-                edit::setInsertBypassed (project, insertId, ! (bool) insert[ids::bypass]);
+                edit::setInsertBypassed (proj, insertId, ! (bool) insert[ids::bypass]);
             else
-                EffectEditor::show (owner.theme, project, insertId, localAreaToGlobal (insertArea (hit.index)));
+                EffectEditor::show (owner.theme, proj, insertId, localAreaToGlobal (insertArea (hit.index)));
             break;
         }
 
@@ -322,7 +322,7 @@ void MixerComponent::Strip::mouseDown (const juce::MouseEvent& e)
 
         case Area::send:
         {
-            const auto send = mixer::sendsOf (project, channelId)[(size_t) hit.index];
+            const auto send = mixer::sendsOf (proj, channelId)[(size_t) hit.index];
 
             if (popup)
             {
@@ -332,7 +332,7 @@ void MixerComponent::Strip::mouseDown (const juce::MouseEvent& e)
             {
                 draggingSendId = send[ids::id].toString();
                 sendDragStart = mixer::volumeToFaderPosition ((double) send[ids::level]);
-                project.getUndoManager().beginNewTransaction ("Change send level");
+                proj.getUndoManager().beginNewTransaction ("Change send level");
             }
             break;
         }
@@ -383,8 +383,8 @@ namespace
 
 void MixerComponent::Strip::showInsertMenu (const juce::String& insertId)
 {
-    auto& project = owner.project;
-    const auto insert = mixer::findInsert (project, insertId);
+    auto& proj = owner.project;
+    const auto insert = mixer::findInsert (proj, insertId);
     const auto index = insert.getParent().indexOf (insert);
     const auto count = insert.getParent().getNumChildren();
     const auto bypassed = (bool) insert[ids::bypass];
@@ -395,31 +395,31 @@ void MixerComponent::Strip::showInsertMenu (const juce::String& insertId)
         EffectEditor::show (owner.theme, owner.project, insertId, localAreaToGlobal (insertArea (index)));
     }));
     menu.addItem (bypassed ? "Switch on" : "Switch off",
-                  whileStripExists (this, [&project, insertId, bypassed] { edit::setInsertBypassed (project, insertId, ! bypassed); }));
+                  whileStripExists (this, [&proj, insertId, bypassed] { edit::setInsertBypassed (proj, insertId, ! bypassed); }));
     menu.addSeparator();
-    menu.addItem ("Move up", index > 0, false, whileStripExists (this, [&project, insertId, index] { edit::moveInsert (project, insertId, index - 1); }));
-    menu.addItem ("Move down", index < count - 1, false, whileStripExists (this, [&project, insertId, index] { edit::moveInsert (project, insertId, index + 1); }));
+    menu.addItem ("Move up", index > 0, false, whileStripExists (this, [&proj, insertId, index] { edit::moveInsert (proj, insertId, index - 1); }));
+    menu.addItem ("Move down", index < count - 1, false, whileStripExists (this, [&proj, insertId, index] { edit::moveInsert (proj, insertId, index + 1); }));
     menu.addSeparator();
-    menu.addItem ("Remove", whileStripExists (this, [&project, insertId] { edit::removeInsert (project, insertId); }));
+    menu.addItem ("Remove", whileStripExists (this, [&proj, insertId] { edit::removeInsert (proj, insertId); }));
     menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (this));
 }
 
 void MixerComponent::Strip::showAddEffectMenu()
 {
-    auto& project = owner.project;
+    auto& proj = owner.project;
     juce::PopupMenu menu;
     menu.addSectionHeader ("Add an effect");
 
     for (const auto& type : dsp::effectTypes())
     {
         const auto typeId = type.id;
-        menu.addItem (type.name, whileStripExists (this, [this, &project, typeId]
+        menu.addItem (type.name, whileStripExists (this, [this, &proj, typeId]
         {
-            const auto insertId = edit::addInsert (project, channelId, typeId);
-            const auto index = (int) mixer::insertsOf (project, channelId).size() - 1;
+            const auto insertId = edit::addInsert (proj, channelId, typeId);
+            const auto index = (int) mixer::insertsOf (proj, channelId).size() - 1;
 
             if (insertId.isNotEmpty())
-                EffectEditor::show (owner.theme, project, insertId, localAreaToGlobal (insertArea (index)));
+                EffectEditor::show (owner.theme, proj, insertId, localAreaToGlobal (insertArea (index)));
         }));
     }
 
@@ -430,41 +430,41 @@ void MixerComponent::Strip::showAddEffectMenu()
 
 void MixerComponent::Strip::showSendMenu (const juce::String& sendId)
 {
-    auto& project = owner.project;
-    const auto send = mixer::findSend (project, sendId);
+    auto& proj = owner.project;
+    const auto send = mixer::findSend (proj, sendId);
     const auto pre = (bool) send[ids::preFader];
 
     juce::PopupMenu menu;
-    menu.addSectionHeader ("Send to " + project.findTrack (send[ids::target].toString()).getName() + ": "
+    menu.addSectionHeader ("Send to " + proj.findTrack (send[ids::target].toString()).getName() + ": "
                            + mixer::formatVolume ((double) send[ids::level]));
     menu.addItem ("Before the fader (the track's volume doesn't change it)", true, pre,
-                  whileStripExists (this, [&project, sendId, pre] { edit::setSendPreFader (project, sendId, ! pre); }));
-    menu.addItem ("Back to 0 dB", whileStripExists (this, [&project, sendId] { edit::setSendLevel (project, sendId, 0.0); }));
+                  whileStripExists (this, [&proj, sendId, pre] { edit::setSendPreFader (proj, sendId, ! pre); }));
+    menu.addItem ("Back to 0 dB", whileStripExists (this, [&proj, sendId] { edit::setSendLevel (proj, sendId, 0.0); }));
     menu.addSeparator();
-    menu.addItem ("Remove send", whileStripExists (this, [&project, sendId] { edit::removeSend (project, sendId); }));
+    menu.addItem ("Remove send", whileStripExists (this, [&proj, sendId] { edit::removeSend (proj, sendId); }));
     menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (this));
 }
 
 void MixerComponent::Strip::showAddSendMenu()
 {
-    auto& project = owner.project;
+    auto& proj = owner.project;
     juce::PopupMenu menu;
     menu.addSectionHeader ("Send to a bus");
     bool any = false;
 
-    const auto existing = mixer::sendsOf (project, channelId);
+    const auto existing = mixer::sendsOf (proj, channelId);
 
-    for (int i = 0; i < project.getNumTracks(); ++i)
+    for (int i = 0; i < proj.getNumTracks(); ++i)
     {
-        const auto bus = project.getTrack (i);
+        const auto bus = proj.getTrack (i);
         const auto busId = bus.getId();
         const auto alreadySending = std::any_of (existing.begin(), existing.end(),
                                                  [&] (const juce::ValueTree& s) { return s[ids::target].toString() == busId; });
 
-        if (! bus.isBus() || busId == channelId || alreadySending || mixer::reaches (project, busId, channelId))
+        if (! bus.isBus() || busId == channelId || alreadySending || mixer::reaches (proj, busId, channelId))
             continue;
 
-        menu.addItem (bus.getName(), whileStripExists (this, [this, &project, busId] { edit::addSend (project, channelId, busId); }));
+        menu.addItem (bus.getName(), whileStripExists (this, [this, &proj, busId] { edit::addSend (proj, channelId, busId); }));
         any = true;
     }
 
@@ -472,33 +472,33 @@ void MixerComponent::Strip::showAddSendMenu()
         menu.addItem ("(no buses to send to yet)", false, false, [] {});
 
     menu.addSeparator();
-    menu.addItem ("New bus, and send to it", whileStripExists (this, [this, &project]
+    menu.addItem ("New bus, and send to it", whileStripExists (this, [this, &proj]
     {
-        const auto bus = edit::addTrack (project, TrackKind::bus);
-        edit::addSend (project, channelId, bus.getId());
+        const auto bus = edit::addTrack (proj, TrackKind::bus);
+        edit::addSend (proj, channelId, bus.getId());
     }));
     menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (this));
 }
 
 void MixerComponent::Strip::showOutputMenu()
 {
-    auto& project = owner.project;
-    const auto current = project.findTrack (channelId).getOutput();
+    auto& proj = owner.project;
+    const auto current = proj.findTrack (channelId).getOutput();
     const auto targets = group();
 
     juce::PopupMenu menu;
     menu.addSectionHeader (targets.size() > 1 ? "Output of the " + juce::String (targets.size()) + " selected tracks" : "Output");
-    menu.addItem ("Master", true, current.isEmpty(), whileStripExists (this, [&project, targets] { edit::setOutput (project, targets, {}); }));
+    menu.addItem ("Master", true, current.isEmpty(), whileStripExists (this, [&proj, targets] { edit::setOutput (proj, targets, {}); }));
 
-    for (const auto& busId : mixer::possibleOutputs (project, channelId))
-        menu.addItem (project.findTrack (busId).getName(), true, current == busId,
-                      whileStripExists (this, [&project, targets, busId] { edit::setOutput (project, targets, busId); }));
+    for (const auto& busId : mixer::possibleOutputs (proj, channelId))
+        menu.addItem (proj.findTrack (busId).getName(), true, current == busId,
+                      whileStripExists (this, [&proj, targets, busId] { edit::setOutput (proj, targets, busId); }));
 
     menu.addSeparator();
-    menu.addItem ("New bus", whileStripExists (this, [&project, targets]
+    menu.addItem ("New bus", whileStripExists (this, [&proj, targets]
     {
-        const auto bus = edit::addTrack (project, TrackKind::bus);
-        edit::setOutput (project, targets, bus.getId());
+        const auto bus = edit::addTrack (proj, TrackKind::bus);
+        edit::setOutput (proj, targets, bus.getId());
     }));
     menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (this));
 }
@@ -548,7 +548,7 @@ void MixerComponent::rebuild()
     resized();
 }
 
-void MixerComponent::childrenChanged (const juce::ValueTree& parent)
+void MixerComponent::treeChildrenChanged (const juce::ValueTree& parent)
 {
     if (parent == project.getTracksNode())
         rebuild();

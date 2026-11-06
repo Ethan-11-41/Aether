@@ -612,7 +612,9 @@ public:
 
     void mouseMove (const juce::MouseEvent& e) override
     {
-        switch (findHit (e.position).zone)
+        const auto hit = findHit (e.position);
+
+        switch (hit.zone)
         {
             case Zone::trimStart:
             case Zone::trimEnd:  setMouseCursor (juce::MouseCursor::LeftRightResizeCursor); break;
@@ -620,6 +622,24 @@ public:
             case Zone::fadeOut:  setMouseCursor (juce::MouseCursor::CrosshairCursor); break;
             case Zone::body:     setMouseCursor (juce::MouseCursor::DraggingHandCursor); break;
             case Zone::none:     setMouseCursor (juce::MouseCursor::NormalCursor); break;
+        }
+
+        // The fade handles only show on the clip under the mouse.
+        setHoveredClip (hit.zone != Zone::none ? hit.clip.getId() : juce::String());
+    }
+
+    void mouseExit (const juce::MouseEvent&) override
+    {
+        if (drag.zone == Zone::none)
+            setHoveredClip ({});
+    }
+
+    void setHoveredClip (const juce::String& clipId)
+    {
+        if (hoveredClipId != clipId)
+        {
+            hoveredClipId = clipId;
+            repaint();
         }
     }
 
@@ -797,6 +817,8 @@ private:
         bool moved = false;
         std::vector<Original> originals;
     };
+
+    juce::String hoveredClipId;
 
     int rowAt (int y) const
     {
@@ -978,11 +1000,18 @@ private:
             const auto curve = isFadeIn ? clip.getFadeInCurve() : clip.getFadeOutCurve();
             const auto from = isFadeIn ? 0.0 : (double) (clip.getDuration() - length);
 
-            // The handle: where the fade ends (or starts).
-            const auto handleX = xForClipPosition (clip, isFadeIn ? (double) length : from);
-            g.setColour (colours.text.withAlpha (0.85f));
-            g.fillRect (juce::Rectangle<float> (fadeHandleSize, fadeHandleSize)
-                            .withCentre ({ juce::jlimit (area.getX() + 4.0f, area.getRight() - 4.0f, handleX), area.getY() + 5.0f }));
+            // The handle (a small dot where the fade ends or starts), only while the mouse is
+            // over the clip or dragging its fade.
+            if (clip.getId() == hoveredClipId || (drag.clipId == clip.getId() && (drag.zone == Zone::fadeIn || drag.zone == Zone::fadeOut)))
+            {
+                const auto handleX = xForClipPosition (clip, isFadeIn ? (double) length : from);
+                const auto dot = juce::Rectangle<float> (7.0f, 7.0f)
+                                     .withCentre ({ juce::jlimit (area.getX() + 5.0f, area.getRight() - 5.0f, handleX), area.getY() + 5.0f });
+                g.setColour (juce::Colours::black.withAlpha (0.45f));
+                g.fillEllipse (dot.expanded (1.5f));
+                g.setColour (colours.text);
+                g.fillEllipse (dot);
+            }
 
             if (length <= 0)
                 return;
@@ -1015,6 +1044,27 @@ private:
         const auto id = clip.getId();
         juce::Component::SafePointer<TimelineComponent> safeOwner (&owner);
         juce::PopupMenu menu;
+
+        // What the file is, e.g. "Guitar.wav: 44.1 kHz, stereo, played at 48 kHz".
+        {
+            const auto rateText = [] (double rate)
+            {
+                return juce::String (rate / 1000.0, std::fmod (rate, 1000.0) == 0.0 ? 0 : 1) + " kHz";
+            };
+
+            juce::String info = juce::File::createFileWithoutCheckingPath (clip.getFile()).getFileName() + ": "
+                              + rateText (clip.getSourceRate());
+
+            if (const auto audio = owner.audioFiles.getAudio (owner.resolve (clip.getFile())))
+            {
+                info << (audio->samples.getNumChannels() > 1 ? ", stereo" : ", mono");
+
+                if (audio->sampleRate != clip.getSourceRate())
+                    info << " (converted to " << rateText (audio->sampleRate) << " for your sound card)";
+            }
+
+            menu.addSectionHeader (info);
+        }
 
         menu.addItem ("Split at the playhead (S)", [safeOwner] { if (safeOwner) safeOwner->splitClipsAtPlayhead(); });
         menu.addItem ("Duplicate (Ctrl+D)", [safeOwner] { if (safeOwner) safeOwner->duplicateSelectedClips(); });

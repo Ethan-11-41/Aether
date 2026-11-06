@@ -48,10 +48,10 @@ private:
     void repaintStrips();
 
     void valueTreePropertyChanged (juce::ValueTree&, const juce::Identifier&) override   { repaintStrips(); }
-    void valueTreeChildAdded (juce::ValueTree& parent, juce::ValueTree&) override        { childrenChanged (parent); }
-    void valueTreeChildRemoved (juce::ValueTree& parent, juce::ValueTree&, int) override { childrenChanged (parent); }
-    void valueTreeChildOrderChanged (juce::ValueTree& parent, int, int) override         { childrenChanged (parent); }
-    void childrenChanged (const juce::ValueTree& parent);
+    void valueTreeChildAdded (juce::ValueTree& parent, juce::ValueTree&) override        { treeChildrenChanged (parent); }
+    void valueTreeChildRemoved (juce::ValueTree& parent, juce::ValueTree&, int) override { treeChildrenChanged (parent); }
+    void valueTreeChildOrderChanged (juce::ValueTree& parent, int, int) override         { treeChildrenChanged (parent); }
+    void treeChildrenChanged (const juce::ValueTree& parent);
 
     const Theme& theme;
     Project& project;
