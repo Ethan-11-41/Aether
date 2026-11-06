@@ -6,6 +6,7 @@
 #include <map>
 
 #include "io/AudioImport.h"
+#include "io/FileTypes.h"
 #include "io/MidiImport.h"
 #include "model/TimelineEdits.h"
 
@@ -126,6 +127,13 @@ ProjectView::ProjectView (AppContext& context, Project& projectToShow)
     };
 
     trackList.inputChannelCount = [&devices = ctx.devices] { return devices.getNumInputChannels(); };
+
+    // Audio or MIDI files dropped on a track header go onto that track, at the playhead.
+    trackList.canImport = [this] (const juce::File& file) { return filetypes::isImportable (file, ctx.audioFiles.getWildcard()); };
+    trackList.onImportFiles = [this] (const juce::Array<juce::File>& files, const juce::String& trackId)
+    {
+        importFiles (files, trackId, ctx.engine.getTransportStatus().position);
+    };
 
     // The mixer, below the timeline.
     mixer = std::make_unique<ui::MixerComponent> (ctx.theme, project, trackList);

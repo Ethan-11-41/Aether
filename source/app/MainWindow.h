@@ -17,6 +17,7 @@ namespace aether
     "file" conversations with the user: save prompts, open dialogs, crash recovery. */
 class MainContent final : public juce::Component,
                           public juce::ApplicationCommandTarget,
+                          public juce::FileDragAndDropTarget,
                           public juce::MenuBarModel,
                           private juce::Timer
 {
@@ -48,11 +49,24 @@ public:
     juce::PopupMenu getMenuForIndex (int menuIndex, const juce::String& menuName) override;
     void menuItemSelected (int, int) override {}
 
+    // Files dropped anywhere that doesn't take them itself: a project file opens; audio and MIDI
+    // files become new tracks (or, on the start screen, a new project).
+    bool isInterestedInFileDrag (const juce::StringArray& files) override;
+    void fileDragEnter (const juce::StringArray& files, int x, int y) override;
+    void fileDragExit (const juce::StringArray& files) override;
+    void filesDropped (const juce::StringArray& files, int x, int y) override;
+
     void paint (juce::Graphics&) override;
+    void paintOverChildren (juce::Graphics&) override;
     void resized() override;
 
 private:
     void timerCallback() override;
+
+    /** What dropping these files would do, e.g. "Open My Song", or empty if nothing. */
+    juce::String describeDrop (const juce::StringArray& files) const;
+    void createProjectWithFiles (const juce::Array<juce::File>& files);
+    juce::String dropMessage;   // shown while files are dragged over the window
 
     void showStartScreen (bool focusName = false);
     void showProjectView();
@@ -71,6 +85,7 @@ private:
     void showAudioSettings();
     void showAbout();
     void showExportDialog();
+    void showShortcuts();
     void closeExportWindow();
     void testCrashRecovery();
     void showError (const juce::String& title, const juce::String& message);
@@ -95,6 +110,7 @@ private:
     std::unique_ptr<juce::FileChooser> fileChooser;
     juce::Component::SafePointer<juce::DialogWindow> audioSettingsWindow;
     std::unique_ptr<juce::DocumentWindow> exportWindow;   // not modal: you can keep working while it exports
+    std::unique_ptr<juce::DocumentWindow> shortcutsWindow;
 
     // Last seen state, so the timer only updates things that changed.
     juce::String lastTitle;

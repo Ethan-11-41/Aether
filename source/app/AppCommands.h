@@ -30,6 +30,10 @@ namespace commands
         undo                = 0x2001,
         redo                = 0x2002,
         selectAll           = 0x2003,
+        copyClips           = 0x2004,
+        cutClips            = 0x2005,
+        pasteClips          = 0x2006,
+        deselect            = 0x2007,
 
         // Track
         addAudioTrack       = 0x3001,
@@ -68,6 +72,7 @@ namespace commands
         about               = 0x5001,
         testCrashRecovery   = 0x5002,
         openLogFolder       = 0x5003,
+        keyboardShortcuts   = 0x5004,
     };
 
     namespace categories

@@ -658,6 +658,74 @@ void TrackListComponent::paintOverChildren (juce::Graphics& g)
         g.setColour (theme.accent);
         g.fillRect (0, dropIndex * rowHeight - 2, getWidth(), 4);
     }
+
+    // While dragging files: the track they'll go onto, or "new track" below the others.
+    if (fileDropRow >= 0)
+    {
+        const juce::Rectangle<int> row (0, fileDropRow * rowHeight, getWidth(), rowHeight);
+        g.setColour (theme.accent.withAlpha (0.15f));
+        g.fillRect (row);
+        g.setColour (theme.accent);
+        g.drawRect (row, 2);
+
+        if (fileDropRow >= project.getNumTracks())
+        {
+            g.setFont (juce::FontOptions (13.0f));
+            g.drawText ("Drop here for new tracks", row.reduced (12, 0), juce::Justification::centredLeft);
+        }
+    }
+}
+
+bool TrackListComponent::isInterestedInFileDrag (const juce::StringArray& files)
+{
+    if (! canImport || ! onImportFiles)
+        return false;
+
+    for (const auto& path : files)
+        if (canImport (juce::File (path)))
+            return true;
+
+    return false;
+}
+
+void TrackListComponent::fileDragEnter (const juce::StringArray& files, int x, int y)
+{
+    fileDragMove (files, x, y);
+}
+
+void TrackListComponent::fileDragMove (const juce::StringArray&, int, int y)
+{
+    const auto row = juce::jlimit (0, project.getNumTracks(), y / rowHeight);
+
+    if (row != fileDropRow)
+    {
+        fileDropRow = row;
+        repaint();
+    }
+}
+
+void TrackListComponent::fileDragExit (const juce::StringArray&)
+{
+    fileDropRow = -1;
+    repaint();
+}
+
+void TrackListComponent::filesDropped (const juce::StringArray& paths, int x, int y)
+{
+    fileDragMove (paths, x, y);
+    const auto row = fileDropRow;
+    fileDropRow = -1;
+    repaint();
+
+    juce::Array<juce::File> files;
+    for (const auto& path : paths)
+        if (canImport (juce::File (path)))
+            files.add (juce::File (path));
+
+    const auto trackId = row < project.getNumTracks() ? project.getTrack (row).getId() : juce::String();
+
+    if (! files.isEmpty() && onImportFiles)
+        onImportFiles (files, trackId);
 }
 
 void TrackListComponent::resized()

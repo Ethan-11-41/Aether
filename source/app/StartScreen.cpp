@@ -81,7 +81,8 @@ StartScreen::StartScreen (const ui::Theme& themeToUse, RecentProjects& recentPro
     createButton.onClick = [this] { create(); };
     addAndMakeVisible (createButton);
 
-    templatesNote.setText ("Project templates (beat making, band recording, podcast) are coming in a later version.",
+    templatesNote.setText ("Tip: drop audio or MIDI files anywhere here to start a new project with them, or a "
+                           ".aether file to open it. Project templates are coming in a later version.",
                            juce::dontSendNotification);
     styleLabel (templatesNote, theme, 12.5f, false, true);
     addAndMakeVisible (templatesNote);
@@ -299,7 +300,7 @@ void StartScreen::resized()
         inner.removeFromTop (20);
         createButton.setBounds (inner.removeFromTop (40));
         inner.removeFromTop (20);
-        templatesNote.setBounds (inner.removeFromTop (40));
+        templatesNote.setBounds (inner.removeFromTop (60));
     }
 
     {

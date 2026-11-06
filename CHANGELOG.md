@@ -6,6 +6,51 @@ follow [Semantic Versioning](https://semver.org/) (0.x while Aether is in early 
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-06 - Milestone 8: Phase 1 hardening
+
+Phase 1 (the core of a DAW) is complete with this version.
+
+### Added
+- **Aether's own Audio settings panel**, replacing the technical standard one: driver (with a
+  plain explanation of each), speakers/headphones, microphone (or None), sample rate, and buffer
+  size shown with its delay ("256 samples (5.3 ms)"), with a note when the driver doesn't let you
+  change it. Tick which inputs to record from; choose the output pair on interfaces with more
+  than two outputs; open an ASIO driver's own settings. MIDI keyboards are listed with tick boxes
+  and a light that flashes when MIDI arrives.
+- **Copy, cut and paste clips** (Ctrl+C, Ctrl+X, Ctrl+V): pasted at the playhead, onto the
+  selected track (clips copied from several tracks keep their layout). One undo step each.
+- **Box selection**: drag on an empty part of the timeline to select the clips inside the box
+  (hold Ctrl to add to the selection). **Esc** deselects.
+- **Drag and drop everywhere**: audio and MIDI files dropped on a track header go onto that track
+  at the playhead; dropped anywhere else (below the tracks, the mixer...) they become new tracks.
+  On the start screen they start a new project named after the first file. A `.aether` project
+  file dropped anywhere opens (asking about unsaved changes first). A hint shows what a drop will
+  do.
+- **Help > Keyboard shortcuts** (F1): every shortcut, plus mouse actions, with a search box. It
+  reads the shortcuts from Aether's command list, so it's always up to date.
+- Performance tests with a 50-track project (36 audio tracks with 8 clips each, 10 MIDI tracks
+  playing chords, 4 buses with reverb and delay). In an optimised build: the audio engine uses
+  about 17% of the time available per buffer; updating the engine after an edit takes about
+  0.6 ms; drawing the timeline, track list or mixer takes 1 to 4 ms (a 60 Hz screen allows 16).
+  The time limits are checked automatically in the Windows (Release) build.
+- A `linux-release` build preset (for developers measuring performance).
+- Automated tests for the settings panel (with a simulated sound card), copy/paste, box
+  selection, dropping files, the shortcut list, finishing a recording on close, and the fast
+  sine (243 tests in all).
+
+### Changed
+- The starter synth is about 25% faster (a fast sine for its electric piano and organ sounds,
+  and its filter settings worked out only when they change). It sounds the same.
+- Tooltips added where a sweep of every window found none (the Export window's choices and
+  buttons, the status bar, the mixer's resize bar). The start screen has a tip about dropping
+  files.
+
+### Fixed
+- Closing the project, opening another one or quitting **while recording** stopped the
+  recording and kept the file, but the take never appeared in the project. Aether now finishes
+  the recording first, so the new clips are in the project and the "save changes?" question
+  includes them.
+
 ## [0.8.1] - 2026-11-06
 
 ### Fixed

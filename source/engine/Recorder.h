@@ -47,6 +47,12 @@ public:
     /** Stops the transport, which ends the recording. */
     void stop();
 
+    /** Stops and finishes the recording straight away, adding its clips to the project, before
+        returning (used before closing the project, so a take isn't lost). Waits up to
+        `timeoutMs` for the audio engine to confirm the stop; returns false if it didn't (e.g. the
+        sound card stopped working), in which case the recorded files are still kept. */
+    bool finishNow (int timeoutMs = 2000);
+
     /** True from start() until the clips have been added (or the recording was abandoned). */
     bool isActive() const noexcept   { return session != nullptr; }
 

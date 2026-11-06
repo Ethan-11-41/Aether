@@ -1,6 +1,8 @@
 // Aether - Copyright (C) 2026 The Aether authors. Licensed under the GNU AGPLv3 or later.
 #pragma once
 
+#include <vector>
+
 #include "Clip.h"
 #include "Project.h"
 
@@ -21,8 +23,23 @@ struct AudioSourceInfo
     juce::int64 lengthInSamples = 0;
 };
 
+/** Copied clips (Edit > Copy), ready to paste: copies of the clips, with where they were
+    relative to the first one (in time) and the topmost one (in tracks). */
+struct ClipboardItem
+{
+    juce::ValueTree clip;      // a copy, not part of any project
+    juce::String trackId;      // the track it was copied from
+    int trackOffset = 0;       // tracks below the topmost copied clip's track
+    Tick offset = 0;           // how long after the earliest copied clip it starts
+};
+
+using ClipClipboard = std::vector<ClipboardItem>;
+
 namespace clips
 {
+    /** Copies clips for pasting later. */
+    ClipClipboard copy (const Project& project, const juce::StringArray& clipIds);
+
     juce::ValueTree clipsNodeOf (const juce::ValueTree& trackState);   // created if missing
     Clip findClip (const Project& project, const juce::String& clipId);
     juce::Array<Clip> clipsOnTrack (const juce::ValueTree& trackState);
@@ -55,7 +72,15 @@ namespace edit
         new ids, in the same order. */
     juce::StringArray duplicateClips (Project& project, const juce::StringArray& clipIds);
 
-    bool deleteClips (Project& project, const juce::StringArray& clipIds);
+    /** Deletes clips in one undo step (named `undoName`, or "Delete clip(s)"). */
+    bool deleteClips (Project& project, const juce::StringArray& clipIds, const juce::String& undoName = {});
+
+    /** Pastes copied clips at `position`, the earliest on `trackId` and the others on the tracks
+        below it (as they were). A clip that doesn't fit there (e.g. a MIDI clip landing on an
+        audio track) goes back on the track it was copied from, if that still exists; otherwise
+        it's left out. One undo step. Returns the new clips' ids. */
+    juce::StringArray pasteClips (Project& project, const ClipClipboard& clipboard, Tick position,
+                                  const juce::String& trackId);
 
     /** Fade lengths in samples of the clip's file. They are limited to fit inside the clip. */
     bool setClipFades (Project& project, const juce::String& clipId, juce::int64 fadeIn, juce::int64 fadeOut,

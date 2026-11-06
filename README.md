@@ -4,14 +4,15 @@ A free, open-source digital audio workstation (DAW) for Windows: record, arrange
 music, in the spirit of GarageBand, FL Studio, LMMS and Reaper. Beginner-friendly on the surface,
 with deep customisation underneath.
 
-> **Status: early development (Milestone 7 of 30).** Aether can create, save and open projects
-> with full undo/redo, autosave and crash recovery; play with tempo changes, time signatures,
-> looping and a metronome; record audio (with latency compensation, punch in/out and loop
-> takes) and MIDI from a keyboard (or the on-screen one) into MIDI tracks played by a starter
-> synth; import, arrange and edit audio and MIDI clips on a snap grid; import MIDI files; and mix
-> with volume, pan, mute, solo, buses, sends and two simple effects; and export the mix and stems
-> to WAV, FLAC or MP3. Next: Phase 1 hardening (M8). See [docs/STATUS.md](docs/STATUS.md)
-> for exactly what works, and [docs/ROADMAP.md](docs/ROADMAP.md) for what's coming.
+> **Status: early development (Milestone 8 of 30: Phase 1, the core, is complete).** Aether can
+> create, save and open projects with full undo/redo, autosave and crash recovery; play with
+> tempo changes, time signatures, looping and a metronome; record audio (with latency
+> compensation, punch in/out and loop takes) and MIDI from a keyboard (or the on-screen one)
+> into MIDI tracks played by a starter synth; import, arrange, copy and paste audio and MIDI clips
+> on a snap grid; import MIDI files; mix with volume, pan, mute, solo, buses, sends and two simple
+> effects; and export the mix and stems to WAV, FLAC or MP3. Next: Phase 2, starting with the
+> piano roll (M9). See [docs/STATUS.md](docs/STATUS.md) for exactly what works, and
+> [docs/ROADMAP.md](docs/ROADMAP.md) for what's coming.
 
 ---
 
@@ -36,7 +37,7 @@ be installed.
 the 10 previous versions (`Backups`) and an automatic copy for crash recovery (`Autosave`).
 See [docs/FILE_FORMAT.md](docs/FILE_FORMAT.md).
 
-**Keyboard shortcuts:**
+**Keyboard shortcuts** (also in Aether: **Help > Keyboard shortcuts**, F1, with a search box):
 
 | Action | Keys |
 |---|---|
@@ -58,9 +59,12 @@ See [docs/FILE_FORMAT.md](docs/FILE_FORMAT.md).
 | Zoom in / out | Ctrl+= / Ctrl+- (or Ctrl + mouse wheel) |
 | Scroll the timeline sideways | Shift + mouse wheel |
 | Place exactly, without snapping to beats | hold Alt while clicking or dragging |
-| Import audio or MIDI files | Ctrl+I (or drag files onto the timeline) |
+| Import audio or MIDI files | Ctrl+I (or drag files onto the window: onto a track, or anywhere for new tracks) |
+| Open a project | Ctrl+O (or drag a `.aether` file onto the window) |
 | Split clips at the playhead / duplicate / delete | S / Ctrl+D / Delete |
 | Select all clips / add a clip to the selection | Ctrl+A / Ctrl+click |
+| Select clips with a box / deselect | drag on an empty part of the timeline / Esc |
+| Copy / cut / paste clips (paste goes to the playhead, on the selected track) | Ctrl+C / Ctrl+X / Ctrl+V |
 | Nudge selected clips one grid step / 10 ms | Left, Right / Shift+Left, Shift+Right |
 | Snap to grid on/off | G |
 | Audio settings | Ctrl+, |
@@ -137,6 +141,12 @@ or takes a lock):
 
 ```bash
 cmake --preset linux-rtsan && cmake --build --preset linux-rtsan && ctest --preset linux-rtsan
+```
+
+Performance tests with their time limits switched on (they're only checked in optimised builds):
+
+```bash
+cmake --preset linux-release && cmake --build --preset linux-release && build/linux-release/tests/aether_tests "[performance]"
 ```
 
 Run the app headless and save a screenshot (useful for checking layouts):

@@ -6,6 +6,8 @@
 #include "CrashReporter.h"
 #include "ExportDialog.h"
 #include "io/AppFolders.h"
+#include "io/FileTypes.h"
+#include "ui/ShortcutList.h"
 #include "model/EditCommands.h"
 #include "model/Recording.h"
 #include "model/TimelineEdits.h"
@@ -36,6 +38,8 @@ MainContent::MainContent (AppContext& context)
     statusLabel.setFont (juce::FontOptions (13.0f));
     statusLabel.setColour (juce::Label::textColourId, ctx.theme.textDim);
     statusLabel.setBorderSize ({});
+    statusLabel.setTooltip ("Whether your latest changes are saved, and when Aether last made a safety copy "
+                            "(autosave) to recover from if it closes unexpectedly.");
     addAndMakeVisible (statusLabel);
 
     showStartScreen();
@@ -128,6 +132,11 @@ void MainContent::showProjectView()
 //==============================================================================
 void MainContent::afterUnsavedChangesAreHandled (std::function<void()> then)
 {
+    // A recording in progress is finished first, so its clips are in the project (and the
+    // question below includes them) instead of being lost when the project closes.
+    if (projectView != nullptr)
+        projectView->finishRecording();
+
     auto* project = ctx.session.getProject();
 
     if (project == nullptr || ! project->hasUnsavedChanges())
@@ -416,12 +425,12 @@ void MainContent::closeExportWindow()
 
 namespace
 {
-    /** A separate window that doesn't block the main one (unlike a modal dialog). */
-    class ExportWindow final : public juce::DocumentWindow
+    /** A separate window that doesn't block the main one (unlike a modal dialog): export, shortcuts. */
+    class ToolWindow final : public juce::DocumentWindow
     {
     public:
-        ExportWindow (juce::Colour background, std::function<void()> whenClosed)
-            : juce::DocumentWindow ("Export audio", background, juce::DocumentWindow::closeButton),
+        ToolWindow (const juce::String& title, juce::Colour background, std::function<void()> whenClosed)
+            : juce::DocumentWindow (title, background, juce::DocumentWindow::closeButton),
               onClosed (std::move (whenClosed))
         {
         }
@@ -456,13 +465,38 @@ void MainContent::showExportDialog()
     auto dialog = std::make_unique<ExportDialog> (ctx.theme, *project, ctx.session.getLocation(), ctx.settings.get());
     dialog->onCloseRequested = close;
 
-    auto window = std::make_unique<ExportWindow> (ctx.theme.background, close);
+    auto window = std::make_unique<ToolWindow> ("Export audio", ctx.theme.background, close);
     window->setUsingNativeTitleBar (true);
     window->setResizable (false, false);
     window->setContentOwned (dialog.release(), true);
     window->centreAroundComponent (this, window->getWidth(), window->getHeight());
     window->setVisible (true);
     exportWindow = std::move (window);
+}
+
+void MainContent::showShortcuts()
+{
+    if (shortcutsWindow != nullptr)
+    {
+        shortcutsWindow->toFront (true);
+        return;
+    }
+
+    juce::Component::SafePointer<MainContent> safeThis (this);
+    auto window = std::make_unique<ToolWindow> ("Keyboard shortcuts", ctx.theme.background, [safeThis]
+    {
+        juce::MessageManager::callAsync ([safeThis] { if (safeThis != nullptr) safeThis->shortcutsWindow = nullptr; });
+    });
+
+    window->setUsingNativeTitleBar (true);
+    auto list = std::make_unique<ui::ShortcutList> (ctx.theme, ctx.commands);
+    list->setActionName (commands::deleteTrack, "Delete selected clips (or tracks, if no clips are selected)");
+    window->setContentOwned (list.release(), true);
+    window->setResizable (true, false);
+    window->setResizeLimits (480, 320, 1200, 2000);
+    window->centreAroundComponent (this, window->getWidth(), window->getHeight());
+    window->setVisible (true);
+    shortcutsWindow = std::move (window);
 }
 
 void MainContent::showAbout()
@@ -583,6 +617,7 @@ void MainContent::getAllCommands (juce::Array<juce::CommandID>& list)
     list.addArray ({ commands::newProject, commands::openProject, commands::saveProject, commands::saveProjectAs, commands::exportAudio,
                      commands::closeProject, commands::showProjectFolder, commands::quit,
                      commands::undo, commands::redo, commands::selectAll,
+                     commands::copyClips, commands::cutClips, commands::pasteClips, commands::deselect,
                      commands::importAudio, commands::splitClips, commands::duplicateClips,
                      commands::nudgeLeft, commands::nudgeRight, commands::nudgeLeftFine, commands::nudgeRightFine,
                      commands::toggleSnap, commands::toggleMixer, commands::addBus, commands::record, commands::togglePunch, commands::toggleKeyboard,
@@ -590,7 +625,8 @@ void MainContent::getAllCommands (juce::Array<juce::CommandID>& list)
                      commands::moveTrackUp, commands::moveTrackDown,
                      commands::playStop, commands::stop, commands::goToStart, commands::toggleLoop,
                      commands::toggleMetronome, commands::zoomIn, commands::zoomOut,
-                     commands::audioSettings, commands::about, commands::testCrashRecovery, commands::openLogFolder });
+                     commands::audioSettings, commands::about, commands::keyboardShortcuts, commands::testCrashRecovery,
+                     commands::openLogFolder });
 }
 
 void MainContent::getCommandInfo (juce::CommandID id, juce::ApplicationCommandInfo& info)
@@ -709,6 +745,30 @@ void MainContent::getCommandInfo (juce::CommandID id, juce::ApplicationCommandIn
             info.setActive (clipsSelected || hasTrack);
             break;
         }
+
+        case commands::copyClips:
+            info.setInfo ("Copy", "Copy the selected clips (paste them with Ctrl+V)", commands::categories::edit, 0);
+            info.addDefaultKeypress ('c', ctrl);
+            info.setActive (hasProject && projectView->getTimeline().hasSelectedClips());
+            break;
+
+        case commands::cutClips:
+            info.setInfo ("Cut", "Copy the selected clips and remove them (paste them with Ctrl+V)", commands::categories::edit, 0);
+            info.addDefaultKeypress ('x', ctrl);
+            info.setActive (hasProject && projectView->getTimeline().hasSelectedClips());
+            break;
+
+        case commands::pasteClips:
+            info.setInfo ("Paste", "Paste the copied clips at the playhead, starting on the selected track", commands::categories::edit, 0);
+            info.addDefaultKeypress ('v', ctrl);
+            info.setActive (hasProject && projectView->getTimeline().canPaste());
+            break;
+
+        case commands::deselect:
+            info.setInfo ("Deselect", "Unselect all clips", commands::categories::edit, 0);
+            info.addDefaultKeypress (KeyPress::escapeKey, 0);
+            info.setActive (hasProject && projectView->getTimeline().hasSelectedClips());
+            break;
 
         case commands::selectAll:
             info.setInfo ("Select all clips", "Select every clip in the project", commands::categories::edit, 0);
@@ -859,6 +919,12 @@ void MainContent::getCommandInfo (juce::CommandID id, juce::ApplicationCommandIn
             info.setInfo ("About Aether", "Version, licence and source code", commands::categories::help, 0);
             break;
 
+        case commands::keyboardShortcuts:
+            info.setInfo ("Keyboard shortcuts", "A list of every keyboard shortcut and mouse action, with a search box",
+                          commands::categories::help, 0);
+            info.addDefaultKeypress (KeyPress::F1Key, 0);
+            break;
+
         case commands::testCrashRecovery:
             info.setInfo ("Test crash recovery...", "Crash Aether on purpose to check that unsaved work is recovered",
                           commands::categories::help, 0);
@@ -922,6 +988,24 @@ bool MainContent::perform (const InvocationInfo& invocation)
 
         case commands::selectAll:
             if (projectView != nullptr) projectView->getTimeline().selectAllClips();
+            return true;
+
+        case commands::copyClips:
+            if (projectView != nullptr) projectView->getTimeline().copySelectedClips();
+            ctx.commands.commandStatusChanged();
+            return true;
+
+        case commands::cutClips:
+            if (projectView != nullptr) projectView->getTimeline().cutSelectedClips();
+            ctx.commands.commandStatusChanged();
+            return true;
+
+        case commands::pasteClips:
+            if (projectView != nullptr) projectView->getTimeline().pasteClips();
+            return true;
+
+        case commands::deselect:
+            if (projectView != nullptr) projectView->getTimeline().clearClipSelection();
             return true;
 
         case commands::importAudio:
@@ -1021,6 +1105,7 @@ bool MainContent::perform (const InvocationInfo& invocation)
         case commands::audioSettings:      showAudioSettings(); return true;
         case commands::exportAudio:        showExportDialog(); return true;
         case commands::about:              showAbout(); return true;
+        case commands::keyboardShortcuts:  showShortcuts(); return true;
         case commands::testCrashRecovery:  testCrashRecovery(); return true;
 
         case commands::openLogFolder:
@@ -1080,10 +1165,15 @@ juce::PopupMenu MainContent::getMenuForIndex (int menuIndex, const juce::String&
         menu.addCommandItem (cm, commands::undo);
         menu.addCommandItem (cm, commands::redo);
         menu.addSeparator();
+        menu.addCommandItem (cm, commands::cutClips);
+        menu.addCommandItem (cm, commands::copyClips);
+        menu.addCommandItem (cm, commands::pasteClips);
+        menu.addSeparator();
         menu.addCommandItem (cm, commands::splitClips);
         menu.addCommandItem (cm, commands::duplicateClips);
         menu.addCommandItem (cm, commands::deleteTrack);
         menu.addCommandItem (cm, commands::selectAll);
+        menu.addCommandItem (cm, commands::deselect);
         menu.addSeparator();
         menu.addCommandItem (cm, commands::nudgeLeft);
         menu.addCommandItem (cm, commands::nudgeRight);
@@ -1129,6 +1219,7 @@ juce::PopupMenu MainContent::getMenuForIndex (int menuIndex, const juce::String&
     }
     else if (menuIndex == 6)
     {
+        menu.addCommandItem (cm, commands::keyboardShortcuts);
         menu.addCommandItem (cm, commands::about);
         menu.addSeparator();
         menu.addCommandItem (cm, commands::openLogFolder);
@@ -1205,6 +1296,115 @@ void MainContent::paint (juce::Graphics& g)
     g.fillRect (statusArea);
     g.setColour (ctx.theme.outline);
     g.drawHorizontalLine (statusArea.getY(), 0.0f, (float) getWidth());
+}
+
+void MainContent::paintOverChildren (juce::Graphics& g)
+{
+    if (dropMessage.isEmpty())
+        return;
+
+    auto area = getLocalBounds().withTrimmedTop (menuBar.getBottom()).toFloat();
+    g.setColour (ctx.theme.background.withAlpha (0.75f));
+    g.fillRect (area);
+
+    g.setColour (ctx.theme.accent);
+    juce::Path border;
+    border.addRoundedRectangle (area.reduced (12.0f), 10.0f);
+    const float dashes[] { 10.0f, 6.0f };
+    juce::PathStrokeType (2.0f).createDashedStroke (border, border, dashes, 2);
+    g.fillPath (border);
+
+    const juce::Font font (juce::FontOptions (20.0f, juce::Font::bold));
+    const auto width = (float) juce::GlyphArrangement::getStringWidthInt (font, dropMessage) + 48.0f;
+    const auto pill = area.withSizeKeepingCentre (std::min (width, area.getWidth() - 48.0f), 56.0f);
+    g.fillRoundedRectangle (pill, 12.0f);
+    g.setColour (ctx.theme.accentText);
+    g.setFont (font);
+    g.drawFittedText (dropMessage, pill.toNearestInt().reduced (16, 0), juce::Justification::centred, 2);
+}
+
+juce::String MainContent::describeDrop (const juce::StringArray& paths) const
+{
+    const auto wildcard = ctx.audioFiles.getWildcard();
+    juce::Array<juce::File> importable;
+
+    for (const auto& path : paths)
+    {
+        const juce::File file (path);
+
+        if (filetypes::isProject (file))
+            return "Open " + file.getFileNameWithoutExtension();
+
+        if (filetypes::isImportable (file, wildcard))
+            importable.add (file);
+    }
+
+    if (importable.isEmpty())
+        return {};
+
+    if (projectView != nullptr)
+        return importable.size() == 1 ? "Add as a new track at the playhead" : "Add as new tracks at the playhead";
+
+    return "Start a new project with " + (importable.size() == 1 ? importable[0].getFileName()
+                                                                 : juce::String (importable.size()) + " files");
+}
+
+bool MainContent::isInterestedInFileDrag (const juce::StringArray& files)
+{
+    return describeDrop (files).isNotEmpty();
+}
+
+void MainContent::fileDragEnter (const juce::StringArray& files, int, int)
+{
+    dropMessage = describeDrop (files);
+    repaint();
+}
+
+void MainContent::fileDragExit (const juce::StringArray&)
+{
+    dropMessage.clear();
+    repaint();
+}
+
+void MainContent::filesDropped (const juce::StringArray& paths, int, int)
+{
+    dropMessage.clear();
+    repaint();
+
+    const auto wildcard = ctx.audioFiles.getWildcard();
+    juce::Array<juce::File> importable;
+
+    for (const auto& path : paths)
+    {
+        const juce::File file (path);
+
+        if (filetypes::isProject (file))
+        {
+            openProjectFile (file);   // asks about unsaved changes first
+            return;
+        }
+
+        if (filetypes::isImportable (file, wildcard))
+            importable.add (file);
+    }
+
+    if (importable.isEmpty())
+        return;
+
+    if (projectView != nullptr)
+        projectView->importFiles (importable, {}, ctx.engine.getTransportStatus().position);
+    else
+        createProjectWithFiles (importable);
+}
+
+void MainContent::createProjectWithFiles (const juce::Array<juce::File>& files)
+{
+    // Named after the first file, in the folder chosen on the start screen.
+    const auto folder = startScreen != nullptr ? startScreen->getNewProjectFolder() : projectfiles::defaultProjectsFolder();
+    createProject (folder, files[0].getFileNameWithoutExtension());
+
+    if (projectView != nullptr)
+        projectView->importFiles (files, {}, 0);
 }
 
 void MainContent::resized()

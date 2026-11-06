@@ -34,6 +34,14 @@
       "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Linux" }
     },
     {
+      "name": "linux-release",
+      "displayName": "Linux (Release)",
+      "description": "Optimised build on Linux, e.g. to check the performance tests.",
+      "inherits": "base",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" },
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Linux" }
+    },
+    {
       "name": "linux-rtsan",
       "displayName": "Linux (RealtimeSanitizer tests)",
       "description": "Tests only, built with Clang 20's RealtimeSanitizer to catch audio-thread rule violations.",
@@ -52,6 +60,7 @@
     { "name": "windows-release", "configurePreset": "windows-release" },
     { "name": "windows-debug",   "configurePreset": "windows-debug" },
     { "name": "linux-debug",     "configurePreset": "linux-debug" },
+    { "name": "linux-release",   "configurePreset": "linux-release" },
     { "name": "linux-rtsan",     "configurePreset": "linux-rtsan" }
   ],
   "testPresets": [
@@ -59,6 +68,7 @@
     { "name": "windows-release", "inherits": "base-test", "configurePreset": "windows-release" },
     { "name": "windows-debug",   "inherits": "base-test", "configurePreset": "windows-debug" },
     { "name": "linux-debug",     "inherits": "base-test", "configurePreset": "linux-debug" },
+    { "name": "linux-release",   "inherits": "base-test", "configurePreset": "linux-release" },
     { "name": "linux-rtsan",     "inherits": "base-test", "configurePreset": "linux-rtsan" }
   ]
 }

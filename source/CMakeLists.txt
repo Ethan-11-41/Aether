@@ -9,6 +9,7 @@ add_library(aether_core STATIC
     devices/LatencyInfo.h
     dsp/Effect.h
     dsp/Effects.cpp
+    dsp/FastMath.h
     dsp/Instrument.h
     dsp/StarterSynth.cpp
     dsp/EffectTypes.cpp
@@ -49,6 +50,8 @@ add_library(aether_core STATIC
     io/Autosaver.cpp
     io/Autosaver.h
     io/JsonValueTree.cpp
+    io/FileTypes.cpp
+    io/FileTypes.h
     io/MidiImport.cpp
     io/MidiImport.h
     io/Mp3Encoder.cpp
@@ -98,6 +101,8 @@ target_compile_definitions(aether_core PUBLIC AETHER_VERSION_STRING="${PROJECT_V
 add_library(aether_ui STATIC
     ui/AetherLookAndFeel.cpp
     ui/AetherLookAndFeel.h
+    ui/DeviceSettingsPanel.cpp
+    ui/DeviceSettingsPanel.h
     ui/EffectEditor.cpp
     ui/EffectEditor.h
     ui/IconButton.cpp
@@ -116,6 +121,8 @@ add_library(aether_ui STATIC
     ui/MessageBanner.h
     ui/NumberDragField.cpp
     ui/NumberDragField.h
+    ui/ShortcutList.cpp
+    ui/ShortcutList.h
     ui/Theme.h
     ui/TimelineComponent.cpp
     ui/TimelineComponent.h

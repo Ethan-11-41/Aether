@@ -57,10 +57,6 @@ AudioSettingsComponent::AudioSettingsComponent (AudioDeviceService& deviceServic
     styleHeading (deviceHeading, theme);
     addAndMakeVisible (deviceHeading);
 
-    styleHint (deviceHint, theme);
-    deviceHint.setTooltip ("Choose where Aether plays and records sound. Your choice is remembered next time.");
-    addAndMakeVisible (deviceHint);
-
     problemBanner.onDismiss = [this]
     {
         devices.dismissProblemMessage();
@@ -68,15 +64,10 @@ AudioSettingsComponent::AudioSettingsComponent (AudioDeviceService& deviceServic
     };
     addChildComponent (problemBanner);
 
-    deviceSelector = std::make_unique<juce::AudioDeviceSelectorComponent> (
-        devices.getDeviceManager(),
-        0, 2,     // input channels: none required, up to 2 (e.g. a stereo microphone)
-        1, 2,     // output channels: at least 1, up to 2 (left/right)
-        true,     // MIDI inputs (e.g. a keyboard over USB): tick to use, untick to ignore
-        false,    // MIDI output
-        true,     // show channels as stereo pairs
-        false);   // don't hide the advanced options
-    deviceViewport.setViewedComponent (deviceSelector.get(), false);
+    devicePanel = std::make_unique<ui::DeviceSettingsPanel> (devices, theme);
+    devicePanel->midiActivity = [this] { return engine.getMidiActivity(); };
+    devicePanel->onLayoutChanged = [this] { layOutDevicePanel(); };
+    deviceViewport.setViewedComponent (devicePanel.get(), false);
     deviceViewport.setScrollBarsShown (true, false);
     addAndMakeVisible (deviceViewport);
 
@@ -104,8 +95,8 @@ AudioSettingsComponent::AudioSettingsComponent (AudioDeviceService& deviceServic
     styleHint (inputLabel, theme);
     addAndMakeVisible (inputLabel);
 
-    inputHint.setText ("Speak or clap: these meters should move. If they don't, pick your microphone "
-                       "under \"Input\" on the left, and check Windows Settings > Privacy > Microphone.",
+    inputHint.setText ("Speak or clap: these meters should move. If they don't, choose your microphone "
+                       "under \"Microphone / input\" on the left, and check Windows Settings > Privacy > Microphone.",
                        juce::dontSendNotification);
     styleHint (inputHint, theme);
     addAndMakeVisible (inputHint);
@@ -170,32 +161,10 @@ void AudioSettingsComponent::updateTestToneButton()
     testToneButton.setButtonText (on ? "Stop test tone" : "Play test tone");
 }
 
-juce::String AudioSettingsComponent::describeDeviceType (const juce::String& typeName)
-{
-    if (typeName.containsIgnoreCase ("Exclusive"))
-        return "Exclusive Mode: lowest delay, and you can choose the buffer size. Other programs go silent "
-               "while Aether uses the device, and some built-in microphones can't be used in this mode.";
-
-    if (typeName.containsIgnoreCase ("Low Latency"))
-        return "Low Latency Mode: like \"Windows Audio\", but uses smaller buffers if your sound driver "
-               "supports it. Many built-in sound cards don't, so the buffer size may stay the same.";
-
-    if (typeName.containsIgnoreCase ("ASIO"))
-        return "ASIO: for audio interfaces with their own driver. Change the buffer size in the driver's "
-               "Control Panel.";
-
-    return "\"Windows Audio\" works with every sound device and lets other programs play at the same time. "
-           "Windows chooses the buffer size (usually 10 ms). For less delay, try \"Exclusive Mode\".";
-}
-
 void AudioSettingsComponent::updateStatus()
 {
     const auto description = devices.describeCurrentDevice();
     const auto error = devices.getStartupError();
-
-    const auto hint = describeDeviceType (devices.getCurrentDeviceTypeName());
-    if (deviceHint.getText() != hint)
-        deviceHint.setText (hint, juce::dontSendNotification);
 
     const auto problem = devices.getProblemMessage();
     if (problem != problemBanner.getMessage() || problem.isEmpty() == problemBanner.isVisible())
@@ -286,7 +255,6 @@ void AudioSettingsComponent::resized()
     {
         auto inner = deviceCard.reduced (cardPadding);
         deviceHeading.setBounds (inner.removeFromTop (24));
-        deviceHint.setBounds (inner.removeFromTop (54));
         inner.removeFromTop (8);
 
         if (problemBanner.isVisible())
@@ -296,9 +264,7 @@ void AudioSettingsComponent::resized()
         }
 
         deviceViewport.setBounds (inner);
-
-        const auto selectorWidth = inner.getWidth() - deviceViewport.getScrollBarThickness();
-        deviceSelector->setSize (selectorWidth, juce::jmax (deviceSelector->getHeight(), 100));
+        layOutDevicePanel();
     }
 
     const auto latencyCardHeight = cardPadding * 2 + 24 + 8 + ui::LatencyPanel::rowHeight * ui::LatencyPanel::numRows + 8 + 32;
@@ -336,6 +302,15 @@ void AudioSettingsComponent::resized()
         inner.removeFromBottom (8);
         latencyPanel.setBounds (inner);
     }
+}
+
+void AudioSettingsComponent::layOutDevicePanel()
+{
+    if (devicePanel == nullptr || deviceViewport.getWidth() <= 0)
+        return;
+
+    const auto width = deviceViewport.getWidth() - deviceViewport.getScrollBarThickness() - 4;
+    devicePanel->setSize (width, devicePanel->getIdealHeight (width));
 }
 
 void AudioSettingsComponent::startMeasuring()

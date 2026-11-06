@@ -4,20 +4,20 @@ An honest list of what works. Updated at the end of every milestone.
 
 **Legend:** ✅ Working · 🟡 Partial · 🧪 Stub/placeholder · ⬜ Not started
 
-Current version: **0.8.1** (Milestone 7)
+Current version: **0.9.0** (Milestone 8: Phase 1 complete)
 
 ## Milestone 0: skeleton and build pipeline
 
 | Feature | Status | Notes |
 |---|---|---|
 | App window, dark theme, tooltips | ✅ | Tooltips only appeared in the Audio settings window until 0.7.0 (fixed). |
-| Audio device choice (Windows Audio shared/exclusive/low-latency, ASIO) | ✅ | Uses JUCE's standard device panel. ASIO compiles but hasn't been tested with a real ASIO interface yet. |
+| Audio device choice (Windows Audio shared/exclusive/low-latency, ASIO) | ✅ | Aether's own panel since 0.9.0 (see M8). ASIO compiles but hasn't been tested with a real ASIO interface yet. |
 | Sample rate and buffer size choice, remembered between runs | ✅ | |
 | Latency display (buffer, input, output, round trip) | ✅ | Driver figures, plus the measured round trip (since 0.6.0). |
-| Going back to the last working setting when a device fails to open | ✅ | Added in 0.1.1. JUCE's own error pop-up still appears first. |
+| Going back to the last working setting when a device fails to open | ✅ | Added in 0.1.1. Since 0.9.0 only Aether's own explanation appears (JUCE's error pop-up was part of its standard panel). |
 | Exclusive Mode with a built-in microphone | 🟡 | Fails on the first test PC. Since 0.2.2 the message shows the exact Windows error, to find out why. Use "Windows Audio" meanwhile. |
 | Log file (Help > Open log folder) | ✅ | Added in 0.2.2. |
-| Aether's own beginner-friendly device settings panel | ⬜ | Currently JUCE's standard panel (shows extras like "Output channel 3 + 4"). Moved to M8 (Phase 1 hardening). |
+| Aether's own beginner-friendly device settings panel | ✅ | Since 0.9.0 (M8). |
 | Test tone | ✅ | |
 | Output and input level meters, audio CPU meter | ✅ | |
 | Setup.exe installer | ✅ | Unsigned, so Windows SmartScreen shows a warning. |
@@ -61,7 +61,7 @@ Current version: **0.8.1** (Milestone 7)
 
 | Feature | Status | Notes |
 |---|---|---|
-| Import audio by drag and drop or Ctrl+I | ✅ | WAV, AIFF, FLAC, MP3, Ogg Vorbis. Copied into the project's Audio folder. |
+| Import audio by drag and drop or Ctrl+I | ✅ | WAV, AIFF, FLAC, MP3, Ogg Vorbis. Copied into the project's Audio folder. Since 0.9.0 files can be dropped anywhere in the window (see M8). |
 | Waveforms | ✅ | |
 | Clip playback, sample-accurate, through loops and tempo changes | ✅ | Audio is held in memory (about 23 MB per stereo minute). Streaming from disk for very long files: M29. |
 | Files at other sample rates | ✅ | Converted when loaded. After changing the sound card's sample rate, clips are silent for a moment while they're converted again. |
@@ -69,7 +69,7 @@ Current version: **0.8.1** (Milestone 7)
 | Fades (4 shapes), clip loop, clip volume, rename | ✅ | Volume via the right-click menu; a volume handle on the clip may come later. |
 | Snap grid (bar/beat/1/8/1/16/triplets/off), nudge by grid or 10 ms | ✅ | The 10 ms nudge amount can't be changed yet. |
 | Selecting several clips | 🟡 | Ctrl+click and Ctrl+A. Dragging a selection rectangle isn't there yet. |
-| Copy / cut / paste | ⬜ | Use Duplicate for now. Coming with M8 (hardening). |
+| Copy / cut / paste | ✅ | Since 0.9.0: Ctrl+C / Ctrl+X / Ctrl+V, pasted at the playhead on the selected track. Within Aether only (not between two running copies of Aether). |
 | Overlapping clips on one track | 🟡 | Both play (mixed). Crossfades and take comping come in M21. |
 | Clips on MIDI tracks | ✅ | Since 0.7.0. |
 | Mouse editing of clips | 🟡 | The edits and commands are tested automatically; dragging is checked by hand (see the M3 checklist). |
@@ -137,6 +137,19 @@ Current version: **0.8.1** (Milestone 7)
 | Clipping warning | ✅ | |
 | Export runs faster than real time | ✅ | It depends on the number of tracks and effects. A real-time "bounce" option isn't needed: Aether's own instruments and effects work offline. |
 | Plug-ins in exports | ⬜ | Plug-ins arrive in M15; some need real-time export, which will come then. |
+
+## Milestone 8: Phase 1 hardening
+
+| Feature | Status | Notes |
+|---|---|---|
+| Aether's own audio settings: driver, devices, sample rate, buffer size (with ms), inputs, output pair | ✅ | Tested automatically with a simulated sound card; real devices are checked by hand (see the M8 checklist). The ASIO "Open the driver's settings" button is untested without an ASIO interface. |
+| MIDI keyboards in the settings, with an activity light | ✅ | Your Kawai is still untested (waiting for the USB cable). |
+| Copy / cut / paste clips, box selection, Esc to deselect | ✅ | |
+| Drag and drop: onto a track header, anywhere for new tracks, on the start screen for a new project, `.aether` files to open | ✅ | |
+| Help > Keyboard shortcuts (F1), with search | ✅ | Changing shortcuts comes with the shortcut editor (M25). |
+| Tooltips on every control | ✅ | Checked by an automatic sweep of every window; plain text labels don't have them. |
+| 50-track performance tests | ✅ | Engine about 17% of the available time per buffer, edits 0.6 ms, drawing 1 to 4 ms (optimised build). Checked automatically in the Windows build. Projects with hundreds of tracks or long recordings stored on disk (rather than in memory) are M29. |
+| Closing or quitting while recording keeps the take | ✅ | Fixed in 0.9.0. |
 
 ## Everything else
 

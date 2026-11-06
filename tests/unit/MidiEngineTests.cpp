@@ -7,6 +7,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include "dsp/FastMath.h"
 #include "dsp/Instrument.h"
 #include "engine/AudioEngine.h"
 #include "engine/Recorder.h"
@@ -238,6 +239,7 @@ TEST_CASE ("Loop recording MIDI layers every pass into one clip", "[midi][record
 
 TEST_CASE ("Recording MIDI from a keyboard makes a MIDI clip", "[midi][recording]")
 {
+    juce::ScopedJuceInitialiser_GUI juceInit;   // the audio file cache needs JUCE's message thread
     Fixture f;
     const auto folder = juce::File::getSpecialLocation (juce::File::tempDirectory).getChildFile ("aether-midi-rec-" + juce::Uuid().toString());
     folder.createDirectory();
@@ -283,4 +285,17 @@ TEST_CASE ("Recording MIDI from a keyboard makes a MIDI clip", "[midi][recording
     // No audio files for a MIDI recording.
     CHECK (folder.getChildFile ("Audio").findChildFiles (juce::File::findFiles, false).isEmpty());
     folder.deleteRecursively();
+}
+
+TEST_CASE ("The synth's fast sine matches std::sin", "[dsp][synth]")
+{
+    double worst = 0.0;
+
+    for (double x = -3.0; x <= 3.0; x += 0.000123)
+        worst = std::max (worst, std::abs (dsp::sin2pi (x) - std::sin (x * juce::MathConstants<double>::twoPi)));
+
+    CHECK (worst < 1.0e-7);
+    CHECK (dsp::sin2pi (0.0) == 0.0);
+    CHECK (std::abs (dsp::sin2pi (0.25) - 1.0) < 1.0e-7);
+    CHECK (std::abs (dsp::sin2pi (-0.25) + 1.0) < 1.0e-7);
 }

@@ -7,6 +7,7 @@ add_executable(aether_tests
     unit/AudioFileTests.cpp
     unit/ClipEditTests.cpp
     unit/ClipPlaybackTests.cpp
+    unit/DeviceSettingsPanelTests.cpp
     unit/DiagnosticsTests.cpp
     unit/ExportTests.cpp
     unit/GridTests.cpp
@@ -16,11 +17,13 @@ add_executable(aether_tests
     unit/MixerEngineTests.cpp
     unit/MixerModelTests.cpp
     unit/MixerUiTests.cpp
+    unit/PerformanceTests.cpp
     unit/ProjectFileTests.cpp
     unit/ProjectModelTests.cpp
     unit/ProjectSessionTests.cpp
     unit/RecordingEngineTests.cpp
     unit/RecordingModelTests.cpp
+    unit/ShortcutListTests.cpp
     unit/SpscQueueTests.cpp
     unit/TempoMapTests.cpp
     unit/TestToneGeneratorTests.cpp

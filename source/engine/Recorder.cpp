@@ -293,6 +293,28 @@ void Recorder::stop()
     engine.stop();
 }
 
+bool Recorder::finishNow (int timeoutMs)
+{
+    if (session == nullptr)
+        return true;
+
+    stop();
+    const auto deadline = juce::Time::getMillisecondCounterHiRes() + timeoutMs;
+
+    // The audio thread confirms the stop within a buffer or two (a few milliseconds).
+    while (session != nullptr)
+    {
+        poll();
+
+        if (session == nullptr || juce::Time::getMillisecondCounterHiRes() > deadline)
+            break;
+
+        juce::Thread::sleep (2);
+    }
+
+    return session == nullptr;
+}
+
 void Recorder::poll()
 {
     if (session == nullptr)

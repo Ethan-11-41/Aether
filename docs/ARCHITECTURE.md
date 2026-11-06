@@ -63,7 +63,18 @@ Separate process:   plug-in scanner
 - The Linux CI job builds the tests with Clang 20's **RealtimeSanitizer**, which aborts with a
   report if marked code allocates, locks or makes a blocking system call. A deliberately broken
   "canary" program proves the sanitizer is active.
-- A debug-build allocation alarm that also works on Windows is planned for M8 (Phase 1 hardening).
+- A separate allocation alarm for Windows debug builds was planned for M8 but isn't needed: the
+  engine code is the same on both systems, and the sanitizer checks every change in CI. (It may
+  come back with plug-in hosting in M15, where third-party code runs on the audio thread.)
+
+### Performance budget
+- `tests/unit/PerformanceTests.cpp` builds a 50-track project and measures the engine (one
+  256-sample buffer at 48 kHz), rebuilding the engine's snapshot after an edit, and drawing the
+  timeline, track list and mixer. Limits (checked in Release builds only, as Debug is many times
+  slower): the engine under 50% of the buffer's time, a snapshot rebuild under 15 ms, a redraw
+  under 25 ms. Results at 0.9.0 (one core of a cloud machine): about 17%, 0.6 ms and 1 to 4 ms.
+- Almost all of the engine's time in that test goes to the starter synth's voices (160 notes
+  sounding at once); 40 audio tracks with effects cost about 2%.
 
 ### Timing
 - Timeline positions are integers: **960,000 ticks per quarter note**, which is exact for
