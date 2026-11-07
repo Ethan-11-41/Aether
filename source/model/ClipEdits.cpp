@@ -187,7 +187,10 @@ namespace
             return false;
 
         startStep (project, "Trim clip", newUndoStep);
-        set (project, clip, ids::contentStart, (juce::int64) (clip.getContentStart() + delta));
+        // A repeating pattern can be stretched left too: it starts part-way through a repeat.
+        const auto contentStart = clip.isLooping() ? positiveMod (clip.getContentStart() + delta, clip.getPatternLength())
+                                                   : clip.getContentStart() + delta;
+        set (project, clip, ids::contentStart, (juce::int64) contentStart);
         set (project, clip, ids::length, (juce::int64) (clip.getLengthTicks() - delta));
         set (project, clip, ids::start, (juce::int64) newStart);
         return true;
@@ -221,18 +224,27 @@ namespace
         const auto rightId = juce::Uuid().toString();
         rightState.setProperty (ids::id, rightId, nullptr);
         rightState.setProperty (ids::start, (juce::int64) position, nullptr);
-        rightState.setProperty (ids::contentStart, (juce::int64) cut, nullptr);
         rightState.setProperty (ids::length, (juce::int64) (clip.getLengthTicks() - leftLength), nullptr);
-
-        for (int i = rightState.getNumChildren(); --i >= 0;)
-            if (rightState.getChild (i).hasType (ids::Note) && (Tick) (juce::int64) rightState.getChild (i)[ids::tick] < cut)
-                rightState.removeChild (i, nullptr);
-
-        // The left-hand part keeps the notes that start before it.
         auto left = clip.getState();
-        for (int i = left.getNumChildren(); --i >= 0;)
-            if (left.getChild (i).hasType (ids::Note) && (Tick) (juce::int64) left.getChild (i)[ids::tick] >= cut)
-                left.removeChild (i, &undo);
+
+        if (clip.isLooping())
+        {
+            // Both halves keep the whole pattern; the right one starts part-way through a repeat.
+            rightState.setProperty (ids::contentStart, (juce::int64) positiveMod (cut, clip.getPatternLength()), nullptr);
+        }
+        else
+        {
+            rightState.setProperty (ids::contentStart, (juce::int64) cut, nullptr);
+
+            for (int i = rightState.getNumChildren(); --i >= 0;)
+                if (rightState.getChild (i).hasType (ids::Note) && (Tick) (juce::int64) rightState.getChild (i)[ids::tick] < cut)
+                    rightState.removeChild (i, nullptr);
+
+            // The left-hand part keeps the notes that start before it.
+            for (int i = left.getNumChildren(); --i >= 0;)
+                if (left.getChild (i).hasType (ids::Note) && (Tick) (juce::int64) left.getChild (i)[ids::tick] >= cut)
+                    left.removeChild (i, &undo);
+        }
 
         set (project, clip, ids::length, (juce::int64) leftLength);
 
@@ -535,6 +547,9 @@ bool edit::setClipLooping (Project& project, const juce::String& clipId, bool sh
 
     if (! clip.isValid() || clip.isLooping() == shouldLoop)
         return false;
+
+    if (clip.isMidi())
+        return setPatternLooping (project, clipId, shouldLoop);
 
     project.getUndoManager().beginNewTransaction (shouldLoop ? "Loop clip" : "Stop looping clip");
 

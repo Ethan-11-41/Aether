@@ -4,7 +4,9 @@
 #include <algorithm>
 #include <cmath>
 
+#include "DrumSoundCache.h"
 #include "MixerRouting.h"
+#include "dsp/DrumKit.h"
 #include "io/AudioImport.h"
 #include "model/ClipEdits.h"
 #include "model/MidiClips.h"
@@ -87,7 +89,7 @@ namespace
 namespace
 {
     void addMidi (TrackPlayback& channel, const Project& project, const TimelineSnapshot& snapshot, const Track& track,
-                  double sampleRate, MixerResources& resources, const juce::String& focusedTrackId)
+                  double sampleRate, MixerResources& resources, const juce::String& focusedTrackId, const AudioResolver& resolver)
     {
         // The instrument, with its settings.
         const auto instrument = midi::instrumentOf (project, track.getId());
@@ -99,6 +101,28 @@ namespace
 
             for (size_t i = 0; i < type->parameters.size() && i < channel.instrumentParameters.size(); ++i)
                 channel.instrumentParameters[i] = mixer::getInsertParameter (instrument, type->parameters[i].id);
+        }
+
+        // A drum kit's sounds: built in (rendered at the engine's rate), or files in the project
+        // (decoded by the audio file cache; until they're ready, those pads are silent).
+        if (typeId == dsp::drumkit::typeId)
+        {
+            for (int pad = 0; pad < dsp::drums::numPads; ++pad)
+            {
+                const auto reference = instrument[dsp::drumkit::soundProperty (pad)].toString();
+                std::shared_ptr<const AudioData> data;
+
+                if (dsp::drumkit::isBuiltIn (reference))
+                    data = builtInDrumSound (dsp::drumkit::builtInId (reference), sampleRate);
+                else if (reference.isNotEmpty() && resolver)
+                    data = resolver (reference);
+
+                if (data != nullptr && data->samples.getNumSamples() > 1)
+                {
+                    channel.soundData[(size_t) pad] = data;
+                    channel.sounds.sounds[(size_t) pad] = &data->samples;
+                }
+            }
         }
 
         // Every note, in samples (worked out through the tempo map, so notes follow tempo changes).
@@ -238,7 +262,7 @@ std::unique_ptr<TimelineSnapshot> buildTimelineSnapshot (const Project& project,
             addClips (channel, *snapshot, track, sampleRate, resolver);
 
         if (track.getKind() == TrackKind::midi)
-            addMidi (channel, project, *snapshot, track, sampleRate, res, focusedTrackId);
+            addMidi (channel, project, *snapshot, track, sampleRate, res, focusedTrackId, resolver);
 
         snapshot->tracks.push_back (std::move (channel));
     }

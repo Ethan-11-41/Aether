@@ -4,15 +4,16 @@ A free, open-source digital audio workstation (DAW) for Windows: record, arrange
 music, in the spirit of GarageBand, FL Studio, LMMS and Reaper. Beginner-friendly on the surface,
 with deep customisation underneath.
 
-> **Status: early development (Milestone 10 of 30; Phase 1, the core, is complete).** Aether
+> **Status: early development (Milestone 11 of 30; Phase 1, the core, is complete).** Aether
 > can create, save and open projects with full undo/redo, autosave and crash recovery; play with
 > tempo changes, time signatures, looping and a metronome; record audio (with latency
 > compensation, punch in/out and loop takes) and MIDI from a keyboard (or the on-screen one)
-> into MIDI tracks played by a full synthesizer (pads, strings, keys, organ, bass, leads); write
+> into MIDI tracks played by a full synthesizer (pads, strings, keys, organ, bass, leads); make
+> beats on drum tracks with a step sequencer and 16-pad drum kits (or your own sounds); write
 > and edit notes in a piano roll (with quantize, swing, humanize and scale highlighting);
 > import, arrange, copy and paste audio and MIDI clips on a snap grid; import MIDI files; mix
 > with volume, pan, mute, solo, buses, sends and two simple effects; and export the mix and stems
-> to WAV, FLAC or MP3. Next: drums (a sampler and step sequencer, M11). See
+> to WAV, FLAC or MP3. Next: a sampler for recorded instruments (M12). See
 > [docs/STATUS.md](docs/STATUS.md) for exactly what works, and
 > [docs/ROADMAP.md](docs/ROADMAP.md) for what's coming.
 
@@ -70,6 +71,8 @@ See [docs/FILE_FORMAT.md](docs/FILE_FORMAT.md).
 | Edit a MIDI clip's notes in the piano roll / make a new MIDI clip | double-click the clip / an empty part of a MIDI track |
 | Piano roll: add / delete a note | click an empty place / right-click the note |
 | Piano roll: transpose / quantize / duplicate | Up, Down (Shift: octave) / Q / Ctrl+D |
+| Add a drum track / edit a drum pattern | Ctrl+Shift+D / double-click the pattern |
+| Drum editor: step on or off / accent / clear | click (drag for several) / Shift+click / right-click |
 | Nudge selected clips one grid step / 10 ms | Left, Right / Shift+Left, Shift+Right |
 | Snap to grid on/off | G |
 | Audio settings | Ctrl+, |
@@ -171,7 +174,7 @@ xvfb-run -a build/linux-debug/source/AetherApp_artefacts/Debug/Aether --screensh
 | `source/io/` | Saving and loading, the file format, autosave, crash recovery, recent projects |
 | `source/devices/` | Sound card setup and latency |
 | `source/engine/` | The audio engine (everything that runs on the audio thread), including the mixer |
-| `source/dsp/` | Built-in effects and instruments (the temporary Reverb and Delay, the Synth, and the starter synth from 0.7) |
+| `source/dsp/` | Built-in effects and instruments (the temporary Reverb and Delay, the Synth, the drum kit and its sounds, and the starter synth from 0.7) |
 | `source/engine/rt/` | Real-time tools: lock-free queues, audio-thread annotations |
 | `source/ui/` | Interface pieces: timeline, track list, mixer, meters, look and feel |
 | `tests/` | Automated tests (`unit/`, `realtime/`, and `fixtures/`: sample files, kept forever) |

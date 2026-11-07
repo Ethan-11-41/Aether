@@ -184,6 +184,23 @@ The timeline's snap setting (in the settings file, not the project) can also be 
 - New MIDI tracks get the Synth; a MIDI track without an `Instrument` (only possible in a
   hand-edited file) gets it too. Tracks with `"synth"` (the starter synth) keep it.
 
+### Added in Aether 0.12.0 (still format version 1)
+
+- An `Instrument`'s `type` can be `"drums"`: the drum kit. Its settings are one property per pad
+  setting, `pad1Tune` ... `pad16Choke` (Tune, Volume, Pan, Attack, Decay, Choke for each pad; see
+  `source/dsp/DrumKit.cpp`), plus `volume` for the whole kit. A missing one takes its default.
+- Each pad's sound is a property `pad1Sound` ... `pad16Sound`: either one of Aether's own sounds
+  (`"builtin:kick-808"`; the names are in `source/dsp/DrumSounds.cpp`) or a file in the project
+  folder (`"Audio/My kick.wav"`), or empty for a silent pad. Unknown built-in names are silent.
+
+| Node | Property | Meaning |
+|---|---|---|
+| (MIDI clip) | `loop` | `true`: the clip is a repeating pattern. |
+| | `patternLength` | Ticks of notes (from the start of the notes) that repeat. Default: the clip's length. |
+| | `contentStart` | For a repeating pattern: where in the pattern the clip starts (0 up to `patternLength`). |
+| | `stepLength` | The drum editor's step size, in ticks (default 240000, a 1/16 note; a quarter note is 960000). Only for showing the pattern. |
+| | `swing` | The drum editor's swing, 0 (straight) to 1 (triplet shuffle). The notes themselves are moved, so players that don't know this property still play the swing. |
+
 ## Rules for changing the format
 
 1. Never rename or reuse a node type or property name (see `source/model/Ids.h`).

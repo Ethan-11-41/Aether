@@ -8,6 +8,7 @@
 #include "io/AppFolders.h"
 #include "io/FileTypes.h"
 #include "ui/ShortcutList.h"
+#include "model/DrumPatterns.h"
 #include "model/EditCommands.h"
 #include "model/Recording.h"
 #include "model/TimelineEdits.h"
@@ -585,6 +586,19 @@ void MainContent::addTrack (TrackKind kind)
     projectView->getTrackList().grabKeyboardFocus();
 }
 
+void MainContent::addDrumTrack()
+{
+    auto* project = ctx.session.getProject();
+
+    if (project == nullptr || projectView == nullptr)
+        return;
+
+    const auto selectedIndex = project->indexOfTrack (selectedTrackId());
+    auto track = edit::addDrumTrack (*project, selectedIndex >= 0 ? selectedIndex + 1 : -1);
+    projectView->getTrackList().selectTrack (track.getId());
+    projectView->getTrackList().grabKeyboardFocus();
+}
+
 void MainContent::deleteSelectedTrack()
 {
     auto* project = ctx.session.getProject();
@@ -621,7 +635,7 @@ void MainContent::getAllCommands (juce::Array<juce::CommandID>& list)
                      commands::importAudio, commands::splitClips, commands::duplicateClips,
                      commands::nudgeLeft, commands::nudgeRight, commands::nudgeLeftFine, commands::nudgeRightFine,
                      commands::toggleSnap, commands::toggleMixer, commands::addBus, commands::record, commands::togglePunch, commands::toggleKeyboard,
-                     commands::addAudioTrack, commands::addMidiTrack, commands::renameTrack, commands::deleteTrack,
+                     commands::addAudioTrack, commands::addMidiTrack, commands::addDrumTrack, commands::renameTrack, commands::deleteTrack,
                      commands::moveTrackUp, commands::moveTrackDown,
                      commands::playStop, commands::stop, commands::goToStart, commands::toggleLoop,
                      commands::toggleMetronome, commands::zoomIn, commands::zoomOut,
@@ -717,6 +731,13 @@ void MainContent::getCommandInfo (juce::CommandID id, juce::ApplicationCommandIn
         case commands::addMidiTrack:
             info.setInfo ("Add MIDI track", "Add a track for notes that play an instrument", commands::categories::track, 0);
             info.addDefaultKeypress ('t', ctrl | shift);
+            info.setActive (hasProject);
+            break;
+
+        case commands::addDrumTrack:
+            info.setInfo ("Add drum track", "Add a track with a drum kit, for beats made in the drum editor",
+                          commands::categories::track, 0);
+            info.addDefaultKeypress ('d', ctrl | shift);
             info.setActive (hasProject);
             break;
 
@@ -979,6 +1000,7 @@ bool MainContent::perform (const InvocationInfo& invocation)
 
         case commands::addAudioTrack:      addTrack (TrackKind::audio); return true;
         case commands::addMidiTrack:       addTrack (TrackKind::midi); return true;
+        case commands::addDrumTrack:       addDrumTrack(); return true;
         case commands::deleteTrack:
             if (projectView != nullptr && projectView->getTimeline().hasSelectedClips())
                 projectView->getTimeline().deleteSelectedClips();
@@ -1184,6 +1206,7 @@ juce::PopupMenu MainContent::getMenuForIndex (int menuIndex, const juce::String&
     {
         menu.addCommandItem (cm, commands::addAudioTrack);
         menu.addCommandItem (cm, commands::addMidiTrack);
+        menu.addCommandItem (cm, commands::addDrumTrack);
         menu.addCommandItem (cm, commands::addBus);
         menu.addCommandItem (cm, commands::importAudio);
         menu.addSeparator();

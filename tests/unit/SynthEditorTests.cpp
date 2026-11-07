@@ -162,3 +162,29 @@ TEST_CASE ("The Synth window draws both pages", "[ui][synth]")
         CHECK (image.getPixelAt (f.editor->getWidth() / 2, f.editor->getHeight() / 2).getAlpha() > 0);
     }
 }
+
+TEST_CASE ("The Synth window's keyboard plays the track while knobs are turned", "[ui][synth]")
+{
+    Fixture f;
+    std::vector<std::pair<int, bool>> played;
+    f.editor->playNote = [&] (int pitch, int, bool on) { played.push_back ({ pitch, on }); };
+
+    auto& state = f.editor->getKeyboard().getState();
+    state.noteOn (1, 64, 0.8f);
+    state.noteOff (1, 64, 0.0f);
+    REQUIRE (played.size() == 2);
+    CHECK (played[0] == std::pair<int, bool> { 64, true });
+    CHECK (played[1] == std::pair<int, bool> { 64, false });
+
+    // Clicking a knob or a drop-down doesn't take the keyboard focus from the keys.
+    CHECK_FALSE (f.editor->findKnob ("cutoff")->getMouseClickGrabsKeyboardFocus());
+    CHECK_FALSE (f.editor->getPresetBox().getMouseClickGrabsKeyboardFocus());
+    CHECK (f.editor->getKeyboard().getKeys().getMouseClickGrabsKeyboardFocus());
+
+    // Switching to another track lets go of anything held.
+    state.noteOn (1, 60, 0.8f);
+    played.clear();
+    f.editor->setTrack (edit::addTrack (f.project, TrackKind::midi).getId());
+    REQUIRE (played.size() == 1);
+    CHECK (played[0] == std::pair<int, bool> { 60, false });
+}

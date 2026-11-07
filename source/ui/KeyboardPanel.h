@@ -35,6 +35,12 @@ public:
 
     juce::MidiKeyboardState& getState() noexcept   { return state; }
 
+    /** Gives the keys the keyboard focus, so the computer keys play notes straight away. */
+    void focusKeys();
+
+    /** The line above the keys: what they play (with and without the keyboard focus). */
+    void setHintTexts (juce::String withoutFocus, juce::String withFocus);
+
     void paint (juce::Graphics&) override;
     void resized() override;
 
@@ -50,6 +56,7 @@ private:
     std::unique_ptr<Keys> keys;
     juce::TextButton octaveDown { "Z  <" }, octaveUp { ">  X" };
     juce::Label hint;
+    juce::String hintWithoutFocus, hintWithFocus;
     int octave = 4;
 };
 

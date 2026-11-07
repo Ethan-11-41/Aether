@@ -544,8 +544,35 @@ SynthEditor::SynthEditor (const Theme& t, Project& projectToEdit, const juce::St
     addChildComponent (advancedPage);
 
     build();
+
+    // A keyboard to play while changing the sound: it plays this track only.
+    keyboard = std::make_unique<KeyboardPanel> (theme, [this] (const juce::MidiMessage& m)
+    {
+        if (playNote && m.isNoteOnOrOff())
+            playNote (m.getNoteNumber(), m.isNoteOn() ? (int) m.getVelocity() : 0, m.isNoteOn());
+    });
+    keyboard->setHintTexts ("Play this sound here while you change it: click the keys, or click the keyboard and use your "
+                            "computer keys (A W S E D F T G Y H U J K).",
+                            "Your computer keys play this sound (octave from C{octave}), even while you turn the knobs.");
+    addAndMakeVisible (*keyboard);
+
+    // Clicking the knobs and menus leaves the keyboard focus on the keys, so held notes keep
+    // playing while you turn a knob with the mouse.
+    std::function<void (juce::Component&)> dontTakeFocus = [&] (juce::Component& c)
+    {
+        if (&c == &keyboard->getKeys())
+            return;
+
+        c.setMouseClickGrabsKeyboardFocus (false);
+        for (auto* child : c.getChildren())
+            dontTakeFocus (*child);
+    };
+    for (auto* child : getChildren())
+        dontTakeFocus (*child);
+    setMouseClickGrabsKeyboardFocus (false);
+
     projectState.addListener (this);
-    setSize (1120, 640);
+    setSize (1120, 640 + KeyboardPanel::idealHeight);
     showPage (Page::simple);
     refresh();
 }
@@ -567,8 +594,16 @@ juce::String SynthEditor::getTitle() const
 
 void SynthEditor::setTrack (const juce::String& newTrackId)
 {
+    if (newTrackId != trackId)
+        keyboard->getState().allNotesOff (1);   // nothing left sounding on the previous track
+
     trackId = newTrackId;
     refresh();
+}
+
+void SynthEditor::focusKeyboard()
+{
+    keyboard->focusKeys();
 }
 
 juce::Component* SynthEditor::makeControl (int index)
@@ -844,6 +879,7 @@ void SynthEditor::resized()
     titleLabel.setBounds (header);
 
     auto body = getLocalBounds().withTrimmedTop (headerHeight);
+    keyboard->setBounds (body.removeFromBottom (KeyboardPanel::idealHeight));
     notSynthLabel.setBounds (body.withSizeKeepingCentre (std::min (body.getWidth() - 40, 640), 60).translated (0, -30));
     useSynthButton.setBounds (body.withSizeKeepingCentre (260, 34).translated (0, 30));
 

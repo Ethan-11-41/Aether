@@ -27,7 +27,7 @@ struct EffectParameter
 
 /** The most parameters any built-in effect or instrument has (the engine keeps them in a
     fixed-size array). */
-constexpr int maxEffectParameters = 64;
+constexpr int maxEffectParameters = 128;
 using EffectParameterValues = std::array<float, maxEffectParameters>;
 
 /** A named set of settings, e.g. the synth's "Electric piano". */

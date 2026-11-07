@@ -30,6 +30,11 @@ struct ImportResult
 ImportResult importAudioFiles (Project& project, const ProjectLocation& location, juce::AudioFormatManager& formats,
                                const juce::Array<juce::File>& files, const juce::String& trackId, Tick start);
 
+/** Puts an audio file on a drum pad (copied into the project's Audio folder like any import), as
+    one undo step. Returns an empty string, or what went wrong in plain language. */
+juce::String importPadSound (Project& project, const ProjectLocation& location, juce::AudioFormatManager& formats,
+                             const juce::File& file, const juce::String& trackId, int pad);
+
 /** The project-relative path of a file in the project folder, e.g. "Audio/Guitar.wav". */
 juce::String relativePathInProject (const ProjectLocation& location, const juce::File& file);
 

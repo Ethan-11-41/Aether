@@ -153,6 +153,10 @@ struct TrackPlayback
     std::vector<NotePlayback> notes;                       // every note of its clips, sorted by start
     bool liveInput = false;                                // plays what's played on a MIDI keyboard
     std::uint64_t idHash = 0;                              // the track's id, for notes previewed on it
+
+    // Drum kits: the pads' sounds (kept alive here; `sounds` points into them).
+    std::array<std::shared_ptr<const AudioData>, dsp::InstrumentSounds::maxSounds> soundData;
+    dsp::InstrumentSounds sounds;
 };
 
 /** Everything about the project that the audio thread needs, as one read-only object. A new

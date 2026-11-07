@@ -4,7 +4,7 @@ An honest list of what works. Updated at the end of every milestone.
 
 **Legend:** ✅ Working · 🟡 Partial · 🧪 Stub/placeholder · ⬜ Not started
 
-Current version: **0.11.0** (Milestone 10: the Synth)
+Current version: **0.12.0** (Milestone 11: drums)
 
 ## Milestone 0: skeleton and build pipeline
 
@@ -179,11 +179,25 @@ Current version: **0.11.0** (Milestone 10: the Synth)
 | Mod wheel | ✅ | Live only: recording the mod wheel into clips comes with automation (M14). |
 | Aftertouch, MPE, wavetables, FM | ⬜ | Not planned for now; tell me if you want any. |
 
+## Milestone 11: drums
+
+| Feature | Status | Notes |
+|---|---|---|
+| Drum tracks ("+ Drums", Ctrl+Shift+D) with a 16-pad drum kit | ✅ | Any MIDI track can switch to the drum kit (track menu > Instrument). |
+| 37 drum sounds and 5 kits (Tight kit, 808, Electronic, Lo-fi, Deep) | ✅ | Made by Aether's own code, so they're free to share. Recorded (sampled) acoustic kits come with the sampler and sound library (M12, M17). |
+| Your own sounds on pads (drop a file on a pad, or Choose sound > From an audio file) | ✅ | Copied into the project's Audio folder. |
+| Per-pad tune, volume, pan, attack, length, choke groups; kit volume | ✅ | |
+| Drum editor window: step sequencer (1/8, 1/16, 1/32 steps; 1 to 8 bars), accents, velocity lane, swing | ✅ | One drum editor window at a time. |
+| Repeating patterns: drag a pattern's right edge to repeat it | ✅ | Works for any MIDI clip (clip menu > Repeat pattern). |
+| Saving your own kits | ⬜ | Comes with the sound library (M17). Meanwhile a kit you change is saved in its project. |
+| Per-pad outputs to separate mixer channels | ⬜ | Not planned yet; tell me if you want it. |
+| Fixed: playing notes while the Synth window is open | ✅ | The Synth window has its own keyboard (from 0.11.0 testing). |
+
 ## Everything else
 
 | Area | Status | Milestone |
 |---|---|---|
-| Step sequencer, sampler, effects, automation | ⬜ | M11–M14 |
+| Sampler, effects, automation | ⬜ | M12–M14 |
 | VST3 / CLAP plug-ins | ⬜ | M15 / M28 |
 | Sound library | ⬜ | M17, M23 |
 | Import/export with other DAWs | 🟡 | MIDI file import since 0.7.0; the rest in M18, M26, M27 |

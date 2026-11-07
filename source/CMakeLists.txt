@@ -7,6 +7,10 @@ add_library(aether_core STATIC
     devices/DriverErrors.h
     devices/LatencyInfo.cpp
     devices/LatencyInfo.h
+    dsp/DrumKit.cpp
+    dsp/DrumKit.h
+    dsp/DrumSounds.cpp
+    dsp/DrumSounds.h
     dsp/Effect.h
     dsp/Effects.cpp
     dsp/FastMath.h
@@ -20,6 +24,8 @@ add_library(aether_core STATIC
     engine/AudioEngine.cpp
     engine/AudioFileCache.cpp
     engine/AudioFileCache.h
+    engine/DrumSoundCache.cpp
+    engine/DrumSoundCache.h
     engine/AudioEngine.h
     engine/Exporter.cpp
     engine/Exporter.h
@@ -72,6 +78,8 @@ add_library(aether_core STATIC
     model/Clip.h
     model/ClipEdits.cpp
     model/ClipEdits.h
+    model/DrumPatterns.cpp
+    model/DrumPatterns.h
     model/EditCommands.cpp
     model/EditCommands.h
     model/Ids.h
@@ -118,6 +126,8 @@ add_library(aether_ui STATIC
     ui/DelayedTooltipWindow.h
     ui/DeviceSettingsPanel.cpp
     ui/DeviceSettingsPanel.h
+    ui/DrumEditor.cpp
+    ui/DrumEditor.h
     ui/EffectEditor.cpp
     ui/EffectEditor.h
     ui/IconButton.cpp

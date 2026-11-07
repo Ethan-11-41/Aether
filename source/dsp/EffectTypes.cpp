@@ -1,6 +1,7 @@
 // Aether - Copyright (C) 2026 The Aether authors. Licensed under the GNU AGPLv3 or later.
 #include "EffectTypes.h"
 
+#include "DrumKit.h"
 #include "Synth.h"
 
 #include <cmath>
@@ -32,6 +33,12 @@ juce::String EffectParameter::format (float value) const
     {
         const auto whole = juce::roundToInt (value);
         return whole <= 1 ? juce::String ("1 (off)") : juce::String (whole) + " copies";
+    }
+
+        if (unit == "pan")
+    {
+        const auto whole = juce::roundToInt (value);
+        return whole == 0 ? juce::String ("Centre") : (whole < 0 ? "L " : "R ") + juce::String (std::abs (whole));
     }
 
         if (unit == "oct" || unit == "st")
@@ -124,6 +131,16 @@ const std::vector<EffectType>& effectTypes()
         subtractive.parameters = synth::parameters();
         subtractive.presets = synth::presets();
         list.push_back (subtractive);
+
+        EffectType kit;
+        kit.id = drumkit::typeId;
+        kit.name = "Drum kit";
+        kit.description = "16 pads of drum sounds (Aether's own, or your samples), each with its tune, volume, pan, "
+                          "attack, length and choke group.";
+        kit.isInstrument = true;
+        kit.parameters = drumkit::parameters();
+        kit.presets = drumkit::presets();
+        list.push_back (kit);
 
         return list;
     }();

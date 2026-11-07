@@ -1,8 +1,11 @@
 // Aether - Copyright (C) 2026 The Aether authors. Licensed under the GNU AGPLv3 or later.
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <memory>
+
+#include <juce_audio_basics/juce_audio_basics.h>
 
 #include "EffectTypes.h"
 #include "engine/rt/RealtimeAnnotations.h"
@@ -32,6 +35,15 @@ struct NoteEvent
     float value = 0.0f;
 };
 
+/** Recorded sounds an instrument plays (a drum kit's pads), held by the engine's snapshot so they
+    stay alive while the audio thread uses them. Each is at the engine's sample rate, mono or
+    stereo; null means none. */
+struct InstrumentSounds
+{
+    static constexpr int maxSounds = 16;
+    std::array<const juce::AudioBuffer<float>*, maxSounds> sounds {};
+};
+
 /** An instrument: turns notes into sound. Like an Effect (see Effect.h), prepare() runs on the UI
     thread and process() on the audio thread, with the settings passed in every time. */
 class Instrument
@@ -43,7 +55,7 @@ public:
 
     /** Adds the instrument's sound to `left` and `right`. `events` are sorted by offset. */
     virtual void process (float* left, float* right, int numSamples, const EffectParameterValues& parameters,
-                          const NoteEvent* events, int numEvents) noexcept AETHER_NONBLOCKING = 0;
+                          const NoteEvent* events, int numEvents, const InstrumentSounds* sounds = nullptr) noexcept AETHER_NONBLOCKING = 0;
 
     /** How many notes are sounding (for the tests). */
     virtual int getNumSounding() const noexcept = 0;

@@ -8,6 +8,7 @@
 #include "io/AudioImport.h"
 #include "io/FileTypes.h"
 #include "io/MidiImport.h"
+#include "model/DrumPatterns.h"
 #include "model/TimelineEdits.h"
 #include "ui/DelayedTooltipWindow.h"
 
@@ -35,6 +36,7 @@ ProjectView::ProjectView (AppContext& context, Project& projectToShow)
                      ButtonSetup { redoButton,     commands::redo,          "Redo" },
                      ButtonSetup { addAudioButton, commands::addAudioTrack, "+ Audio" },
                      ButtonSetup { addMidiButton,  commands::addMidiTrack,  "+ MIDI" },
+                     ButtonSetup { addDrumsButton, commands::addDrumTrack,  "+ Drums" },
                      ButtonSetup { addBusButton,   commands::addBus,        "+ Bus" },
                      ButtonSetup { mixerButton,    commands::toggleMixer,   "Mixer" } })
     {
@@ -61,7 +63,8 @@ ProjectView::ProjectView (AppContext& context, Project& projectToShow)
     };
     timeline->onImportRequested = [this] (const juce::String& trackId, Tick position) { chooseFilesToImport (trackId, position); };
     timeline->onClipSelectionChanged = [this] { ctx.commands.commandStatusChanged(); };
-    timeline->onEditNotes = [this] (const juce::String& clipId) { showPianoRoll (clipId); };
+    timeline->onEditNotes = [this] (const juce::String& clipId) { editNotes (clipId); };
+    timeline->onOpenPianoRoll = [this] (const juce::String& clipId) { showPianoRoll (clipId); };
 
     // The snap grid, remembered between sessions.
     for (size_t i = 0; i < allGridSizes.size(); ++i)
@@ -130,7 +133,13 @@ ProjectView::ProjectView (AppContext& context, Project& projectToShow)
 
     trackList.inputChannelCount = [&devices = ctx.devices] { return devices.getNumInputChannels(); };
 
-    trackList.onOpenInstrument = [this] (const juce::String& trackId) { showSynth (trackId); };
+    trackList.onOpenInstrument = [this] (const juce::String& trackId)
+    {
+        if (drumpattern::isDrumTrack (project, trackId))
+            showDrumKit (trackId);
+        else
+            showSynth (trackId);
+    };
 
     // Audio or MIDI files dropped on a track header go onto that track, at the playhead.
     trackList.canImport = [this] (const juce::File& file) { return filetypes::isImportable (file, ctx.audioFiles.getWildcard()); };
@@ -169,6 +178,21 @@ ProjectView::ProjectView (AppContext& context, Project& projectToShow)
         timeline->tracksScrolled();   // repaint the lanes: the selected ones are highlighted
         mixer->selectionChanged();
         timelineSync.setFocusedTrack (trackList.getSelectedTrackId());   // a MIDI keyboard plays the selected track
+
+        // On a drum track, the computer keys play the pads (C2 upwards: A is the kick, S the snare,
+        // T Y U the hi-hats); the octave you had comes back on other tracks.
+        const auto drums = drumpattern::isDrumTrack (project, trackList.getSelectedTrackId());
+
+        if (drums && octaveBeforeDrums < 0)
+        {
+            octaveBeforeDrums = keyboard->getOctave();
+            keyboard->setOctave (2);
+        }
+        else if (! drums && octaveBeforeDrums >= 0)
+        {
+            keyboard->setOctave (octaveBeforeDrums);
+            octaveBeforeDrums = -1;
+        }
     };
     timelineSync.setFocusedTrack (trackList.getSelectedTrackId());
 
@@ -402,6 +426,11 @@ void ProjectView::showSynth (const juce::String& trackId)
 
         auto editor = std::make_unique<ui::SynthEditor> (ctx.theme, project, trackId);
         synthEditor = editor.get();
+        synthEditor->playNote = [safeThis] (int pitch, int velocity, bool on)
+        {
+            if (safeThis != nullptr && safeThis->synthEditor != nullptr)
+                safeThis->ctx.engine.sendPreviewNote (safeThis->synthEditor->getTrackId(), pitch, velocity, on);
+        };
         synthEditor->onTitleChanged = [safeThis]
         {
             if (safeThis != nullptr && safeThis->synthWindow != nullptr && safeThis->synthEditor != nullptr)
@@ -424,6 +453,7 @@ void ProjectView::showSynth (const juce::String& trackId)
     // Playing the keyboard plays this track, so you hear the changes.
     trackList.focusTrack (trackId);
     synthWindow->toFront (true);
+    synthEditor->focusKeyboard();
 }
 
 void ProjectView::showPianoRoll (const juce::String& clipId)
@@ -475,9 +505,115 @@ void ProjectView::showPianoRoll (const juce::String& clipId)
     pianoRoll->grabKeyboardFocus();
 }
 
+void ProjectView::editNotes (const juce::String& clipId)
+{
+    if (drumpattern::isDrumClip (project, clips::findClip (project, clipId)))
+        showDrumEditor (clipId);
+    else
+        showPianoRoll (clipId);
+}
+
+void ProjectView::openDrumWindow()
+{
+    if (drumWindow != nullptr)
+        return;
+
+    juce::Component::SafePointer<ProjectView> safeThis (this);
+    auto window = std::make_unique<PianoRollWindow> (ctx.theme.background, [safeThis]
+    {
+        juce::MessageManager::callAsync ([safeThis]
+        {
+            if (safeThis != nullptr)
+            {
+                safeThis->drumEditor = nullptr;
+                safeThis->drumWindow = nullptr;
+            }
+        });
+    });
+
+    auto editor = std::make_unique<ui::DrumEditor> (ctx.theme, project, ctx.engine);
+    drumEditor = editor.get();
+    drumEditor->onTitleChanged = [safeThis]
+    {
+        if (safeThis != nullptr && safeThis->drumWindow != nullptr && safeThis->drumEditor != nullptr)
+            safeThis->drumWindow->setName (safeThis->drumEditor->getTitle());
+    };
+    drumEditor->onOpenPianoRoll = [safeThis] (const juce::String& clipId)
+    {
+        if (safeThis != nullptr)
+            safeThis->showPianoRoll (clipId);
+    };
+    drumEditor->onImportSound = [safeThis] (int pad, const juce::File& file)
+    {
+        if (safeThis == nullptr || safeThis->drumEditor == nullptr)
+            return;
+
+        const auto problem = importPadSound (safeThis->project, safeThis->ctx.session.getLocation(), safeThis->ctx.audioFiles.getFormats(),
+                                             file, safeThis->drumEditor->getTrackId(), pad);
+        if (problem.isNotEmpty())
+            safeThis->showProblem ("Sound not used", problem);
+        else
+            safeThis->drumEditor->hearPad (pad);
+    };
+    drumEditor->onChooseSoundFile = [safeThis] (int pad)
+    {
+        if (safeThis != nullptr)
+            safeThis->chooseDrumSoundFile (pad);
+    };
+
+    window->setUsingNativeTitleBar (true);
+    window->setResizable (true, false);
+    window->setResizeLimits (900, 560, 6000, 3000);
+    window->setContentOwned (editor.release(), true);
+    window->addKeyListener (ctx.commands.getKeyMappings());
+    window->centreAroundComponent (this, window->getWidth(), window->getHeight());
+    window->setVisible (true);
+    drumWindow = std::move (window);
+}
+
+void ProjectView::chooseDrumSoundFile (int pad)
+{
+    fileChooser = std::make_unique<juce::FileChooser> ("Choose a sound for pad " + juce::String (pad + 1),
+                                                       juce::File::getSpecialLocation (juce::File::userMusicDirectory),
+                                                       ctx.audioFiles.getWildcard());
+    juce::Component::SafePointer<ProjectView> safeThis (this);
+
+    fileChooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+                              [safeThis, pad] (const juce::FileChooser& chooser)
+    {
+        if (safeThis != nullptr && safeThis->drumEditor != nullptr && chooser.getResult() != juce::File())
+            safeThis->drumEditor->onImportSound (pad, chooser.getResult());
+    });
+}
+
+void ProjectView::showDrumEditor (const juce::String& clipId)
+{
+    openDrumWindow();
+    drumEditor->setClip (clipId);
+    drumWindow->setName (drumEditor->getTitle());
+
+    if (const auto clip = clips::findClip (project, clipId); clip.isValid())
+        trackList.focusTrack (clip.getTrackState()[ids::id].toString());
+
+    drumWindow->toFront (true);
+    drumEditor->grabKeyboardFocus();
+}
+
+void ProjectView::showDrumKit (const juce::String& trackId)
+{
+    openDrumWindow();
+    drumEditor->setTrack (trackId);
+    drumWindow->setName (drumEditor->getTitle());
+    trackList.focusTrack (trackId);
+    drumWindow->toFront (true);
+    drumEditor->grabKeyboardFocus();
+}
+
 ProjectView::~ProjectView()
 {
     stopTimer();
+    drumEditor = nullptr;
+    drumWindow = nullptr;
     pianoRoll = nullptr;
     pianoRollWindow = nullptr;
     synthEditor = nullptr;
@@ -525,16 +661,18 @@ void ProjectView::resized()
     toolbarArea = area.removeFromTop (toolbarHeight);
     {
         auto bar = toolbarArea.reduced (12, 8);
-        undoButton.setBounds (bar.removeFromLeft (64));
-        bar.removeFromLeft (6);
-        redoButton.setBounds (bar.removeFromLeft (64));
-        bar.removeFromLeft (18);
-        addAudioButton.setBounds (bar.removeFromLeft (78));
-        bar.removeFromLeft (6);
-        addMidiButton.setBounds (bar.removeFromLeft (72));
-        bar.removeFromLeft (6);
-        addBusButton.setBounds (bar.removeFromLeft (62));
-        bar.removeFromLeft (24);
+        undoButton.setBounds (bar.removeFromLeft (56));
+        bar.removeFromLeft (4);
+        redoButton.setBounds (bar.removeFromLeft (56));
+        bar.removeFromLeft (12);
+        addAudioButton.setBounds (bar.removeFromLeft (70));
+        bar.removeFromLeft (4);
+        addMidiButton.setBounds (bar.removeFromLeft (64));
+        bar.removeFromLeft (4);
+        addDrumsButton.setBounds (bar.removeFromLeft (72));
+        bar.removeFromLeft (4);
+        addBusButton.setBounds (bar.removeFromLeft (56));
+        bar.removeFromLeft (14);
         mixerButton.setBounds (bar.removeFromRight (76));
         bar.removeFromRight (8);
         midiLight.setBounds (bar.removeFromRight (44).withSizeKeepingCentre (44, 26));

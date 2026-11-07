@@ -317,7 +317,7 @@ namespace
         }
 
         void process (float* left, float* right, int numSamples, const EffectParameterValues& p,
-                      const NoteEvent* events, int numEvents) noexcept AETHER_NONBLOCKING override
+                      const NoteEvent* events, int numEvents, const InstrumentSounds*) noexcept AETHER_NONBLOCKING override
         {
             settings.update (p, sampleRate);
             int done = 0, next = 0;

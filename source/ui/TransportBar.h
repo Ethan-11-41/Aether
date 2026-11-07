@@ -27,7 +27,7 @@ public:
     ~TransportBar() override;
 
     /** The width this bar needs to show everything. */
-    static constexpr int idealWidth = 744;
+    static constexpr int idealWidth = 724;
 
     void paint (juce::Graphics&) override;
     void resized() override;

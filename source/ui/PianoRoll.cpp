@@ -639,7 +639,42 @@ private:
     void drawNotes (juce::Graphics& g, const Clip& clip) const
     {
         const auto& t = owner.theme;
-        const auto clipStart = clip.getContentStart(), clipEnd = clip.getContentStart() + clip.getLengthTicks();
+        const auto looping = clip.isLooping();
+        const auto pattern = clip.getPatternLength();
+        const auto clipStart = looping ? Tick (0) : clip.getContentStart();
+        const auto clipEnd = looping ? pattern : clip.getContentStart() + clip.getLengthTicks();
+
+        // A repeating pattern: a line where it ends, and its repeats as faint copies (edit the
+        // first one; the others follow).
+        if (looping)
+        {
+            const auto origin = clip.getStart() - clip.getContentStart();
+            const auto end = clip.getStart() + clip.getLengthTicks();
+            g.setColour (t.accent.withAlpha (0.8f));
+            g.drawVerticalLine ((int) owner.view.tickToX (origin + pattern), 0.0f, (float) getHeight());
+
+            for (const auto& node : notes::nodesOf (clip))
+            {
+                const auto n = notes::read (node);
+                if (n.start < 0 || n.start >= pattern)
+                    continue;
+
+                for (auto at = origin + n.start + pattern; at < end; at += pattern)
+                {
+                    const auto x1 = (float) owner.view.tickToX (at);
+                    if (x1 > (float) getWidth())
+                        break;
+
+                    const auto x2 = (float) owner.view.tickToX (std::min (at + n.length, end));
+                    if (x2 < 0.0f)
+                        continue;
+
+                    g.setColour (owner.noteColour (n.velocity, false).withAlpha (0.3f));
+                    g.fillRoundedRectangle (juce::Rectangle<float> (x1, (float) owner.pitchToY (n.pitch), std::max (3.0f, x2 - x1),
+                                                                    (float) owner.rowHeight - 1.0f).reduced (0.0f, 0.5f), 2.5f);
+                }
+            }
+        }
 
         for (const auto& node : notes::nodesOf (clip))
         {

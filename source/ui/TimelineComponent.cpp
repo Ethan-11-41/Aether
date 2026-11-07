@@ -9,6 +9,7 @@
 #include "io/AudioImport.h"
 #include "io/FileTypes.h"
 #include "io/MidiImport.h"
+#include "model/DrumPatterns.h"
 #include "model/ClipEdits.h"
 #include "model/MidiClips.h"
 #include "model/Recording.h"
@@ -1020,6 +1021,21 @@ private:
         if (clip.isMidi())
         {
             drawNotes (g, box, r);
+
+            // Where a repeating pattern starts again.
+            if (clip.isLooping())
+            {
+                const auto pattern = clip.getPatternLength();
+                g.setColour (colours.text.withAlpha (0.35f));
+
+                for (auto pos = pattern - clip.getContentStart() % pattern; pos < clip.getLengthTicks(); pos += pattern)
+                {
+                    const auto x = (float) owner.view.tickToX (clip.getStart() + pos);
+                    for (float y = r.getY(); y < r.getBottom(); y += 6.0f)
+                        g.drawLine (x, y, x, std::min (y + 3.0f, r.getBottom()), 1.0f);
+                }
+            }
+
             g.setColour (box.selected ? colours.text : box.colour.darker (0.3f));
             g.drawRoundedRectangle (box.bounds, 4.0f, box.selected ? 1.8f : 1.0f);
             return;
@@ -1193,12 +1209,25 @@ private:
         if (clip.isMidi())
         {
             const auto count = (int) midi::audibleNotes (clip).size();
-            menu.addSectionHeader ("MIDI clip: " + juce::String (count) + (count == 1 ? " note" : " notes"));
+            const auto drums = drumpattern::isDrumClip (proj, clip);
+            menu.addSectionHeader ((drums ? "Drum pattern: " : "MIDI clip: ") + juce::String (count) + (count == 1 ? " note" : " notes"));
+
+            if (drums)
+                menu.addItem ("Edit pattern (drum editor)...", [safeOwner, id]
+                {
+                    if (safeOwner != nullptr && safeOwner->onEditNotes)
+                        safeOwner->onEditNotes (id);
+                });
+
             menu.addItem ("Edit notes (piano roll)...", [safeOwner, id]
             {
-                if (safeOwner != nullptr && safeOwner->onEditNotes)
+                if (safeOwner != nullptr && safeOwner->onOpenPianoRoll)
+                    safeOwner->onOpenPianoRoll (id);
+                else if (safeOwner != nullptr && safeOwner->onEditNotes)
                     safeOwner->onEditNotes (id);
             });
+            menu.addItem ("Repeat pattern (drag the right edge for more repeats)", true, clip.isLooping(),
+                          [&proj, id, loop = ! clip.isLooping()] { edit::setPatternLooping (proj, id, loop); });
             menu.addSeparator();
             menu.addItem ("Split at the playhead (S)", [safeOwner] { if (safeOwner) safeOwner->splitClipsAtPlayhead(); });
             menu.addItem ("Duplicate (Ctrl+D)", [safeOwner] { if (safeOwner) safeOwner->duplicateSelectedClips(); });
@@ -1216,7 +1245,7 @@ private:
                 return juce::String (rate / 1000.0, std::fmod (rate, 1000.0) == 0.0 ? 0 : 1) + " kHz";
             };
 
-            juce::String info = juce::File::createFileWithoutCheckingPath (clip.getFile()).getFileName() + ": "
+            juce::String info = clip.getFile().replaceCharacter ('\\', '/').fromLastOccurrenceOf ("/", false, false) + ": "
                               + rateText (clip.getSourceRate());
 
             if (const auto audio = owner.audioFiles.getAudio (owner.resolve (clip.getFile())))
@@ -1682,7 +1711,10 @@ juce::String TimelineComponent::createMidiClipAt (int row, Tick position)
     const auto track = project.getTrack (row);
     const auto bar = tempoMap.ticksToBarBeat (std::max<Tick> (0, position)).bar;
     const auto start = tempoMap.barToTicks (bar);
-    const auto id = edit::addMidiClip (project, track.getId(), track.getName(), start, tempoMap.barLengthAt (start), {});
+    // On a drum track, a new clip is a one-bar pattern that repeats when it's made longer.
+    const auto id = drumpattern::isDrumTrack (project, track.getId())
+                        ? edit::addPattern (project, track.getId(), start, tempoMap.barLengthAt (start), "Beat")
+                        : edit::addMidiClip (project, track.getId(), track.getName(), start, tempoMap.barLengthAt (start), {});
 
     if (id.isNotEmpty())
     {

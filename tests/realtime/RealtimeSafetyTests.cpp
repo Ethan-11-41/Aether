@@ -12,6 +12,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include "dsp/DrumKit.h"
 #include "dsp/Synth.h"
 #include "engine/AudioEngine.h"
 #include "engine/TimelineSync.h"
@@ -341,6 +342,47 @@ TEST_CASE ("The Synth is real-time safe with every preset", "[realtime]")
 
             instrument->process (left.data(), right.data(), 1 + (block * 131) % 2048, values, events.data(), (int) events.size());
         }
+    }
+
+    CHECK (std::all_of (left.begin(), left.end(), [] (float x) { return std::isfinite (x); }));
+}
+
+TEST_CASE ("The drum kit is real-time safe", "[realtime]")
+{
+    using namespace aether::dsp;
+    auto instrument = createInstrument (drumkit::typeId);
+    instrument->prepare (48000.0, 2048);
+
+    // Sounds made beforehand (as the engine's snapshot holds them).
+    std::vector<juce::AudioBuffer<float>> buffers;
+    for (int pad = 0; pad < drums::numPads; ++pad)
+        buffers.push_back (drums::render (drums::kits().front().pads[(size_t) pad].sound, 48000.0));
+
+    InstrumentSounds sounds;
+    for (int pad = 0; pad < drums::numPads; ++pad)
+        sounds.sounds[(size_t) pad] = &buffers[(size_t) pad];
+
+    EffectParameterValues values {};
+    const auto preset = drumkit::presets().front();
+    for (size_t i = 0; i < preset.values.size(); ++i)
+        values[i] = preset.values[i];
+
+    std::vector<float> left (2048), right (2048);
+    for (int block = 0; block < 200; ++block)
+    {
+        std::array<NoteEvent, 8> events {};
+        for (int i = 0; i < 8; ++i)
+        {
+            events[(size_t) i].type = NoteEvent::Type::noteOn;
+            events[(size_t) i].pitch = (std::uint8_t) (36 + (block * 3 + i * 5) % 16);
+            events[(size_t) i].velocity = (std::uint8_t) (40 + i * 10);
+            events[(size_t) i].offset = i * 61;
+        }
+        if (block % 50 == 49)
+            events[7].type = NoteEvent::Type::allNotesOff;
+
+        instrument->process (left.data(), right.data(), 1 + (block * 131) % 2048, values, events.data(), 8,
+                             block % 37 == 0 ? nullptr : &sounds);
     }
 
     CHECK (std::all_of (left.begin(), left.end(), [] (float x) { return std::isfinite (x); }));
