@@ -213,4 +213,9 @@ TEST_CASE ("The drum editor offers a pattern, or the drum kit, when there's noth
     CHECK_FALSE (f.editor.isShowingSteps());
     f.editor.getAddPatternButton().onClick();
     CHECK (drumpattern::isDrumTrack (f.project, keys));
+
+    // The track goes (e.g. its creation is undone): nothing to offer.
+    edit::deleteTracks (f.project, { keys });
+    CHECK_FALSE (f.editor.isShowingSteps());
+    CHECK_FALSE (f.editor.getAddPatternButton().isVisible());
 }

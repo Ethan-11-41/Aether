@@ -785,7 +785,11 @@ void DrumEditor::refresh()
     messageLabel.setVisible (! showSteps);
     actionButton.setVisible (! showSteps && project.findTrack (trackId).isValid());
 
-    if (! drums)
+    if (! project.findTrack (trackId).isValid())
+    {
+        messageLabel.setText ("This track isn't in the project any more.", juce::dontSendNotification);
+    }
+    else if (! drums)
     {
         messageLabel.setText ("This track doesn't play the drum kit.", juce::dontSendNotification);
         actionButton.setButtonText ("Use the drum kit on this track");
