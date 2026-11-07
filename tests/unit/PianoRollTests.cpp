@@ -285,10 +285,17 @@ TEST_CASE ("Dragging a chord's stem changes all its notes; a selected note of it
     CHECK (notes::read (other).velocity == 100);
     CHECK (f.undoName() == "Change velocity");
 
-    // Select just the middle note: only it changes.
-    f.roll.setSelection ({ b });
+    // With one note of the chord selected (as after clicking it in), the stem still changes them all.
+    f.roll.setSelection ({ c });
+    f.drag (lane, { x, yFor (notes::read (a).velocity) }, { x, yFor (notes::read (a).velocity + 10) });
+    CHECK (std::abs (notes::read (a).velocity - 80) <= 1);
+    CHECK (std::abs (notes::read (b).velocity - 70) <= 1);
+    CHECK (std::abs (notes::read (c).velocity - 60) <= 1);
+
+    // Alt: just the note whose dot is grabbed.
     const auto before = notes::read (a).velocity;
-    f.drag (lane, { x, yFor (notes::read (b).velocity) }, { x, yFor (120) });
+    const auto altDown = Mods (Mods::leftButtonModifier | Mods::altModifier);
+    f.drag (lane, { x, yFor (notes::read (b).velocity) }, { x, yFor (120) }, altDown);
     CHECK (std::abs (notes::read (b).velocity - 120) <= 1);
     CHECK (notes::read (a).velocity == before);
 }

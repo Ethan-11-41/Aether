@@ -697,7 +697,7 @@ public:
     explicit VelocityLane (PianoRoll& o) : owner (o)
     {
         setTooltip ("Velocity: how hard each note is played. Drag a stem up or down: a chord's notes change "
-                    "together, as do selected notes. To change one note of a chord, select just that note first.");
+                    "together (as do selected notes). To change one note of a chord, hold Alt and drag its dot.");
     }
 
     void paint (juce::Graphics& g) override
@@ -734,7 +734,7 @@ public:
     void mouseDown (const juce::MouseEvent& e) override
     {
         owner.project.getUndoManager().beginNewTransaction ("Change velocity");
-        targets = stemsAt ((float) e.x, e.y);
+        targets = stemsAt ((float) e.x, e.y, e.mods.isAltDown());
         grabbed = targets.empty() ? juce::ValueTree() : targets.front();
         apply (e);
     }
@@ -774,11 +774,11 @@ private:
         return top + (int) std::lround ((1.0 - (velocity - 1) / 126.0) * (getHeight() - top));
     }
 
-    /** The notes whose stem is under the mouse. Stems of a chord share one place, so all of them
-        come together: the selected ones if some of them are selected (to change one note of a
-        chord, select just that note first), otherwise the whole chord. The note whose dot is
-        nearest the mouse comes first. */
-    NoteNodes stemsAt (float x, int y) const
+    /** The notes whose stem is under the mouse. A chord's stems share one place, so the whole
+        chord comes together, nearest dot first. With Alt held, only the note whose dot is
+        nearest the mouse. And if one of them is part of a selection of several notes, the
+        selected notes change together instead. */
+    NoteNodes stemsAt (float x, int y, bool onlyNearest) const
     {
         NoteNodes atStem;
         auto bestDistance = 6.0f;
@@ -803,20 +803,27 @@ private:
             if (notes::read (node).start == bestStart)
                 atStem.push_back (node);
 
-        NoteNodes selected;
-        for (const auto& n : atStem)
-            if (isIn (owner.selection, n))
-                selected.push_back (n);
-
-        // With several notes selected (in different places), dragging one of their stems moves
-        // all the selected notes together.
-        if (! selected.empty())
-            atStem = owner.selection.size() > selected.size() ? owner.selection : selected;
-
         std::sort (atStem.begin(), atStem.end(), [this, y] (const juce::ValueTree& a, const juce::ValueTree& b)
         {
             return std::abs (yFor (notes::read (a).velocity) - y) < std::abs (yFor (notes::read (b).velocity) - y);
         });
+
+        if (onlyNearest)
+            return { atStem.front() };
+
+        // A selection of several notes that includes this stem: the selected notes, nearest first.
+        if (owner.selection.size() > 1 && std::any_of (atStem.begin(), atStem.end(), [this] (const juce::ValueTree& n) { return isIn (owner.selection, n); }))
+        {
+            NoteNodes group { atStem.front() };
+            if (! isIn (owner.selection, atStem.front()))
+                group.front() = *std::find_if (atStem.begin(), atStem.end(), [this] (const juce::ValueTree& n) { return isIn (owner.selection, n); });
+
+            for (const auto& n : owner.selection)
+                if (n != group.front())
+                    group.push_back (n);
+
+            return group;
+        }
 
         return atStem;
     }
@@ -829,7 +836,7 @@ private:
         if (! grabbed.isValid() || ! grabbed.getParent().isValid())
         {
             // Not on a stem: set every stem the mouse passes over.
-            const auto stems = stemsAt ((float) e.x, e.y);
+            const auto stems = stemsAt ((float) e.x, e.y, e.mods.isAltDown());
             if (! stems.empty())
                 edit::setNoteVelocity (proj, stems, velocity, false);
 

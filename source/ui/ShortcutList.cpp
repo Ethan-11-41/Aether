@@ -196,7 +196,7 @@ std::vector<ShortcutList::Entry> ShortcutList::otherShortcuts()
         { pianoRollCategory, "Select all / none", "Ctrl+A / Esc" },
         { pianoRollCategory, "Delete the selected notes", "Delete" },
         { pianoRollCategory, "Zoom in time / note height", "Ctrl+mouse wheel / Alt+mouse wheel" },
-        { pianoRollCategory, "Change a chord's velocity / one note of it", "Drag its stem / select the note, then drag" },
+        { pianoRollCategory, "Change a chord's velocity / one note of it", "Drag its stem / Alt+drag the note's dot" },
     };
 }
 
