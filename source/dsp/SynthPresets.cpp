@@ -17,15 +17,15 @@ std::vector<EffectParameter> parameters()
     const juce::StringArray lfoTargets { "Off", "Pitch", "Cutoff", "Volume", "Pan", "Shape", "Mix" };
 
     std::vector<EffectParameter> list {
-        { "waveA",   "Wave",      0.0f, 3.0f, 2.0f, {}, waves, false },
-        { "octaveA", "Octave",    -3.0f, 3.0f, 0.0f, "oct", {}, false },
-        { "semiA",   "Semitones", -12.0f, 12.0f, 0.0f, "st", {}, false },
+        { "waveA",   "Wave A",      0.0f, 3.0f, 2.0f, {}, waves, false },
+        { "octaveA", "Octave",    -3.0f, 3.0f, 0.0f, "oct", {}, false, true },
+        { "semiA",   "Semitones", -12.0f, 12.0f, 0.0f, "st", {}, false, true },
         { "fineA",   "Fine",      -100.0f, 100.0f, 0.0f, "cents", {}, false },
         { "shapeA",  "Shape",     5.0f, 95.0f, 50.0f, "%", {}, false },
 
-        { "waveB",   "Wave",      0.0f, 3.0f, 2.0f, {}, waves, false },
-        { "octaveB", "Octave",    -3.0f, 3.0f, 0.0f, "oct", {}, false },
-        { "semiB",   "Semitones", -12.0f, 12.0f, 0.0f, "st", {}, false },
+        { "waveB",   "Wave B",      0.0f, 3.0f, 2.0f, {}, waves, false },
+        { "octaveB", "Octave",    -3.0f, 3.0f, 0.0f, "oct", {}, false, true },
+        { "semiB",   "Semitones", -12.0f, 12.0f, 0.0f, "st", {}, false, true },
         { "fineB",   "Fine",      -100.0f, 100.0f, 7.0f, "cents", {}, false },
         { "shapeB",  "Shape",     5.0f, 95.0f, 50.0f, "%", {}, false },
 
@@ -34,11 +34,11 @@ std::vector<EffectParameter> parameters()
         { "subWave", "Sub wave",  0.0f, 1.0f, 0.0f, {}, { "Sine", "Square" }, false },
         { "noise",   "Noise",     0.0f, 100.0f, 0.0f, "%", {}, false },
 
-        { "unison",  "Unison",    0.0f, 6.0f, 0.0f, {}, { "1", "2", "3", "4", "5", "6", "7" }, false },
+        { "unison",  "Unison",    1.0f, 7.0f, 1.0f, "copies", {}, false, true },
         { "detune",  "Detune",    0.0f, 100.0f, 15.0f, "cents", {}, false },
         { "width",   "Width",     0.0f, 100.0f, 50.0f, "%", {}, false },
 
-        { "filterType",     "Filter",      0.0f, 3.0f, 0.0f, {}, { "Low-pass 24 dB", "Low-pass 12 dB", "High-pass", "Band-pass" }, false },
+        { "filterType",     "Filter",      0.0f, 3.0f, 0.0f, {}, { "Low-pass 24", "Low-pass 12", "High-pass", "Band-pass" }, false },
         { "cutoff",         "Cutoff",      20.0f, 20000.0f, 8000.0f, "Hz", {}, true },
         { "resonance",      "Resonance",   0.0f, 100.0f, 10.0f, "%", {}, false },
         { "drive",          "Drive",       0.0f, 100.0f, 0.0f, "%", {}, false },
@@ -74,7 +74,7 @@ std::vector<EffectParameter> parameters()
 
         { "glide",     "Glide",      0.0f, 2000.0f, 0.0f, "ms", {}, false },
         { "voiceMode", "Voices",     0.0f, 2.0f, 0.0f, {}, { "Poly", "Mono", "Legato" }, false },
-        { "bendRange", "Bend range", 1.0f, 12.0f, 2.0f, "st", {}, false },
+        { "bendRange", "Bend range", 1.0f, 12.0f, 2.0f, "st", {}, false, true },
 
         { "chorus",     "Chorus",      0.0f, 100.0f, 0.0f, "%", {}, false },
         { "chorusRate", "Chorus rate", 0.1f, 5.0f, 0.8f, "Hz", {}, true },
@@ -182,14 +182,14 @@ std::vector<EffectPreset> presets()
 
         // Strings -------------------------------------------------------------------------------------
         make (p, "String ensemble", "Strings", {
-            { "waveA", Saw }, { "waveB", Saw }, { "fineB", 9 }, { "unison", 3 }, { "detune", 18 }, { "width", 70 },
+            { "waveA", Saw }, { "waveB", Saw }, { "fineB", 9 }, { "unison", 4 }, { "detune", 18 }, { "width", 70 },
             { "cutoff", 4500 }, { "resonance", 5 }, { "keyTrack", 40 }, { "filterEnv", 10 }, { "attack", 280 },
             { "decay", 1000 }, { "sustain", 90 }, { "release", 700 }, { "velocity", 30 },
             { "lfo1Target", Pitch }, { "lfo1Rate", 5.2f }, { "lfo1Amount", 8 }, { "lfo1Fade", 900 },
             { "chorus", 55 }, { "chorusRate", 0.7f }, { "reverb", 35 }, { "reverbSize", 75 }, { "volume", -10 } }),
 
         make (p, "Slow strings", "Strings", {
-            { "waveA", Saw }, { "waveB", Saw }, { "fineB", 9 }, { "unison", 4 }, { "detune", 20 }, { "width", 80 },
+            { "waveA", Saw }, { "waveB", Saw }, { "fineB", 9 }, { "unison", 5 }, { "detune", 20 }, { "width", 80 },
             { "cutoff", 3200 }, { "resonance", 5 }, { "keyTrack", 40 }, { "filterEnv", 10 }, { "fAttack", 800 },
             { "attack", 900 }, { "decay", 1500 }, { "sustain", 90 }, { "release", 1500 }, { "velocity", 25 },
             { "lfo1Target", Pitch }, { "lfo1Rate", 5 }, { "lfo1Amount", 8 }, { "lfo1Fade", 1200 },
@@ -202,7 +202,7 @@ std::vector<EffectPreset> presets()
             { "chorus", 85 }, { "chorusRate", 0.9f }, { "reverb", 30 }, { "volume", -9 } }),
 
         make (p, "Pizzicato", "Strings", {
-            { "waveA", Saw }, { "waveB", Saw }, { "fineB", 6 }, { "unison", 1 }, { "detune", 10 },
+            { "waveA", Saw }, { "waveB", Saw }, { "fineB", 6 }, { "unison", 2 }, { "detune", 10 },
             { "cutoff", 1800 }, { "filterEnv", 45 }, { "fAttack", 1 }, { "fDecay", 250 }, { "fSustain", 0 },
             { "attack", 2 }, { "decay", 350 }, { "sustain", 0 }, { "release", 250 }, { "velocity", 70 },
             { "reverb", 35 }, { "volume", -8 } }),
@@ -210,7 +210,7 @@ std::vector<EffectPreset> presets()
         // Pads ----------------------------------------------------------------------------------------
         make (p, "Warm pad", "Pads", {
             { "waveA", Saw }, { "waveB", Triangle }, { "octaveB", -1 }, { "fineB", 0 }, { "mix", 40 },
-            { "unison", 4 }, { "detune", 22 }, { "width", 85 }, { "cutoff", 1600 }, { "resonance", 15 },
+            { "unison", 5 }, { "detune", 22 }, { "width", 85 }, { "cutoff", 1600 }, { "resonance", 15 },
             { "filterEnv", 25 }, { "fAttack", 900 }, { "fDecay", 2000 }, { "fSustain", 40 }, { "fRelease", 1500 },
             { "attack", 700 }, { "decay", 1500 }, { "sustain", 85 }, { "release", 1800 }, { "velocity", 25 },
             { "lfo1Target", Cutoff }, { "lfo1Rate", 0.25f }, { "lfo1Amount", 20 }, { "chorus", 40 },
@@ -218,28 +218,28 @@ std::vector<EffectPreset> presets()
 
         make (p, "Glass pad", "Pads", {
             { "waveA", Triangle }, { "waveB", Sine }, { "octaveB", 1 }, { "fineB", 0 }, { "mix", 45 },
-            { "unison", 2 }, { "detune", 12 }, { "width", 80 }, { "filterType", LP12 }, { "cutoff", 7000 },
+            { "unison", 3 }, { "detune", 12 }, { "width", 80 }, { "filterType", LP12 }, { "cutoff", 7000 },
             { "resonance", 20 }, { "filterEnv", 0 }, { "attack", 500 }, { "decay", 1500 }, { "sustain", 80 },
             { "release", 2000 }, { "velocity", 25 }, { "lfo1Target", Mix }, { "lfo1Rate", 0.3f }, { "lfo1Amount", 30 },
             { "chorus", 30 }, { "reverb", 65 }, { "reverbSize", 90 }, { "volume", -10 } }),
 
         make (p, "Dark pad", "Pads", {
             { "waveA", Square }, { "shapeA", 40 }, { "waveB", Saw }, { "octaveB", -1 }, { "fineB", 0 }, { "mix", 35 },
-            { "unison", 3 }, { "detune", 15 }, { "width", 75 }, { "cutoff", 700 }, { "resonance", 25 },
+            { "unison", 4 }, { "detune", 15 }, { "width", 75 }, { "cutoff", 700 }, { "resonance", 25 },
             { "filterEnv", 20 }, { "fAttack", 1500 }, { "fDecay", 3000 }, { "fSustain", 50 }, { "fRelease", 2000 },
             { "attack", 1200 }, { "decay", 2000 }, { "sustain", 90 }, { "release", 2500 }, { "velocity", 20 },
             { "lfo1Target", Shape }, { "lfo1Rate", 0.2f }, { "lfo1Amount", 40 }, { "chorus", 20 },
             { "reverb", 60 }, { "reverbSize", 85 }, { "volume", -10 } }),
 
         make (p, "Choir pad", "Pads", {
-            { "waveA", Saw }, { "waveB", Saw }, { "fineB", 5 }, { "unison", 2 }, { "detune", 10 }, { "width", 70 },
+            { "waveA", Saw }, { "waveB", Saw }, { "fineB", 5 }, { "unison", 3 }, { "detune", 10 }, { "width", 70 },
             { "filterType", BP }, { "cutoff", 1100 }, { "resonance", 35 }, { "keyTrack", 30 }, { "filterEnv", 0 },
             { "attack", 400 }, { "decay", 1500 }, { "sustain", 90 }, { "release", 1500 }, { "velocity", 25 },
             { "lfo1Target", Pitch }, { "lfo1Rate", 5 }, { "lfo1Amount", 6 }, { "lfo1Fade", 600 },
             { "chorus", 60 }, { "reverb", 55 }, { "reverbSize", 85 }, { "volume", -6 } }),
 
         make (p, "Evolving pad", "Pads", {
-            { "waveA", Saw }, { "waveB", Square }, { "shapeB", 30 }, { "mix", 50 }, { "unison", 4 }, { "detune", 25 },
+            { "waveA", Saw }, { "waveB", Square }, { "shapeB", 30 }, { "mix", 50 }, { "unison", 5 }, { "detune", 25 },
             { "width", 100 }, { "cutoff", 1200 }, { "resonance", 30 }, { "filterEnv", 15 }, { "attack", 1500 },
             { "decay", 2000 }, { "sustain", 85 }, { "release", 3000 }, { "velocity", 20 },
             { "lfo1Shape", 1 }, { "lfo1Target", Cutoff }, { "lfo1Rate", 0.12f }, { "lfo1Amount", 45 },
@@ -266,7 +266,7 @@ std::vector<EffectPreset> presets()
             { "voiceMode", 2 }, { "glide", 60 }, { "chorus", 15 }, { "reverb", 25 }, { "volume", -9 } }),
 
         make (p, "Saw lead", "Leads", {
-            { "waveA", Saw }, { "waveB", Saw }, { "fineB", 10 }, { "unison", 2 }, { "detune", 15 }, { "width", 60 },
+            { "waveA", Saw }, { "waveB", Saw }, { "fineB", 10 }, { "unison", 3 }, { "detune", 15 }, { "width", 60 },
             { "cutoff", 6000 }, { "resonance", 20 }, { "drive", 20 }, { "filterEnv", 15 }, { "attack", 3 },
             { "sustain", 90 }, { "release", 150 }, { "voiceMode", 1 }, { "glide", 30 }, { "reverb", 20 },
             { "volume", -11 } }),

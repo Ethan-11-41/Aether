@@ -263,7 +263,7 @@ TEST_CASE ("Unison and width make the Synth stereo", "[synth]")
     CHECK (left1 == right);   // one copy, in the middle
 
     Fixture wide;
-    wide.set (sy::unison, 4.0f);   // five copies
+    wide.set (sy::unison, 5.0f);   // five copies
     wide.set (sy::width, 100.0f);
     wide.set (sy::detune, 30.0f);
     const auto left2 = wide.run (24000, { Fixture::on (60) }, &right);

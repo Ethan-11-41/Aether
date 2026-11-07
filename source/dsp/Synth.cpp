@@ -123,8 +123,9 @@ namespace
 
             waveA = choice (synth::waveA, 3);
             waveB = choice (synth::waveB, 3);
-            ratioA = std::pow (2.0, (double) p[octaveA] + ((double) p[semiA] + (double) p[fineA] / 100.0) / 12.0);
-            ratioB = std::pow (2.0, (double) p[octaveB] + ((double) p[semiB] + (double) p[fineB] / 100.0) / 12.0);
+            const auto whole = [&p] (int index) { return (double) std::lround (p[(size_t) index]); };
+            ratioA = std::pow (2.0, whole (octaveA) + (whole (semiA) + (double) p[fineA] / 100.0) / 12.0);
+            ratioB = std::pow (2.0, whole (octaveB) + (whole (semiB) + (double) p[fineB] / 100.0) / 12.0);
             shapeA = std::clamp ((double) p[synth::shapeA] / 100.0, 0.05, 0.95);
             shapeB = std::clamp ((double) p[synth::shapeB] / 100.0, 0.05, 0.95);
             mix = std::clamp ((double) p[synth::mix] / 100.0, 0.0, 1.0);
@@ -134,7 +135,7 @@ namespace
 
             // Unison: copies spread evenly across the detune range and the stereo field; their
             // level is shared so more copies don't get louder.
-            unison = choice (synth::unison, maxUnison - 1) + 1;
+            unison = std::clamp ((int) std::lround (p[synth::unison]), 1, maxUnison);
             const auto spread = std::clamp ((double) p[synth::width] / 100.0, 0.0, 1.0);
             const auto norm = std::sqrt (2.0 / (double) unison);
 

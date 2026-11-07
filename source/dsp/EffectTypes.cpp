@@ -11,7 +11,7 @@ namespace aether::dsp
 float EffectParameter::clamp (float value) const noexcept
 {
     value = juce::jlimit (minimum, maximum, value);
-    return isChoice() ? std::round (value) : value;
+    return isChoice() || wholeNumbers ? std::round (value) : value;
 }
 
 juce::String EffectParameter::format (float value) const
@@ -28,7 +28,13 @@ juce::String EffectParameter::format (float value) const
              : value < 100.0f   ? juce::String (value, 1) + " Hz"
                                 : juce::String (juce::roundToInt (value)) + " Hz";
 
-    if (unit == "oct" || unit == "st")
+    if (unit == "copies")
+    {
+        const auto whole = juce::roundToInt (value);
+        return whole <= 1 ? juce::String ("1 (off)") : juce::String (whole) + " copies";
+    }
+
+        if (unit == "oct" || unit == "st")
     {
         const auto whole = juce::roundToInt (value);
         return (whole > 0 ? "+" : "") + juce::String (whole) + (unit == "oct" ? " oct" : " st");

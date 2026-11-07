@@ -4,6 +4,7 @@
 #include "EffectEditor.h"
 #include "MixerControls.h"
 #include "dsp/EffectTypes.h"
+#include "dsp/Synth.h"
 #include "model/EditCommands.h"
 #include "model/MidiClips.h"
 #include "model/Mixer.h"
@@ -522,6 +523,14 @@ void TrackListComponent::showContextMenu (const juce::String& trackId)
                 presets.addItem (preset.name, true, instrument[ids::preset].toString() == preset.name,
                                  whenStillOpen ([trackId, name = preset.name] (TrackListComponent& list) { edit::setInstrumentPreset (list.project, trackId, name); }));
 
+        // Which instrument (the Synth, or the starter synth older projects have).
+        presets.addSeparator();
+        for (const auto& type : dsp::effectTypes())
+            if (type.isInstrument)
+                presets.addItem ("Use the " + type.name + (type.id == dsp::defaultInstrument ? " (recommended)" : juce::String()),
+                                 instrument[ids::type].toString() != type.id, instrument[ids::type].toString() == type.id,
+                                 whenStillOpen ([trackId, id = type.id] (TrackListComponent& list) { edit::setInstrumentType (list.project, trackId, id); }));
+
         menu.addSubMenu ("Instrument (" + instrument[ids::preset].toString() + ")", presets);
         menu.addItem ("Instrument settings...", whenStillOpen ([trackId] (TrackListComponent& list)
         {
@@ -590,7 +599,13 @@ void TrackListComponent::showInstrumentEditor (const juce::String& trackId, juce
 {
     const auto instrument = midi::instrumentOf (project, trackId);
 
-    if (instrument.isValid())
+    if (! instrument.isValid())
+        return;
+
+    // The Synth has its own window; the starter synth a small pop-up.
+    if (instrument[ids::type].toString() == dsp::synth::typeId && onOpenInstrument)
+        onOpenInstrument (trackId);
+    else
         EffectEditor::show (theme, project, instrument[ids::id].toString(), screenArea);
 }
 

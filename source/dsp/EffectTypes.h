@@ -18,6 +18,7 @@ struct EffectParameter
     juce::String unit;            // "%", "Hz", ...
     juce::StringArray choices;    // if not empty, the value is an index into these
     bool logarithmic = false;     // knob travel is logarithmic (frequencies)
+    bool wholeNumbers = false;    // only whole values (octaves, semitones, counts)
 
     bool isChoice() const noexcept   { return ! choices.isEmpty(); }
     float clamp (float value) const noexcept;

@@ -140,6 +140,8 @@ add_library(aether_ui STATIC
     ui/PianoRoll.h
     ui/ShortcutList.cpp
     ui/ShortcutList.h
+    ui/SynthEditor.cpp
+    ui/SynthEditor.h
     ui/Theme.h
     ui/TimelineComponent.cpp
     ui/TimelineComponent.h
