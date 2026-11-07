@@ -8,6 +8,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include "EffectEditor.h"
+#include "KeyboardPanel.h"
 #include "Theme.h"
 #include "model/Project.h"
 
@@ -32,7 +33,14 @@ public:
     std::function<void()> onTitleChanged;
     juce::String getTitle() const;
 
-    enum class Page { simple, advanced };
+    /** Plays a note on this track's synth (from the keyboard at the bottom of the window). */
+    std::function<void (int pitch, int velocity, bool on)> playNote;
+
+    /** Gives the keyboard at the bottom the keyboard focus (so the computer keys play notes). */
+    void focusKeyboard();
+    KeyboardPanel& getKeyboard() noexcept   { return *keyboard; }
+
+        enum class Page { simple, advanced };
     void showPage (Page page);
     Page getPage() const noexcept   { return page; }
 
@@ -90,6 +98,7 @@ private:
     std::vector<std::unique_ptr<Card>> simpleCards, advancedCards;
     std::vector<ParameterKnob*> knobs;          // every knob (both pages), for repainting
     std::vector<ChoiceControl*> choiceControls;
+    std::unique_ptr<KeyboardPanel> keyboard;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SynthEditor)
 };

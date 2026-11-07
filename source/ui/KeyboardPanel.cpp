@@ -73,6 +73,19 @@ KeyboardPanel::KeyboardPanel (const Theme& themeToUse, std::function<void (const
 
 juce::MidiKeyboardComponent& KeyboardPanel::getKeys() noexcept   { return *keys; }
 
+void KeyboardPanel::focusKeys()
+{
+    if (keys->isShowing())
+        keys->grabKeyboardFocus();
+}
+
+void KeyboardPanel::setHintTexts (juce::String withoutFocus, juce::String withFocus)
+{
+    hintWithoutFocus = std::move (withoutFocus);
+    hintWithFocus = std::move (withFocus);
+    resized();
+}
+
 KeyboardPanel::~KeyboardPanel()
 {
     state.removeListener (this);
@@ -120,11 +133,13 @@ void KeyboardPanel::resized()
     top.removeFromRight (6);
     octaveDown.setBounds (top.removeFromRight (56));
 
-    hint.setText (keys->hasKeyboardFocus (false)
-                      ? "Your computer keyboard plays notes now (octave from C" + juce::String (octave)
-                            + "). Click anywhere else to use shortcuts again."
-                      : "Notes go to the selected MIDI track. Click the keyboard to play it with your computer keys "
-                        "(A W S E D F T G Y H U J K).",
+    const auto focused = keys->hasKeyboardFocus (false);
+    hint.setText (focused && hintWithFocus.isNotEmpty()     ? hintWithFocus.replace ("{octave}", juce::String (octave))
+                : ! focused && hintWithoutFocus.isNotEmpty() ? hintWithoutFocus
+                : focused ? "Your computer keyboard plays notes now (octave from C" + juce::String (octave)
+                                + "). Click anywhere else to use shortcuts again."
+                          : juce::String ("Notes go to the selected MIDI track. Click the keyboard to play it with your computer keys "
+                                          "(A W S E D F T G Y H U J K)."),
                   juce::dontSendNotification);
     hint.setBounds (top);
 

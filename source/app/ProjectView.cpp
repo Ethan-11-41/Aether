@@ -402,6 +402,11 @@ void ProjectView::showSynth (const juce::String& trackId)
 
         auto editor = std::make_unique<ui::SynthEditor> (ctx.theme, project, trackId);
         synthEditor = editor.get();
+        synthEditor->playNote = [safeThis] (int pitch, int velocity, bool on)
+        {
+            if (safeThis != nullptr && safeThis->synthEditor != nullptr)
+                safeThis->ctx.engine.sendPreviewNote (safeThis->synthEditor->getTrackId(), pitch, velocity, on);
+        };
         synthEditor->onTitleChanged = [safeThis]
         {
             if (safeThis != nullptr && safeThis->synthWindow != nullptr && safeThis->synthEditor != nullptr)
@@ -424,6 +429,7 @@ void ProjectView::showSynth (const juce::String& trackId)
     // Playing the keyboard plays this track, so you hear the changes.
     trackList.focusTrack (trackId);
     synthWindow->toFront (true);
+    synthEditor->focusKeyboard();
 }
 
 void ProjectView::showPianoRoll (const juce::String& clipId)
