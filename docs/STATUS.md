@@ -4,7 +4,7 @@ An honest list of what works. Updated at the end of every milestone.
 
 **Legend:** ✅ Working · 🟡 Partial · 🧪 Stub/placeholder · ⬜ Not started
 
-Current version: **0.10.1** (Milestone 9: piano roll)
+Current version: **0.11.0** (Milestone 10: the Synth)
 
 ## Milestone 0: skeleton and build pipeline
 
@@ -114,7 +114,7 @@ Current version: **0.10.1** (Milestone 9: piano roll)
 
 | Feature | Status | Notes |
 |---|---|---|
-| Starter synth with six presets and its own settings | 🟡 | Deliberately simple (one tone at a time, 16 notes at once). A fuller synth is M10, sampled instruments M12. |
+| Starter synth with six presets and its own settings | ✅ | Kept for projects made before 0.11 (the Synth replaces it for new tracks). |
 | MIDI keyboards over USB, switched on automatically (also when plugged in later) | ✅ | Bluetooth MIDI isn't supported yet (Windows needs a different system for it): use USB. |
 | Playing through the selected / armed / "play through" MIDI track | ✅ | |
 | Sustain pedal and pitch bend | ✅ | Other controllers (mod wheel, expression) are ignored for now. |
@@ -168,11 +168,22 @@ Current version: **0.10.1** (Milestone 9: piano roll)
 | Editing several clips at once, drum view, MIDI controllers (mod wheel, sustain) in the piano roll | ⬜ | Drums: M11 (step sequencer). Controllers and automation: M14. |
 | Double-click an empty MIDI lane to make a clip | ✅ | One bar long, at that bar. |
 
+## Milestone 10: the Synth
+
+| Feature | Status | Notes |
+|---|---|---|
+| The Synth: 2 oscillators, unison, sub, noise, filter (4 types), 2 envelopes, 2 LFOs, mod wheel, glide, mono/legato, chorus, reverb | ✅ | 24 notes at once. Tested on its sound automatically; how it sounds to you is in the M10 checklist. |
+| 23 presets (pads, strings, keys, organ first) | ✅ | Saving your own presets comes with the sound library (M17). |
+| Its own window: Simple and Advanced pages, live pictures, tooltips | ✅ | One Synth window at a time (it switches to the track you open). |
+| Switching a track between the Synth and the starter synth | ✅ | Track menu > Instrument. |
+| Mod wheel | ✅ | Live only: recording the mod wheel into clips comes with automation (M14). |
+| Aftertouch, MPE, wavetables, FM | ⬜ | Not planned for now; tell me if you want any. |
+
 ## Everything else
 
 | Area | Status | Milestone |
 |---|---|---|
-| Step sequencer, instruments, effects, automation | ⬜ | M10–M14 |
+| Step sequencer, sampler, effects, automation | ⬜ | M11–M14 |
 | VST3 / CLAP plug-ins | ⬜ | M15 / M28 |
 | Sound library | ⬜ | M17, M23 |
 | Import/export with other DAWs | 🟡 | MIDI file import since 0.7.0; the rest in M18, M26, M27 |

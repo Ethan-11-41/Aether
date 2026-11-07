@@ -73,8 +73,10 @@ Separate process:   plug-in scanner
   timeline, track list and mixer. Limits (checked in Release builds only, as Debug is many times
   slower): the engine under 50% of the buffer's time, a snapshot rebuild under 15 ms, a redraw
   under 25 ms. Results at 0.9.0 (one core of a cloud machine): about 17%, 0.6 ms and 1 to 4 ms.
-- Almost all of the engine's time in that test goes to the starter synth's voices (160 notes
-  sounding at once); 40 audio tracks with effects cost about 2%.
+- Almost all of the engine's time in that test goes to the synth voices (10 tracks of dense
+  chords with long releases); 40 audio tracks with effects cost about 2%. With the Synth (0.11)
+  the test takes about 25% of the time available; a big unison pad with 8 notes held costs about
+  2% of one core.
 
 ### Timing
 - Timeline positions are integers: **960,000 ticks per quarter note**, which is exact for
@@ -138,6 +140,11 @@ Separate process:   plug-in scanner
   selection survives them. Note preview uses its own queue (`AudioEngine::sendPreviewNote`),
   matched on the audio thread by a hash of the track id in the snapshot, so a previewed note only
   reaches that track's instrument and is never recorded.
+
+- The Synth (`dsp/Synth.cpp`) renders in slices: pitch, filter coefficients and LFOs are updated
+  every 16 samples, oscillators and envelopes every sample, in fixed-size buffers (no allocation
+  after `prepare()`). Its pictures (`ui/SynthEditor`) use the same wave and filter maths as the
+  sound (`dsp/Synth.h`), so they show what you hear.
 
 ### Mixer
 - Tracks → buses → master, with pre- or post-fader sends. Feedback loops are refused when
