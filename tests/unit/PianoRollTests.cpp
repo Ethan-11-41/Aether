@@ -246,3 +246,120 @@ TEST_CASE ("The piano roll empties when its clip is deleted", "[ui][pianoroll]")
     f.project.getUndoManager().undo();
     CHECK (f.roll.getClipId().isEmpty());
 }
+
+TEST_CASE ("Deleting many selected notes deletes every one of them", "[ui][pianoroll]")
+{
+    Fixture f;
+    for (int i = 0; i < 12; ++i)
+        edit::addNote (f.project, f.clipId, { 60 + (i % 4), 100, i * q / 4, q / 4 });
+
+    f.roll.selectAll();
+    REQUIRE (f.roll.getSelection().size() == 12);
+
+    CHECK (f.roll.keyPressed (juce::KeyPress (juce::KeyPress::deleteKey)));
+    CHECK (f.nodes().empty());
+    CHECK (f.roll.getSelection().empty());
+
+    // One undo brings them all back.
+    f.project.getUndoManager().undo();
+    CHECK (f.nodes().size() == 12);
+}
+
+TEST_CASE ("Dragging a chord's stem changes all its notes; a selected note of it changes alone", "[ui][pianoroll]")
+{
+    Fixture f;
+    const auto a = edit::addNote (f.project, f.clipId, { 60, 100, q, q });
+    const auto b = edit::addNote (f.project, f.clipId, { 64, 90, q, q });
+    const auto c = edit::addNote (f.project, f.clipId, { 67, 80, q, q });
+    const auto other = edit::addNote (f.project, f.clipId, { 72, 100, 2 * q, q });
+
+    auto& lane = f.roll.getVelocityLane();
+    const auto x = (float) f.roll.positionOf (q, 60).x;
+    const auto yFor = [&lane] (int velocity) { return 6.0f + (1.0f - (float) (velocity - 1) / 126.0f) * (float) (lane.getHeight() - 6); };
+
+    // Grab the chord at its top dot (100) and drag down by 30: every note goes down by 30.
+    f.drag (lane, { x, yFor (100) }, { x, yFor (70) });
+    CHECK (std::abs (notes::read (a).velocity - 70) <= 1);
+    CHECK (std::abs (notes::read (b).velocity - 60) <= 1);
+    CHECK (std::abs (notes::read (c).velocity - 50) <= 1);
+    CHECK (notes::read (other).velocity == 100);
+    CHECK (f.undoName() == "Change velocity");
+
+    // Select just the middle note: only it changes.
+    f.roll.setSelection ({ b });
+    const auto before = notes::read (a).velocity;
+    f.drag (lane, { x, yFor (notes::read (b).velocity) }, { x, yFor (120) });
+    CHECK (std::abs (notes::read (b).velocity - 120) <= 1);
+    CHECK (notes::read (a).velocity == before);
+}
+
+TEST_CASE ("Dragging a note past the edge scrolls to follow it", "[ui][pianoroll]")
+{
+    Fixture f;
+    edit::addNote (f.project, f.clipId, { 62, 100, q, q });
+    const auto start = f.at (q + q / 4, 62);
+    const auto below = juce::Point<float> (start.x, (float) f.grid().getHeight() + 40.0f);
+
+    f.grid().mouseDown (Fixture::event (f.grid(), start, start));
+    for (int i = 0; i < 10; ++i)   // held still past the bottom edge: it keeps scrolling
+        f.grid().mouseDrag (Fixture::event (f.grid(), below, start, Mods::leftButtonModifier, true));
+    f.grid().mouseUp (Fixture::event (f.grid(), below, start, Mods::leftButtonModifier, true));
+
+    // The note went below what was visible at first, and is still in view (at the bottom edge).
+    const auto lowestVisibleAtFirst = 62 - f.grid().getHeight() / 2 / f.roll.getRowHeight();
+    CHECK (f.note (0).pitch < lowestVisibleAtFirst);
+    const auto y = f.roll.positionOf (0, f.note (0).pitch).y;
+    CHECK (y >= 0);
+    CHECK (y < f.grid().getHeight());
+}
+
+TEST_CASE ("The piano roll's keys are laid out like a piano", "[ui][pianoroll]")
+{
+    Fixture f;
+    f.roll.setPreviewEnabled (false);
+    auto& keys = f.roll.getKeys();
+    const auto rowMiddle = [&] (int pitch) { return (float) f.roll.positionOf (0, pitch).y + (float) f.roll.getRowHeight() / 2.0f; };
+
+    // On the black key itself: C#4.
+    f.click (keys, { 8.0f, rowMiddle (61) });
+    REQUIRE (f.previews.size() == 2);
+    CHECK (f.previews[0].first == 61);
+
+    // The same height, to the right of the black key: the white key behind it (C4).
+    f.click (keys, { (float) keys.getWidth() - 10.0f, rowMiddle (61) });
+    CHECK (f.previews[2].first == 60);
+
+    // E and F have no black key between them.
+    f.click (keys, { 8.0f, rowMiddle (65) });
+    CHECK (f.previews[4].first == 65);
+}
+
+TEST_CASE ("Right-clicking a selected note deletes the whole selection; right-dragging deletes what it passes", "[ui][pianoroll]")
+{
+    Fixture f;
+    NoteNodes row;
+    for (int i = 0; i < 6; ++i)
+        row.push_back (edit::addNote (f.project, f.clipId, { 60, 100, i * q / 2, q / 4 }));
+    const auto keep = edit::addNote (f.project, f.clipId, { 67, 100, 0, q / 4 });
+
+    // Select four, right-click one of them: all four go, in one undo step.
+    f.roll.setSelection ({ row[0], row[1], row[2], row[3] });
+    f.click (f.grid(), f.at (q / 2, 60), Mods (Mods::rightButtonModifier));
+    CHECK (f.nodes().size() == 3);
+    CHECK (f.roll.getSelection().empty());
+    f.project.getUndoManager().undo();
+    CHECK (f.nodes().size() == 7);
+
+    // Right-drag along the row: every note it touches goes, the other row stays; one undo step.
+    f.roll.setSelection ({});
+    const Mods right (Mods::rightButtonModifier);
+    f.grid().mouseDown (Fixture::event (f.grid(), f.at (0, 60), f.at (0, 60), right));
+    for (int i = 1; i <= 5; ++i)
+        f.grid().mouseDrag (Fixture::event (f.grid(), f.at (i * q / 2, 60), f.at (0, 60), Mods (Mods::rightButtonModifier), true));
+    f.grid().mouseUp (Fixture::event (f.grid(), f.at (5 * q / 2, 60), f.at (0, 60), Mods (Mods::rightButtonModifier), true));
+
+    REQUIRE (f.nodes().size() == 1);
+    CHECK (f.nodes()[0] == keep);
+    f.project.getUndoManager().undo();
+    CHECK (f.nodes().size() == 7);
+}

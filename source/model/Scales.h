@@ -30,11 +30,29 @@ inline constexpr std::array<Scale, 10> allScales {{
     { "chromatic",       "Chromatic (all)",   0x0fff },
 }};
 
-/** "C", "C#"... for key notes 0 to 11. */
-inline const char* keyName (int key) noexcept
+/** True for scales with a minor third (minor, dorian, blues...), which are named like minor keys. */
+inline bool isMinorLike (const Scale& scale) noexcept
 {
-    static constexpr const char* names[] { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
-    return names[((key % 12) + 12) % 12];
+    return ((scale.notes >> 3) & 1) && ! ((scale.notes >> 4) & 1);
+}
+
+/** The key's name as musicians write it. Major keys: C, Db, D, Eb, E, F, F#/Gb, G, Ab, A, Bb, B.
+    Minor keys: C, C#, D, D#/Eb, E, F, F#, G, G#, A, Bb, B. */
+inline const char* keyName (int key, bool minor = false) noexcept
+{
+    static constexpr const char* major[] { "C", "Db", "D", "Eb", "E", "F", "F#/Gb", "G", "Ab", "A", "Bb", "B" };
+    static constexpr const char* minorNames[] { "C", "C#", "D", "D#/Eb", "E", "F", "F#", "G", "G#", "A", "Bb", "B" };
+    const auto k = ((key % 12) + 12) % 12;
+    return minor ? minorNames[k] : major[k];
+}
+
+/** True if notes in this key are written with flats (Bb rather than A#): F, Bb, Eb, Ab and Db
+    major, and D, G, C, F, Bb and Eb minor. */
+inline bool usesFlats (int key, bool minor) noexcept
+{
+    const auto k = ((key % 12) + 12) % 12;
+    return minor ? (k == 2 || k == 7 || k == 0 || k == 5 || k == 10 || k == 3)
+                 : (k == 5 || k == 10 || k == 3 || k == 8 || k == 1);
 }
 
 /** The scale with this id ("No scale" if unknown). */

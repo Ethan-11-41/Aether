@@ -4,7 +4,7 @@ An honest list of what works. Updated at the end of every milestone.
 
 **Legend:** ✅ Working · 🟡 Partial · 🧪 Stub/placeholder · ⬜ Not started
 
-Current version: **0.10.0** (Milestone 9: piano roll)
+Current version: **0.10.1** (Milestone 9: piano roll)
 
 ## Milestone 0: skeleton and build pipeline
 
@@ -163,7 +163,7 @@ Current version: **0.10.0** (Milestone 9: piano roll)
 | Hearing notes while editing; clicking the keys | ✅ | Plays on the clip's track only, never recorded. |
 | Velocity lane | ✅ | |
 | Quantize (strength, swing, note ends), humanize | ✅ | Quantize uses the piano roll's snap grid (1/16 if snapping is off). Groove templates are M22. |
-| Scale highlighting (key and scale, saved with the project) | ✅ | Shows only; "snap notes to the scale" could come later if wanted. |
+| Scale highlighting (key and scale, saved with the project) | ✅ | Marks on the keys and tinted rows since 0.10.1. Shows only; "snap notes to the scale" could come later if wanted. |
 | Copy / paste / duplicate notes, transpose, nudge | ✅ | Notes copied in one clip can be pasted into another (within Aether). |
 | Editing several clips at once, drum view, MIDI controllers (mod wheel, sustain) in the piano roll | ⬜ | Drums: M11 (step sequencer). Controllers and automation: M14. |
 | Double-click an empty MIDI lane to make a clip | ✅ | One bar long, at that bar. |

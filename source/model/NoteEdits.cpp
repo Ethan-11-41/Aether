@@ -161,21 +161,27 @@ NoteNodes edit::addNotes (Project& project, const juce::String& clipId, const st
     return added;
 }
 
-void edit::deleteNotes (Project& project, const NoteNodes& notes)
+void edit::deleteNotes (Project& project, const NoteNodes& notesToEdit, bool newUndoStep)
 {
+    // A copy: the list passed in may be a selection that listeners change while notes change.
+    const NoteNodes notes (notesToEdit);
+
     if (notes.empty())
         return;
 
     auto& undo = project.getUndoManager();
-    undo.beginNewTransaction (plural (notes, "Delete note", "Delete notes"));
+    begin (project, newUndoStep, plural (notes, "Delete note", "Delete notes"));
 
     for (auto n : notes)
         if (auto parent = n.getParent(); parent.isValid())
             parent.removeChild (n, &undo);
 }
 
-void edit::moveNotes (Project& project, const NoteNodes& notes, Tick deltaTicks, int deltaPitch, bool newUndoStep)
+void edit::moveNotes (Project& project, const NoteNodes& notesToEdit, Tick deltaTicks, int deltaPitch, bool newUndoStep)
 {
+    // A copy: the list passed in may be a selection that listeners change while notes change.
+    const NoteNodes notes (notesToEdit);
+
     if (notes.empty() || (deltaTicks == 0 && deltaPitch == 0))
         return;
 
@@ -206,8 +212,11 @@ void edit::moveNotes (Project& project, const NoteNodes& notes, Tick deltaTicks,
     grow (project, notes);
 }
 
-void edit::resizeNotes (Project& project, const NoteNodes& notes, Tick deltaLength, Tick minimumLength, bool newUndoStep)
+void edit::resizeNotes (Project& project, const NoteNodes& notesToEdit, Tick deltaLength, Tick minimumLength, bool newUndoStep)
 {
+    // A copy: the list passed in may be a selection that listeners change while notes change.
+    const NoteNodes notes (notesToEdit);
+
     if (notes.empty() || deltaLength == 0)
         return;
 
@@ -220,8 +229,11 @@ void edit::resizeNotes (Project& project, const NoteNodes& notes, Tick deltaLeng
     grow (project, notes);
 }
 
-void edit::setNoteVelocity (Project& project, const NoteNodes& notes, int velocity, bool newUndoStep)
+void edit::setNoteVelocity (Project& project, const NoteNodes& notesToEdit, int velocity, bool newUndoStep)
 {
+    // A copy: the list passed in may be a selection that listeners change while notes change.
+    const NoteNodes notes (notesToEdit);
+
     if (notes.empty())
         return;
 
@@ -231,8 +243,11 @@ void edit::setNoteVelocity (Project& project, const NoteNodes& notes, int veloci
         n.setProperty (ids::velocity, juce::jlimit (1, 127, velocity), &project.getUndoManager());
 }
 
-void edit::changeNoteVelocity (Project& project, const NoteNodes& notes, int delta, bool newUndoStep)
+void edit::changeNoteVelocity (Project& project, const NoteNodes& notesToEdit, int delta, bool newUndoStep)
 {
+    // A copy: the list passed in may be a selection that listeners change while notes change.
+    const NoteNodes notes (notesToEdit);
+
     if (notes.empty() || delta == 0)
         return;
 
@@ -242,8 +257,11 @@ void edit::changeNoteVelocity (Project& project, const NoteNodes& notes, int del
         n.setProperty (ids::velocity, juce::jlimit (1, 127, (int) n[ids::velocity] + delta), &project.getUndoManager());
 }
 
-void edit::quantizeNotes (Project& project, const NoteNodes& notes, Tick step, double strength, double swing, bool ends)
+void edit::quantizeNotes (Project& project, const NoteNodes& notesToEdit, Tick step, double strength, double swing, bool ends)
 {
+    // A copy: the list passed in may be a selection that listeners change while notes change.
+    const NoteNodes notes (notesToEdit);
+
     if (notes.empty() || step <= 0)
         return;
 
@@ -267,8 +285,11 @@ void edit::quantizeNotes (Project& project, const NoteNodes& notes, Tick step, d
     grow (project, notes);
 }
 
-void edit::humanizeNotes (Project& project, const NoteNodes& notes, Tick timing, int velocity, juce::Random& random)
+void edit::humanizeNotes (Project& project, const NoteNodes& notesToEdit, Tick timing, int velocity, juce::Random& random)
 {
+    // A copy: the list passed in may be a selection that listeners change while notes change.
+    const NoteNodes notes (notesToEdit);
+
     if (notes.empty() || (timing <= 0 && velocity <= 0))
         return;
 
@@ -290,8 +311,11 @@ void edit::humanizeNotes (Project& project, const NoteNodes& notes, Tick timing,
     grow (project, notes);
 }
 
-NoteNodes edit::duplicateNotes (Project& project, const NoteNodes& notes, Tick step)
+NoteNodes edit::duplicateNotes (Project& project, const NoteNodes& notesToEdit, Tick step)
 {
+    // A copy: the list passed in may be a selection that listeners change while notes change.
+    const NoteNodes notes (notesToEdit);
+
     NoteNodes copies;
 
     if (notes.empty())

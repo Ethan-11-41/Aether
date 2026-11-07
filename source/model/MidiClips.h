@@ -52,8 +52,8 @@ namespace midi
     /** A new instrument node with a type's default settings and the given preset. */
     juce::ValueTree makeInstrument (const juce::String& type, const juce::String& preset);
 
-    /** "C4", "F#2"... (middle C, 60, is "C4"). */
-    juce::String noteName (int pitch);
+    /** "C4", "F#2"... (middle C, 60, is "C4"); with `flats`, "Gb2" instead of "F#2". */
+    juce::String noteName (int pitch, bool flats = false);
 
     /** Turns a stream of MIDI events (note on/off, sustain pedal) into notes with lengths.
         Times can be in any unit (ticks or samples), as long as they only go forwards. Notes

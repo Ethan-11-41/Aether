@@ -184,7 +184,8 @@ std::vector<ShortcutList::Entry> ShortcutList::otherShortcuts()
         { otherCategory, "Make a new MIDI clip and open it", "Double-click an empty part of a MIDI track" },
 
         { pianoRollCategory, "Add a note", "Click an empty place (drag to make it longer)" },
-        { pianoRollCategory, "Delete a note", "Right-click it" },
+        { pianoRollCategory, "Delete a note (or all the selected notes)", "Right-click it" },
+        { pianoRollCategory, "Delete several notes", "Right-drag across them" },
         { pianoRollCategory, "Move a note / change its length", "Drag it / drag its right edge" },
         { pianoRollCategory, "Select several notes", "Ctrl+click, or Ctrl+drag a box" },
         { pianoRollCategory, "Move selected notes up / down a semitone", "Up / Down arrow" },
@@ -195,6 +196,7 @@ std::vector<ShortcutList::Entry> ShortcutList::otherShortcuts()
         { pianoRollCategory, "Select all / none", "Ctrl+A / Esc" },
         { pianoRollCategory, "Delete the selected notes", "Delete" },
         { pianoRollCategory, "Zoom in time / note height", "Ctrl+mouse wheel / Alt+mouse wheel" },
+        { pianoRollCategory, "Change a chord's velocity / one note of it", "Drag its stem / select the note, then drag" },
     };
 }
 

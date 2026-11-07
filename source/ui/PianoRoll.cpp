@@ -125,43 +125,74 @@ public:
 
     void paint (juce::Graphics& g) override
     {
+        // Drawn like a real piano: the seven white keys of each octave share its height equally,
+        // and the black keys sit between them, over their left part. (The note rows on the right
+        // are all the same height, so white keys don't line up with rows exactly, as on any piano roll.)
         const auto& t = owner.theme;
+        const auto white = juce::Colour (0xffe4e6eb), black = juce::Colour (0xff1c1e23);
         g.fillAll (t.background);
-        const auto h = owner.rowHeight;
 
+        const auto keysRight = (float) (getWidth() - markerWidth);
+        const auto flats = owner.namesWithFlats();
+
+        for (int octave = 0; octave <= 10; ++octave)
+        {
+            for (int i = 0; i < 7; ++i)
+            {
+                const auto pitch = octave * 12 + whitePitchClasses[i];
+                if (pitch > 127)
+                    break;
+
+                const auto r = whiteKeyArea (pitch).withRight (keysRight);
+                if (r.getBottom() < 0.0f || r.getY() > (float) getHeight())
+                    continue;
+
+                g.setColour (pitch == pressed ? t.accent : white);
+                g.fillRect (r);
+                g.setColour (juce::Colour (0xff9da3ad));
+                g.drawHorizontalLine ((int) std::round (r.getBottom()) - 1, r.getX(), r.getRight());
+
+                if (pitch % 12 == 0 && r.getHeight() >= 11.0f)
+                {
+                    g.setColour (juce::Colour (0xff4a505c));
+                    g.setFont (juce::FontOptions (std::min (12.0f, r.getHeight() - 2.0f)));
+                    g.drawText (midi::noteName (pitch, flats), r.reduced (4.0f, 0.0f).toNearestInt(), juce::Justification::centredRight);
+                }
+            }
+        }
+
+        // Black keys on top.
         for (int pitch = 0; pitch < 128; ++pitch)
         {
-            const auto y = owner.pitchToY (pitch);
-            if (y + h < 0 || y > getHeight())
+            if (! isBlackKey (pitch))
                 continue;
 
-            const juce::Rectangle<int> row (0, y, getWidth(), h);
-            const auto black = isBlackKey (pitch);
-            auto colour = black ? juce::Colour (0xff23262d) : juce::Colour (0xffd9dce3);
+            const auto r = blackKeyArea (pitch);
+            if (r.getBottom() < 0.0f || r.getY() > (float) getHeight())
+                continue;
 
-            if (owner.scaleActive() && ! owner.inScale (pitch))
-                colour = colour.interpolatedWith (t.background, 0.55f);
+            g.setColour (pitch == pressed ? t.accent : black);
+            g.fillRoundedRectangle (r, 1.5f);
+        }
 
-            if (pitch == pressed)
-                colour = t.accent;
+        // The scale: a mark beside each note in it (wider and brighter for the key note).
+        if (owner.scaleActive())
+        {
+            const auto key = owner.songKey();
 
-            g.setColour (colour);
-            g.fillRect (black ? row.withTrimmedRight (getWidth() / 3) : row);
-
-            if (black)
+            for (int pitch = 0; pitch < 128; ++pitch)
             {
-                g.setColour (juce::Colour (0xffd9dce3).interpolatedWith (t.background, owner.scaleActive() && ! owner.inScale (pitch) ? 0.55f : 0.0f));
-                g.fillRect (row.withTrimmedLeft (getWidth() * 2 / 3));
-            }
+                if (! owner.inScale (pitch))
+                    continue;
 
-            g.setColour (t.outline.withAlpha (0.6f));
-            g.drawHorizontalLine (y + h - 1, 0.0f, (float) getWidth());
+                const auto y = (float) owner.pitchToY (pitch);
+                if (y + (float) owner.rowHeight < 0.0f || y > (float) getHeight())
+                    continue;
 
-            if (pitch % 12 == 0 && h >= 10)
-            {
-                g.setColour (juce::Colour (0xff3a3f4a));
-                g.setFont (juce::FontOptions ((float) std::min (12, h - 2)));
-                g.drawText (midi::noteName (pitch), row.reduced (4, 0), juce::Justification::centredRight);
+                const auto root = ((pitch - key) % 12 + 12) % 12 == 0;
+                const juce::Rectangle<float> mark (keysRight + 1.0f, y + 1.0f, (float) markerWidth - 2.0f, (float) owner.rowHeight - 2.0f);
+                g.setColour (root ? t.accent : t.accent.withAlpha (0.55f));
+                g.fillRoundedRectangle (root ? mark : mark.withTrimmedLeft (2.0f), 1.5f);
             }
         }
 
@@ -169,8 +200,8 @@ public:
         g.drawVerticalLine (getWidth() - 1, 0.0f, (float) getHeight());
     }
 
-    void mouseDown (const juce::MouseEvent& e) override   { press (owner.yToPitch (e.y)); }
-    void mouseDrag (const juce::MouseEvent& e) override   { press (owner.yToPitch (e.y)); }
+    void mouseDown (const juce::MouseEvent& e) override   { press (keyAt (e.position)); }
+    void mouseDrag (const juce::MouseEvent& e) override   { press (keyAt (e.position)); }
 
     void mouseUp (const juce::MouseEvent&) override
     {
@@ -178,6 +209,25 @@ public:
         pressed = -1;
         repaint();
     }
+
+    /** The key under a point: a black key if on one, otherwise the white key there. */
+    int keyAt (juce::Point<float> p) const
+    {
+        const auto rowPitch = owner.yToPitch ((int) p.y);
+
+        if (juce::isPositiveAndBelow (rowPitch, 128) && isBlackKey (rowPitch) && blackKeyArea (rowPitch).contains (p))
+            return rowPitch;
+
+        // Neighbouring white keys overlap the black key's row: find the one actually under the point.
+        for (const auto candidate : { rowPitch - 1, rowPitch, rowPitch + 1 })
+            if (juce::isPositiveAndBelow (candidate, 128) && ! isBlackKey (candidate)
+                && whiteKeyArea (candidate).withRight ((float) getWidth()).contains (p.withX (1.0f)))
+                return candidate;
+
+        return rowPitch;
+    }
+
+    static constexpr int markerWidth = 8;
 
     void mouseWheelMove (const juce::MouseEvent& e, const juce::MouseWheelDetails& w) override;
 
@@ -192,6 +242,25 @@ private:
         repaint();
     }
 
+    static constexpr int whitePitchClasses[7] { 0, 2, 4, 5, 7, 9, 11 };
+
+    /** A white key: its octave's height shared equally by the seven white keys. */
+    juce::Rectangle<float> whiteKeyArea (int pitch) const
+    {
+        const auto octave = pitch / 12;
+        const auto index = (int) (std::find (std::begin (whitePitchClasses), std::end (whitePitchClasses), pitch % 12)
+                                  - std::begin (whitePitchClasses));
+        const auto octaveBottom = (float) (owner.pitchToY (octave * 12) + owner.rowHeight);
+        const auto keyHeight = 12.0f * (float) owner.rowHeight / 7.0f;
+        return { 0.0f, octaveBottom - (float) (index + 1) * keyHeight, (float) getWidth(), keyHeight };
+    }
+
+    /** A black key: exactly on its note's row, over the left part of the white keys. */
+    juce::Rectangle<float> blackKeyArea (int pitch) const
+    {
+        return { 0.0f, (float) owner.pitchToY (pitch), (float) (getWidth() - markerWidth) * 0.62f, (float) owner.rowHeight };
+    }
+
     PianoRoll& owner;
     int pressed = -1;
 };
@@ -204,7 +273,8 @@ public:
     explicit Grid (PianoRoll& o) : owner (o)
     {
         setTooltip ("Click to add a note. Drag a note to move it, its right edge to change its length. "
-                    "Right-click a note to delete it. Ctrl+click or Ctrl+drag to select several.");
+                    "Right-click a note to delete it (or all the selected notes); right-drag to delete several. "
+                    "Ctrl+click or Ctrl+drag to select several.");
     }
 
     void paint (juce::Graphics& g) override
@@ -213,7 +283,10 @@ public:
         const auto h = owner.rowHeight;
         const auto key = owner.songKey();
 
-        // Rows: white and black keys, and (with a scale) the notes outside it darker.
+        // Rows: lighter for white keys, darker for black keys; with a scale, the notes in it are
+        // tinted (the key note more), so it's clear which rows belong to it.
+        const auto scale = owner.scaleActive();
+
         for (int pitch = 0; pitch < 128; ++pitch)
         {
             const auto y = owner.pitchToY (pitch);
@@ -222,13 +295,8 @@ public:
 
             auto colour = isBlackKey (pitch) ? t.background : t.panel;
 
-            if (owner.scaleActive())
-            {
-                if (! owner.inScale (pitch))
-                    colour = t.background.darker (0.35f);
-                else if ((pitch - key) % 12 == 0)
-                    colour = colour.interpolatedWith (t.accent, 0.08f);
-            }
+            if (scale && owner.inScale (pitch))
+                colour = colour.interpolatedWith (t.accent, ((pitch - key) % 12 + 12) % 12 == 0 ? 0.18f : 0.07f);
 
             g.setColour (colour);
             g.fillRect (0, y, getWidth(), h);
@@ -277,6 +345,7 @@ public:
     void mouseDown (const juce::MouseEvent& e) override
     {
         owner.grabKeyboardFocus();
+        beginDragAutoRepeat (40);   // keeps scrolling while a note is held beyond the edge
         const auto clip = owner.getClip();
         mode = Mode::none;
         changed = false;
@@ -289,9 +358,17 @@ public:
 
         if (e.mods.isPopupMenu())
         {
-            // Right-click deletes the note under the mouse.
+            // Right-click deletes the note under the mouse (all the selected notes, if it's one of
+            // them); keep the button down and drag to delete every note the mouse passes over.
+            mode = Mode::erase;
+            owner.project.getUndoManager().beginNewTransaction ("Delete notes");
+
             if (hit.note.isValid())
-                edit::deleteNotes (owner.project, { hit.note });
+            {
+                auto doomed = isIn (owner.selection, hit.note) ? owner.selection : NoteNodes { hit.note };
+                owner.setSelection ({});
+                edit::deleteNotes (owner.project, doomed, false);
+            }
 
             return;
         }
@@ -354,11 +431,21 @@ public:
 
     void mouseDrag (const juce::MouseEvent& e) override
     {
-        if (! grabbed.isValid() && mode != Mode::box)
+        if (! grabbed.isValid() && mode != Mode::box && mode != Mode::erase)
             return;
 
+        // Past the edge: scroll to follow the note (this is called repeatedly while the mouse is
+        // held still, see beginDragAutoRepeat in mouseDown).
+        if (mode != Mode::box && mode != Mode::erase)
+            autoScroll (e.getPosition());
+
         auto& proj = owner.project;
-        const auto tick = owner.view.xToTick (e.x);
+
+        // While scrolling past an edge, the note stays at the edge (so it's always in view).
+        const auto free = mode == Mode::box || mode == Mode::erase;
+        const auto x = free ? e.x : juce::jlimit (0, getWidth(), e.x);
+        const auto y = free ? e.y : juce::jlimit (0, getHeight() - 1, e.y);
+        const auto tick = owner.view.xToTick (x);
 
         switch (mode)
         {
@@ -390,7 +477,7 @@ public:
                 const auto n = notes::read (grabbed);
                 const auto newStart = owner.snapNearest (grabStart + (tick - downTick), e.mods);
                 const auto deltaTicks = newStart - owner.toTimeline (n.start);
-                const auto deltaPitch = juce::jlimit (0, 127, owner.yToPitch (e.y)) - n.pitch;
+                const auto deltaPitch = juce::jlimit (0, 127, owner.yToPitch (y)) - n.pitch;
 
                 if (deltaTicks != 0 || deltaPitch != 0)
                 {
@@ -420,8 +507,33 @@ public:
                 break;
             }
 
+            case Mode::erase:
+                if (const auto hit = hitAt (e.position); hit.note.isValid())
+                    edit::deleteNotes (proj, { hit.note }, false);
+                break;
+
             case Mode::none:
                 break;
+        }
+    }
+
+    /** Scrolls when the mouse is beyond the note area while dragging: faster the further out. */
+    void autoScroll (juce::Point<int> p)
+    {
+        const auto speed = [] (int beyond) { return std::min (8, 1 + beyond / 12); };
+
+        if (p.y < 0 || p.y > getHeight())
+        {
+            const auto rows = p.y < 0 ? -speed (-p.y) : speed (p.y - getHeight());
+            owner.scrollY = juce::jlimit (0, std::max (0, 128 * owner.rowHeight - getHeight()), owner.scrollY + rows * owner.rowHeight / 2);
+            owner.updateScrollBars();
+            owner.repaint();
+        }
+
+        if (p.x < 0 || p.x > getWidth())
+        {
+            const auto pixels = (p.x < 0 ? -speed (-p.x) : speed (p.x - getWidth())) * 12;
+            owner.view.setViewStart (std::max<Tick> (0, owner.view.getViewStart() + owner.view.ticksForWidth (pixels)));
         }
     }
 
@@ -473,7 +585,7 @@ public:
     }
 
 private:
-    enum class Mode { none, draw, move, resize, box };
+    enum class Mode { none, draw, move, resize, box, erase };
 
     struct Hit
     {
@@ -557,7 +669,7 @@ private:
             {
                 g.setColour (juce::Colours::black.withAlpha (0.75f));
                 g.setFont (juce::FontOptions ((float) std::min (11, owner.rowHeight - 2)));
-                g.drawText (midi::noteName (n.pitch), r.reduced (4.0f, 0.0f), juce::Justification::centredLeft, false);
+                g.drawText (midi::noteName (n.pitch, owner.namesWithFlats()), r.reduced (4.0f, 0.0f), juce::Justification::centredLeft, false);
             }
         }
     }
@@ -584,8 +696,8 @@ class PianoRoll::VelocityLane final : public juce::Component, public juce::Setta
 public:
     explicit VelocityLane (PianoRoll& o) : owner (o)
     {
-        setTooltip ("Velocity: how hard each note is played. Drag a note's stem up or down (with several notes "
-                    "selected, they all change together). Drag across stems to set several.");
+        setTooltip ("Velocity: how hard each note is played. Drag a stem up or down: a chord's notes change "
+                    "together, as do selected notes. To change one note of a chord, select just that note first.");
     }
 
     void paint (juce::Graphics& g) override
@@ -622,17 +734,36 @@ public:
     void mouseDown (const juce::MouseEvent& e) override
     {
         owner.project.getUndoManager().beginNewTransaction ("Change velocity");
-        grabbed = stemAt ((float) e.x);
-        group = grabbed.isValid() && isIn (owner.selection, grabbed) && owner.selection.size() > 1;
+        targets = stemsAt ((float) e.x, e.y);
+        grabbed = targets.empty() ? juce::ValueTree() : targets.front();
         apply (e);
     }
 
     void mouseDrag (const juce::MouseEvent& e) override   { apply (e); }
-    void mouseUp (const juce::MouseEvent&) override       { grabbed = {}; }
+
+    void mouseUp (const juce::MouseEvent&) override
+    {
+        grabbed = {};
+        targets.clear();
+        readout = {};
+        repaint();
+    }
 
     int velocityAt (int y) const
     {
         return juce::jlimit (1, 127, (int) std::lround (1.0 + (1.0 - (double) (y - top) / (double) (getHeight() - top)) * 126.0));
+    }
+
+    void paintOverChildren (juce::Graphics& g) override
+    {
+        if (readout.isEmpty())
+            return;
+
+        g.setColour (owner.theme.panelRaised);
+        g.fillRoundedRectangle (readoutArea.toFloat(), 4.0f);
+        g.setColour (owner.theme.text);
+        g.setFont (juce::FontOptions (12.0f));
+        g.drawText (readout, readoutArea, juce::Justification::centred);
     }
 
 private:
@@ -643,24 +774,51 @@ private:
         return top + (int) std::lround ((1.0 - (velocity - 1) / 126.0) * (getHeight() - top));
     }
 
-    juce::ValueTree stemAt (float x) const
+    /** The notes whose stem is under the mouse. Stems of a chord share one place, so all of them
+        come together: the selected ones if some of them are selected (to change one note of a
+        chord, select just that note first), otherwise the whole chord. The note whose dot is
+        nearest the mouse comes first. */
+    NoteNodes stemsAt (float x, int y) const
     {
-        juce::ValueTree best;
+        NoteNodes atStem;
         auto bestDistance = 6.0f;
+        Tick bestStart = -1;
 
         for (const auto& node : notes::nodesOf (owner.getClip()))
         {
-            const auto distance = std::abs ((float) owner.view.tickToX (owner.toTimeline (notes::read (node).start)) - x);
+            const auto start = notes::read (node).start;
+            const auto distance = std::abs ((float) owner.view.tickToX (owner.toTimeline (start)) - x);
 
-            // Prefer selected notes where stems overlap (e.g. a chord).
-            if (distance < bestDistance || (distance <= bestDistance + 0.01f && isIn (owner.selection, node)))
+            if (distance < bestDistance - 0.01f)
             {
-                best = node;
                 bestDistance = distance;
+                bestStart = start;
             }
         }
 
-        return best;
+        if (bestStart < 0)
+            return atStem;
+
+        for (const auto& node : notes::nodesOf (owner.getClip()))
+            if (notes::read (node).start == bestStart)
+                atStem.push_back (node);
+
+        NoteNodes selected;
+        for (const auto& n : atStem)
+            if (isIn (owner.selection, n))
+                selected.push_back (n);
+
+        // With several notes selected (in different places), dragging one of their stems moves
+        // all the selected notes together.
+        if (! selected.empty())
+            atStem = owner.selection.size() > selected.size() ? owner.selection : selected;
+
+        std::sort (atStem.begin(), atStem.end(), [this, y] (const juce::ValueTree& a, const juce::ValueTree& b)
+        {
+            return std::abs (yFor (notes::read (a).velocity) - y) < std::abs (yFor (notes::read (b).velocity) - y);
+        });
+
+        return atStem;
     }
 
     void apply (const juce::MouseEvent& e)
@@ -668,23 +826,38 @@ private:
         const auto velocity = velocityAt (e.y);
         auto& proj = owner.project;
 
-        if (grabbed.isValid())
+        if (! grabbed.isValid() || ! grabbed.getParent().isValid())
         {
-            if (group)
-                edit::changeNoteVelocity (proj, owner.selection, velocity - notes::read (grabbed).velocity, false);
-            else
-                edit::setNoteVelocity (proj, { grabbed }, velocity, false);
+            // Not on a stem: set every stem the mouse passes over.
+            const auto stems = stemsAt ((float) e.x, e.y);
+            if (! stems.empty())
+                edit::setNoteVelocity (proj, stems, velocity, false);
+
+            showReadout (e, velocity);
             return;
         }
 
-        // Not on a stem: set every stem the mouse passes over.
-        if (auto stem = stemAt ((float) e.x); stem.isValid())
-            edit::setNoteVelocity (proj, { stem }, velocity, false);
+        // Several notes keep their differences (the grabbed one goes where the mouse is).
+        if (targets.size() > 1)
+            edit::changeNoteVelocity (proj, targets, velocity - notes::read (grabbed).velocity, false);
+        else
+            edit::setNoteVelocity (proj, targets, velocity, false);
+
+        showReadout (e, notes::read (grabbed).velocity);
+    }
+
+    void showReadout (const juce::MouseEvent& e, int velocity)
+    {
+        readout = "Velocity " + juce::String (velocity) + (targets.size() > 1 ? " (" + juce::String ((int) targets.size()) + " notes)" : juce::String());
+        readoutArea = juce::Rectangle<int> (e.x + 10, juce::jlimit (0, getHeight() - 20, e.y - 10), 150, 20);
+        repaint();
     }
 
     PianoRoll& owner;
     juce::ValueTree grabbed;
-    bool group = false;
+    NoteNodes targets;
+    juce::String readout;
+    juce::Rectangle<int> readoutArea;
 };
 
 //==============================================================================
@@ -821,8 +994,6 @@ PianoRoll::PianoRoll (const Theme& themeToUse, Project& projectToEdit, AudioEngi
     lengthBox.setTooltip ("How long new notes are. \"Last used\": as long as the last note you drew, resized or clicked.");
     addAndMakeVisible (lengthBox);
 
-    for (int k = 0; k < 12; ++k)
-        keyBox.addItem (juce::String ("Key: ") + scales::keyName (k), k + 1);
     keyBox.onChange = [this] { edit::setScale (project, keyBox.getSelectedId() - 1, project.getState()[ids::scale].toString()); };
     keyBox.setTooltip ("The song's key: its note is tinted, and with a scale chosen, notes outside it are shaded.");
     addAndMakeVisible (keyBox);
@@ -990,6 +1161,12 @@ Tick PianoRoll::snapNearest (Tick timelineTick, const juce::ModifierKeys& mods) 
 int PianoRoll::songKey() const      { return juce::jlimit (0, 11, (int) project.getState()[ids::songKey]); }
 bool PianoRoll::scaleActive() const { return scales::highlights (scales::find (project.getState()[ids::scale].toString())); }
 
+bool PianoRoll::namesWithFlats() const
+{
+    const auto scale = scales::find (project.getState()[ids::scale].toString());
+    return scales::usesFlats (songKey(), scales::isMinorLike (scale));
+}
+
 bool PianoRoll::inScale (int pitch) const
 {
     return scales::contains (scales::find (project.getState()[ids::scale].toString()), songKey(), pitch);
@@ -1079,8 +1256,9 @@ void PianoRoll::selectAll()   { setSelection (notes::nodesOf (getClip())); }
 void PianoRoll::deleteSelected()
 {
     tidySelection();
-    edit::deleteNotes (project, selection);
+    const auto toDelete = selection;   // the selection shrinks as notes are deleted
     setSelection ({});
+    edit::deleteNotes (project, toDelete);
 }
 
 void PianoRoll::duplicateSelected()
@@ -1282,6 +1460,12 @@ void PianoRoll::updateToolbar()
     for (int i = 0; i < (int) std::size (lengthChoices); ++i)
         if (lengthChoices[i].length == fixedLength)
             lengthBox.setSelectedId (i + 1, juce::dontSendNotification);
+
+    // Key names as musicians write them (Db major, but C# minor).
+    const auto minor = scales::isMinorLike (scales::find (project.getState()[ids::scale].toString()));
+    keyBox.clear (juce::dontSendNotification);
+    for (int k = 0; k < 12; ++k)
+        keyBox.addItem (juce::String ("Key: ") + scales::keyName (k, minor), k + 1);
 
     keyBox.setSelectedId (songKey() + 1, juce::dontSendNotification);
 

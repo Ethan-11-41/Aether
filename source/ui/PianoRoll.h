@@ -97,7 +97,7 @@ public:
     void paint (juce::Graphics&) override;
     void resized() override;
 
-    static constexpr int toolbarHeight = 44, rulerHeight = 24, keysWidth = 64, velocityHeight = 90, scrollBarSize = 12;
+    static constexpr int toolbarHeight = 44, rulerHeight = 24, keysWidth = 84, velocityHeight = 90, scrollBarSize = 12;
 
 private:
     class Ruler;
@@ -124,6 +124,7 @@ private:
     int songKey() const;
     bool inScale (int pitch) const;
     bool scaleActive() const;
+    bool namesWithFlats() const;   // notes named in the key's spelling (Bb in F major, A# in B major)
 
     void play (int pitch, int velocity, bool on, bool always = false);
     void releasePreview();

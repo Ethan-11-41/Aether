@@ -228,6 +228,39 @@ bool AudioDeviceService::tryToOpen (const juce::AudioDeviceManager::AudioDeviceS
     return deviceManager.setAudioDeviceSetup (setup, true).isEmpty() && deviceManager.getCurrentAudioDevice() != nullptr;
 }
 
+bool AudioDeviceService::tryToOpenInMono (const juce::AudioDeviceManager::AudioDeviceSetup& setup)
+{
+    if (setup.inputDeviceName.isEmpty())
+        return false;
+
+    auto mono = setup;
+    mono.useDefaultInputChannels = false;
+    mono.inputChannels.clear();
+    mono.inputChannels.setBit (0);
+
+    if (! tryToOpen (mono))
+        return false;
+
+    juce::Logger::writeToLog ("Audio device: " + setup.inputDeviceName + " opened in mono");
+    return true;
+}
+
+juce::String AudioDeviceService::applySetup (const juce::AudioDeviceManager::AudioDeviceSetup& setup)
+{
+    const auto error = deviceManager.setAudioDeviceSetup (setup, true);
+
+    if (error.isEmpty() && deviceManager.getCurrentAudioDevice() != nullptr)
+        return {};
+
+    const auto wantsStereoInput = setup.inputDeviceName.isNotEmpty()
+                               && (setup.useDefaultInputChannels || setup.inputChannels.getHighestBit() > 0);
+
+    if (wantsStereoInput && tryToOpenInMono (setup))
+        return {};
+
+    return error.isNotEmpty() ? error : juce::String ("The device didn't open.");
+}
+
 void AudioDeviceService::switchDriverType (const juce::String& typeName)
 {
     if (typeName == deviceManager.getCurrentAudioDeviceType() && deviceManager.getCurrentAudioDevice() != nullptr)
@@ -260,7 +293,13 @@ void AudioDeviceService::switchDriverType (const juce::String& typeName)
                                      : inputs[std::max (0, type->getDefaultDeviceIndex (true))];
 
     wanted.sampleRate = previous.sampleRate;
-    wanted.useDefaultInputChannels = wanted.useDefaultOutputChannels = true;
+    wanted.useDefaultOutputChannels = true;
+
+    // A microphone: its first two inputs (asked for explicitly, so a mono fallback made earlier
+    // doesn't stick to the next driver).
+    wanted.useDefaultInputChannels = wanted.inputDeviceName.isEmpty();
+    if (wanted.inputDeviceName.isNotEmpty())
+        wanted.inputChannels.setRange (0, 2, true);
 
     // JUCE's guess worked and is what the user wants (it adds a microphone even if they had none).
     if (deviceManager.getCurrentAudioDevice() != nullptr)
@@ -283,53 +322,63 @@ void AudioDeviceService::switchDriverType (const juce::String& typeName)
                               + (firstError.isNotEmpty() ? " (" + firstError + ")" : juce::String()) + "; trying alternatives");
 
     const auto micDropped = "Your microphone (" + wanted.inputDeviceName + ") can't be used with \"" + typeName
-                          + "\", so it's switched off and nothing can be recorded. Your speakers work in this mode. "
-                            "To record, choose \"Windows Audio\" or \"Windows Audio (Low Latency Mode)\" as the driver.";
+                          + "\" (Aether tried it in stereo and mono, at every common sample rate), so it's switched off "
+                            "and nothing can be recorded. Your speakers work in this mode. To record, choose "
+                            "\"Windows Audio\" or \"Windows Audio (Low Latency Mode)\" as the driver: their delay is "
+                            "nearly as low.";
 
-    // 1. The same, without the microphone.
-    if (canDropInput)
+    const auto kHzText = [] (double rate) { return juce::String (rate / 1000.0, rate == 44100.0 || rate == 88200.0 ? 1 : 0) + " kHz"; };
+    const auto triedRate = wanted.sampleRate > 0.0 ? wanted.sampleRate : 48000.0;
+
+    std::vector<double> otherRates;   // the common rates, apart from the one just tried
+    for (const auto rate : { 48000.0, 44100.0, 96000.0, 88200.0 })
+        if (std::abs (rate - triedRate) >= 0.5)
+            otherRates.push_back (rate);
+
+    const auto rateNote = [&] (double rate)
     {
-        auto withoutInput = wanted;
-        withoutInput.inputDeviceName = {};
+        return "\"" + typeName + "\" only works at " + kHzText (rate) + " with these devices, so Aether switched to "
+               "that sample rate.";
+    };
 
-        if (tryToOpen (withoutInput))
+    // 1. The microphone in mono (some USB microphones only work in mono in this mode).
+    if (canDropInput && tryToOpenInMono (wanted))
+        return;
+
+    // 2. Other sample rates, keeping the microphone (in stereo, then in mono).
+    for (const auto rate : otherRates)
+    {
+        auto atRate = wanted;
+        atRate.sampleRate = rate;
+
+        if (tryToOpen (atRate) || (canDropInput && tryToOpenInMono (atRate)))
         {
-            problemMessage = micDropped + errorNote;
-            juce::Logger::writeToLog ("Audio device: opened without the microphone");
+            problemMessage = rateNote (rate) + errorNote;
+            juce::Logger::writeToLog ("Audio device: opened at " + juce::String (rate) + " Hz");
             return;
         }
     }
 
-    // 2. Other sample rates, with and then without the microphone.
-    const auto triedRate = wanted.sampleRate > 0.0 ? wanted.sampleRate : 48000.0;
-
-    for (const auto rate : { 48000.0, 44100.0, 96000.0, 88200.0 })
+    // 3. Without the microphone: at the same rate, then at the others.
+    if (canDropInput)
     {
-        if (std::abs (rate - triedRate) < 0.5)
-            continue;
+        auto rates = otherRates;
+        rates.insert (rates.begin(), triedRate);
 
-        auto atRate = wanted;
-        atRate.sampleRate = rate;
-
-        const auto kHz = juce::String (rate / 1000.0, rate == 44100.0 || rate == 88200.0 ? 1 : 0);
-        const auto rateNote = wanted.outputDeviceName + " only works at " + kHz + " kHz with \"" + typeName
-                            + "\", so Aether switched to that rate.";
-
-        if (tryToOpen (atRate))
+        for (const auto rate : rates)
         {
-            problemMessage = rateNote + errorNote;
-            juce::Logger::writeToLog ("Audio device: opened at " + juce::String (rate) + " Hz");
-            return;
-        }
+            auto withoutInput = wanted;
+            withoutInput.inputDeviceName = {};
+            withoutInput.inputChannels.clear();
+            withoutInput.useDefaultInputChannels = true;
+            withoutInput.sampleRate = rate;
 
-        if (canDropInput)
-        {
-            atRate.inputDeviceName = {};
-
-            if (tryToOpen (atRate))
+            if (tryToOpen (withoutInput))
             {
-                problemMessage = rateNote + "\n\n" + micDropped + errorNote;
-                juce::Logger::writeToLog ("Audio device: opened at " + juce::String (rate) + " Hz without the microphone");
+                problemMessage = micDropped
+                               + (rate != triedRate ? " (The sample rate is now " + kHzText (rate) + ".)" : juce::String())
+                               + errorNote;
+                juce::Logger::writeToLog ("Audio device: opened without the microphone at " + juce::String (rate) + " Hz");
                 return;
             }
         }
