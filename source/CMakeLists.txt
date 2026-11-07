@@ -7,6 +7,8 @@ add_library(aether_core STATIC
     devices/DriverErrors.h
     devices/LatencyInfo.cpp
     devices/LatencyInfo.h
+    dsp/DrumSounds.cpp
+    dsp/DrumSounds.h
     dsp/Effect.h
     dsp/Effects.cpp
     dsp/FastMath.h
