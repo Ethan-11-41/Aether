@@ -319,3 +319,28 @@ TEST_CASE ("A microphone that only works in mono in Exclusive Mode is opened in 
     CHECK (service.applySetup (again).isEmpty());
     CHECK (manager.getCurrentAudioDevice()->getActiveInputChannels().countNumberOfSetBits() == 1);
 }
+
+TEST_CASE ("Going back from Exclusive Mode opens the microphone in stereo again", "[devices]")
+{
+    juce::ScopedJuceInitialiser_GUI juce;
+    juce::PropertySet settings;
+    AudioDeviceService::DeviceTypeList types;
+    types.push_back (std::make_unique<FakeDeviceType> (juce::StringArray { "Mic" }, "Fake Shared"));
+    types.push_back (std::make_unique<FakeDeviceType> (juce::StringArray { "Mono Mic" }, "Fake Exclusive"));
+    AudioDeviceService service (settings, std::move (types));
+    runImmediately (service);
+    auto& manager = service.getDeviceManager();
+
+    auto setup = manager.getAudioDeviceSetup();
+    setup.inputDeviceName = "Mic";
+    REQUIRE (manager.setAudioDeviceSetup (setup, true).isEmpty());
+    REQUIRE (manager.getCurrentAudioDevice()->getActiveInputChannels().countNumberOfSetBits() == 2);
+
+    service.switchDriverType ("Fake Exclusive");
+    REQUIRE (manager.getCurrentAudioDevice()->getActiveInputChannels().countNumberOfSetBits() == 1);   // mono there
+
+    service.switchDriverType ("Fake Shared");
+    REQUIRE (manager.getCurrentAudioDevice() != nullptr);
+    CHECK (manager.getCurrentAudioDeviceType() == "Fake Shared");
+    CHECK (manager.getCurrentAudioDevice()->getActiveInputChannels().countNumberOfSetBits() == 2);   // stereo again
+}

@@ -12,6 +12,9 @@ add_library(aether_core STATIC
     dsp/FastMath.h
     dsp/Instrument.h
     dsp/StarterSynth.cpp
+    dsp/Synth.cpp
+    dsp/Synth.h
+    dsp/SynthPresets.cpp
     dsp/EffectTypes.cpp
     dsp/EffectTypes.h
     engine/AudioEngine.cpp
@@ -137,6 +140,8 @@ add_library(aether_ui STATIC
     ui/PianoRoll.h
     ui/ShortcutList.cpp
     ui/ShortcutList.h
+    ui/SynthEditor.cpp
+    ui/SynthEditor.h
     ui/Theme.h
     ui/TimelineComponent.cpp
     ui/TimelineComponent.h

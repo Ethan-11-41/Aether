@@ -6,6 +6,42 @@ follow [Semantic Versioning](https://semver.org/) (0.x while Aether is in early 
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-11-07 - Milestone 10: the Synth
+
+### Added
+- **The Synth**, a full synthesizer for MIDI tracks, in its own window (click a MIDI track's
+  **MIDI** badge, or right-click > Instrument settings...). New MIDI tracks use it.
+  - **Simple page:** the settings that matter most, with live pictures: the waveform (both
+    oscillators and their mix), the filter's curve, and the envelope's shape.
+  - **Advanced page:** every setting, with plain-language tooltips: two oscillators (sine,
+    triangle, saw, square with pulse width; octave, semitones, fine tuning), sub oscillator and
+    noise, **unison** (up to 7 detuned copies spread across the stereo field, for big pads and
+    strings), filter (low-pass 24 or 12, high-pass, band-pass) with resonance, drive, key tracking,
+    velocity and its own envelope, the volume envelope, **two LFOs** (vibrato, filter sweeps,
+    tremolo, auto-pan, pulse-width and mix movement, with fade-in), the **mod wheel**, glide,
+    Poly / Mono / Legato, pitch-bend range, and built-in **chorus** and **reverb**.
+  - **23 presets**, by kind: Pads (Warm, Glass, Dark, Choir, Evolving), Strings (String
+    ensemble, Slow strings, String machine, Pizzicato), Keys (Soft, Warm, Bell, Vintage), Organ
+    (Drawbar, Church, Rock, Soft), Bass, Leads, Plucks and a basic starting point. Previous/next
+    buttons; "(changed)" shows when you've adjusted a preset.
+- The track menu's **Instrument** submenu can switch a track between the Synth and the starter
+  synth. Projects made before 0.11 keep the starter synth on their tracks (so they sound the
+  same) until you switch.
+- The mod wheel (MIDI controller 1) reaches instruments.
+- Tests for the Synth's sound (tuning, filter, envelopes, stereo width, mono/legato and glide,
+  mod wheel, clip notes, voice limits, every preset, real-time safety) and its window (294 tests).
+
+### Fixed (from your 0.10.1 testing)
+- After Exclusive Mode, switching back to Windows Audio kept the microphone in mono (one input,
+  too loud) until it was chosen again. Every switch now asks for it in stereo.
+- Dragging a chord's stem in the velocity lane changed only one note (the one selected after
+  clicking it in). It now changes the whole chord; **Alt+drag** a dot to change just that note.
+
+### Changed
+- Settings that only make sense as whole numbers (octaves, semitones, unison, bend range) snap.
+- The 50-track performance test now uses the Synth: about 25% of the time available per buffer
+  (limit 50%).
+
 ## [0.10.1] - 2026-11-07
 
 From your M9 testing.

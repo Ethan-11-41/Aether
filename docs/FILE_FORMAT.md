@@ -153,7 +153,8 @@ A `Track`'s `kind` can now also be `"bus"`. Projects without a `Master` node get
 
 ### Added in Aether 0.7.0 (still format version 1)
 
-MIDI tracks without an `Instrument` get the starter synth when opened.
+MIDI tracks without an `Instrument` get the default instrument when opened (the starter synth
+until 0.10, the Synth since 0.11).
 
 | Node | Property | Meaning |
 |---|---|---|
@@ -173,6 +174,15 @@ MIDI tracks without an `Instrument` get the starter synth when opened.
 | | `scale` | The scale highlighted in the piano roll: `"off"` (default), `"major"`, `"minor"`, `"harmonicMinor"`, `"dorian"`, `"mixolydian"`, `"pentatonicMajor"`, `"pentatonicMinor"`, `"blues"` or `"chromatic"`. Unknown values count as `"off"`. |
 
 The timeline's snap setting (in the settings file, not the project) can also be `"thirtySecond"`.
+
+### Added in Aether 0.11.0 (still format version 1)
+
+- An `Instrument`'s `type` can be `"subtractive"`: the Synth. Its settings are stored like any
+  instrument's, one property per setting; their names are in `source/dsp/SynthPresets.cpp`
+  (`waveA`, `octaveA`, ... `volume`), and a missing one takes its default. `unison` is the number
+  of copies (1 to 7).
+- New MIDI tracks get the Synth; a MIDI track without an `Instrument` (only possible in a
+  hand-edited file) gets it too. Tracks with `"synth"` (the starter synth) keep it.
 
 ## Rules for changing the format
 

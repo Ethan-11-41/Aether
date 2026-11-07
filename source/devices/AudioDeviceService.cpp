@@ -301,11 +301,17 @@ void AudioDeviceService::switchDriverType (const juce::String& typeName)
     if (wanted.inputDeviceName.isNotEmpty())
         wanted.inputChannels.setRange (0, 2, true);
 
-    // JUCE's guess worked and is what the user wants (it adds a microphone even if they had none).
-    if (deviceManager.getCurrentAudioDevice() != nullptr)
+    // JUCE's guess worked and is what the user wants: the same devices, and the microphone in
+    // stereo if it has two inputs. (JUCE adds a microphone even if the user had none, and keeps a
+    // mono fallback from Exclusive Mode, which in shared mode makes the input one-sided and loud.)
+    if (auto* device = deviceManager.getCurrentAudioDevice())
     {
         const auto now = deviceManager.getAudioDeviceSetup();
-        if (! separate || (now.outputDeviceName == wanted.outputDeviceName && now.inputDeviceName == wanted.inputDeviceName))
+        const auto inputsWanted = std::min (2, device->getInputChannelNames().size());
+        const auto inputsOpen = device->getActiveInputChannels().countNumberOfSetBits();
+
+        if (! separate || (now.outputDeviceName == wanted.outputDeviceName && now.inputDeviceName == wanted.inputDeviceName
+                           && (wanted.inputDeviceName.isEmpty() || inputsOpen >= inputsWanted)))
             return;
     }
 

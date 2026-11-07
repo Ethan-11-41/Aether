@@ -64,7 +64,7 @@ namespace
     bool wantedLive (const juce::MidiMessage& m)
     {
         return m.isNoteOnOrOff() || m.isSustainPedalOn() || m.isSustainPedalOff() || m.isPitchWheel()
-            || m.isAllNotesOff() || m.isAllSoundOff();
+            || m.isAllNotesOff() || m.isAllSoundOff() || m.isControllerOfType (1);   // 1: the mod wheel
     }
 
     LiveMidiMessage toLive (const juce::MidiMessage& m)
@@ -100,7 +100,14 @@ namespace
             return true;
         }
 
-        if (status == 0xb0 && m.size >= 3 && m.data[1] == 64)
+        if (status == 0xb0 && m.size >= 3 && m.data[1] == 1)
+        {
+            e.type = dsp::NoteEvent::Type::modWheel;
+            e.value = (float) (m.data[2] & 0x7f) / 127.0f;
+            return true;
+        }
+
+                if (status == 0xb0 && m.size >= 3 && m.data[1] == 64)
         {
             e.type = dsp::NoteEvent::Type::sustain;
             e.value = m.data[2] >= 64 ? 1.0f : 0.0f;

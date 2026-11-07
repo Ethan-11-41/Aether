@@ -12,6 +12,7 @@
 #include "ui/KeyboardPanel.h"
 #include "ui/MixerComponent.h"
 #include "ui/PianoRoll.h"
+#include "ui/SynthEditor.h"
 #include "ui/TimelineComponent.h"
 #include "ui/TrackListComponent.h"
 #include "ui/TransportBar.h"
@@ -59,6 +60,10 @@ public:
     /** Opens (or brings forward) the piano roll window, showing a MIDI clip's notes. */
     void showPianoRoll (const juce::String& clipId);
     ui::PianoRoll* getPianoRoll() noexcept            { return pianoRoll; }
+
+    /** Opens (or brings forward) the Synth's window for a MIDI track. */
+    void showSynth (const juce::String& trackId);
+    ui::SynthEditor* getSynthEditor() noexcept        { return synthEditor; }
 
     static constexpr const char* gridKey = "gridSize";
     static constexpr const char* mixerVisibleKey = "mixerVisible";
@@ -139,6 +144,8 @@ private:
     double lastMeterTime = 0.0;
     std::unique_ptr<juce::DocumentWindow> pianoRollWindow;   // its own window (closes with the project)
     ui::PianoRoll* pianoRoll = nullptr;                      // inside pianoRollWindow
+    std::unique_ptr<juce::DocumentWindow> synthWindow;       // the Synth's settings (closes with the project)
+    ui::SynthEditor* synthEditor = nullptr;                  // inside synthWindow
     juce::ComboBox gridBox;
     juce::Rectangle<int> toolbarArea, laneHeaderArea;
     std::unique_ptr<juce::FileChooser> fileChooser;

@@ -31,6 +31,10 @@ namespace
         Fixture()
         {
             keys = edit::addTrack (project, TrackKind::midi, -1, true, "Keys").getId();
+
+            // These tests were written for the starter synth's timings (it has no reverb tail);
+            // the Synth has its own tests (SynthTests.cpp).
+            edit::setInstrumentType (project, keys, "synth", "Electric piano");
             engine.prepare (rate, 256);
         }
 
@@ -305,6 +309,7 @@ TEST_CASE ("A previewed note plays only on its own track, and isn't recorded", "
 {
     Fixture f;
     const auto other = edit::addTrack (f.project, TrackKind::midi, -1, true, "Other").getId();
+    edit::setInstrumentType (f.project, other, "synth", "Electric piano");
     edit::setArmed (f.project, { other }, true);   // armed: would pick up live notes
     edit::setVolume (f.project, other, mixer::silentDb);   // so anything heard is from "Keys"
     f.update (other);

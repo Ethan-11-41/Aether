@@ -130,6 +130,8 @@ ProjectView::ProjectView (AppContext& context, Project& projectToShow)
 
     trackList.inputChannelCount = [&devices = ctx.devices] { return devices.getNumInputChannels(); };
 
+    trackList.onOpenInstrument = [this] (const juce::String& trackId) { showSynth (trackId); };
+
     // Audio or MIDI files dropped on a track header go onto that track, at the playhead.
     trackList.canImport = [this] (const juce::File& file) { return filetypes::isImportable (file, ctx.audioFiles.getWildcard()); };
     trackList.onImportFiles = [this] (const juce::Array<juce::File>& files, const juce::String& trackId)
@@ -362,8 +364,8 @@ void ProjectView::chooseFilesToImport (const juce::String& trackId, Tick positio
 
 namespace
 {
-    /** The piano roll's window: it doesn't block the main window, and Aether's shortcuts
-        (Space, Ctrl+Z...) work in it too. */
+    /** The piano roll's (and the Synth's) window: it doesn't block the main window, and Aether's
+        shortcuts (Space, Ctrl+Z...) work in it too. */
     class PianoRollWindow final : public juce::DocumentWindow
     {
     public:
@@ -379,6 +381,49 @@ namespace
         std::function<void()> onClosed;
         ui::DelayedTooltipWindow tooltips { this };
     };
+}
+
+void ProjectView::showSynth (const juce::String& trackId)
+{
+    if (synthWindow == nullptr)
+    {
+        juce::Component::SafePointer<ProjectView> safeThis (this);
+        auto window = std::make_unique<PianoRollWindow> (ctx.theme.background, [safeThis]
+        {
+            juce::MessageManager::callAsync ([safeThis]
+            {
+                if (safeThis != nullptr)
+                {
+                    safeThis->synthEditor = nullptr;
+                    safeThis->synthWindow = nullptr;
+                }
+            });
+        });
+
+        auto editor = std::make_unique<ui::SynthEditor> (ctx.theme, project, trackId);
+        synthEditor = editor.get();
+        synthEditor->onTitleChanged = [safeThis]
+        {
+            if (safeThis != nullptr && safeThis->synthWindow != nullptr && safeThis->synthEditor != nullptr)
+                safeThis->synthWindow->setName (safeThis->synthEditor->getTitle());
+        };
+
+        window->setUsingNativeTitleBar (true);
+        window->setResizable (true, false);
+        window->setResizeLimits (760, 520, 4000, 3000);
+        window->setContentOwned (editor.release(), true);
+        window->addKeyListener (ctx.commands.getKeyMappings());
+        window->centreAroundComponent (this, window->getWidth(), window->getHeight());
+        window->setVisible (true);
+        synthWindow = std::move (window);
+    }
+
+    synthEditor->setTrack (trackId);
+    synthWindow->setName (synthEditor->getTitle());
+
+    // Playing the keyboard plays this track, so you hear the changes.
+    trackList.focusTrack (trackId);
+    synthWindow->toFront (true);
 }
 
 void ProjectView::showPianoRoll (const juce::String& clipId)
@@ -435,6 +480,8 @@ ProjectView::~ProjectView()
     stopTimer();
     pianoRoll = nullptr;
     pianoRollWindow = nullptr;
+    synthEditor = nullptr;
+    synthWindow = nullptr;
     recorder = nullptr;   // a recording still running is stopped (its files are kept)
     timeline->liveRecording = nullptr;
     trackList.onSelectionChanged = nullptr;

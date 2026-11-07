@@ -1,6 +1,8 @@
 // Aether - Copyright (C) 2026 The Aether authors. Licensed under the GNU AGPLv3 or later.
 #include "EffectTypes.h"
 
+#include "Synth.h"
+
 #include <cmath>
 
 namespace aether::dsp
@@ -9,7 +11,7 @@ namespace aether::dsp
 float EffectParameter::clamp (float value) const noexcept
 {
     value = juce::jlimit (minimum, maximum, value);
-    return isChoice() ? std::round (value) : value;
+    return isChoice() || wholeNumbers ? std::round (value) : value;
 }
 
 juce::String EffectParameter::format (float value) const
@@ -21,7 +23,22 @@ juce::String EffectParameter::format (float value) const
         return juce::String (juce::roundToInt (value)) + " %";
 
     if (unit == "Hz")
-        return value >= 1000.0f ? juce::String (value / 1000.0f, 1) + " kHz" : juce::String (juce::roundToInt (value)) + " Hz";
+        return value >= 1000.0f ? juce::String (value / 1000.0f, 1) + " kHz"
+             : value < 10.0f    ? juce::String (value, 2) + " Hz"
+             : value < 100.0f   ? juce::String (value, 1) + " Hz"
+                                : juce::String (juce::roundToInt (value)) + " Hz";
+
+    if (unit == "copies")
+    {
+        const auto whole = juce::roundToInt (value);
+        return whole <= 1 ? juce::String ("1 (off)") : juce::String (whole) + " copies";
+    }
+
+        if (unit == "oct" || unit == "st")
+    {
+        const auto whole = juce::roundToInt (value);
+        return (whole > 0 ? "+" : "") + juce::String (whole) + (unit == "oct" ? " oct" : " st");
+    }
 
     if (unit == "ms")
         return value >= 1000.0f ? juce::String (value / 1000.0f, 2) + " s" : juce::String (juce::roundToInt (value)) + " ms";
@@ -70,7 +87,7 @@ const std::vector<EffectType>& effectTypes()
         EffectType synth;
         synth.id = "synth";
         synth.name = "Starter synth";
-        synth.description = "A simple synthesizer for MIDI tracks. A fuller synth comes in M10.";
+        synth.description = "The simple synthesizer from Aether 0.7 (still used by older projects). The Synth can do much more.";
         synth.isInstrument = true;
         synth.parameters = {
             { "tone",      "Tone",       0.0f, 4.0f, 4.0f, {},
@@ -89,14 +106,24 @@ const std::vector<EffectType>& effectTypes()
         };
         //                                tone detune sub cutoff  res  env attack decay sustain release touch volume
         synth.presets = {
-            { "Electric piano", {         4,   0,     0,  9000,   0,   20,   2,    1800,  25,     400,    80,   -6 } },
-            { "Soft pad",       {         2,   12,    20, 1800,   15,  30,   600,  1500,  80,     1500,   30,   -9 } },
-            { "Bass",           {         2,   0,     60, 700,    30,  50,   2,    300,   60,     120,    60,   -6 } },
-            { "Lead",           {         3,   8,     0,  4000,   25,  25,   5,    400,   80,     200,    40,   -9 } },
-            { "Organ",          {         1,   0,     50, 8000,   0,   0,    5,    100,   100,    60,     0,    -9 } },
-            { "Pluck",          {         2,   0,     0,  600,    20,  70,   1,    350,   0,      250,    70,   -6 } },
+            { "Electric piano", {         4,   0,     0,  9000,   0,   20,   2,    1800,  25,     400,    80,   -6 }, "Starter" },
+            { "Soft pad",       {         2,   12,    20, 1800,   15,  30,   600,  1500,  80,     1500,   30,   -9 }, "Starter" },
+            { "Bass",           {         2,   0,     60, 700,    30,  50,   2,    300,   60,     120,    60,   -6 }, "Starter" },
+            { "Lead",           {         3,   8,     0,  4000,   25,  25,   5,    400,   80,     200,    40,   -9 }, "Starter" },
+            { "Organ",          {         1,   0,     50, 8000,   0,   0,    5,    100,   100,    60,     0,    -9 }, "Starter" },
+            { "Pluck",          {         2,   0,     0,  600,    20,  70,   1,    350,   0,      250,    70,   -6 }, "Starter" },
         };
         list.push_back (synth);
+
+        EffectType subtractive;
+        subtractive.id = synth::typeId;
+        subtractive.name = "Synth";
+        subtractive.description = "A synthesizer for pads, strings, keys, organ, bass and leads: two oscillators with "
+                                  "unison, a filter, envelopes, LFOs, chorus and reverb.";
+        subtractive.isInstrument = true;
+        subtractive.parameters = synth::parameters();
+        subtractive.presets = synth::presets();
+        list.push_back (subtractive);
 
         return list;
     }();
