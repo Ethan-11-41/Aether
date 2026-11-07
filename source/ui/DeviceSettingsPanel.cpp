@@ -362,8 +362,9 @@ void DeviceSettingsPanel::refreshMidi()
 //==============================================================================
 void DeviceSettingsPanel::applySetup (const juce::AudioDeviceManager::AudioDeviceSetup& setup)
 {
-    // If this fails, AudioDeviceService goes back to the last working setting and explains why.
-    const auto error = manager.setAudioDeviceSetup (setup, true);
+    // If this fails (even with the microphone in mono), AudioDeviceService goes back to the last
+    // working setting and explains why.
+    const auto error = devices.applySetup (setup);
 
     if (error.isNotEmpty())
         juce::Logger::writeToLog ("Audio settings: couldn't apply the change (" + error + ")");
@@ -408,7 +409,10 @@ void DeviceSettingsPanel::inputChosen()
     const auto id = inputBox.getSelectedId();
     auto setup = manager.getAudioDeviceSetup();
     setup.inputDeviceName = id <= 1 ? juce::String() : inputNames[id - 2];
-    setup.useDefaultInputChannels = true;
+    setup.useDefaultInputChannels = setup.inputDeviceName.isEmpty();
+    setup.inputChannels.clear();
+    if (setup.inputDeviceName.isNotEmpty())
+        setup.inputChannels.setRange (0, 2, true);   // stereo if it can (mono otherwise, see applySetup)
     applySetup (setup);
 }
 

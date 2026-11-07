@@ -60,6 +60,11 @@ public:
         works, it goes back to the previous setting (and explains why). */
     void switchDriverType (const juce::String& typeName);
 
+    /** Applies a device setting (from the settings panel). If the microphone refuses it in stereo,
+        tries it in mono (some USB microphones only work in mono in Exclusive Mode). Returns the
+        error if neither worked (Aether then goes back to the previous setting, as usual). */
+    juce::String applySetup (const juce::AudioDeviceManager::AudioDeviceSetup& setup);
+
         /** Latency of the currently open device (invalid if no device is open), including the
         measured round trip if this exact setting (driver, devices, sample rate, buffer size)
         has been measured. */
@@ -121,6 +126,7 @@ private:
     void rememberMidiChoices();
     void restoreLastWorkingConfig (const juce::String& failedTypeName, const juce::String& driverError);
     bool tryToOpen (const juce::AudioDeviceManager::AudioDeviceSetup& setup);
+    bool tryToOpenInMono (const juce::AudioDeviceManager::AudioDeviceSetup& setup);
     juce::String currentDriverError() const   { return driverErrorSource ? driverErrorSource() : juce::String(); }
 
     juce::PropertySet& settings;

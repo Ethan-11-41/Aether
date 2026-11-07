@@ -289,3 +289,33 @@ TEST_CASE ("Switching driver keeps \"no microphone\" if that was chosen", "[devi
     CHECK (manager.getAudioDeviceSetup().inputDeviceName.isEmpty());   // JUCE alone would add the default microphone
     CHECK (service.getProblemMessage().isEmpty());
 }
+
+TEST_CASE ("A microphone that only works in mono in Exclusive Mode is opened in mono", "[devices]")
+{
+    juce::ScopedJuceInitialiser_GUI juce;
+    juce::PropertySet settings;
+    AudioDeviceService service (settings, sharedAndExclusive ({ "Mono Mic" }));
+    runImmediately (service);
+    auto& manager = service.getDeviceManager();
+
+    // A microphone is chosen in the shared driver ("Mic"); in Exclusive Mode the same microphone is
+    // called "Mono Mic" here, and Aether picks it as the default input.
+    auto setup = manager.getAudioDeviceSetup();
+    setup.inputDeviceName = "Mic";
+    REQUIRE (manager.setAudioDeviceSetup (setup, true).isEmpty());
+
+    service.switchDriverType ("Fake Exclusive");
+
+    REQUIRE (manager.getCurrentAudioDevice() != nullptr);
+    CHECK (manager.getCurrentAudioDeviceType() == "Fake Exclusive");
+    CHECK (manager.getAudioDeviceSetup().inputDeviceName == "Mono Mic");
+    CHECK (manager.getCurrentAudioDevice()->getActiveInputChannels().countNumberOfSetBits() == 1);
+    CHECK (service.getProblemMessage().isEmpty());   // nothing lost, nothing to explain
+
+    // Choosing it again in the panel's way (stereo asked for) also falls back to mono.
+    auto again = manager.getAudioDeviceSetup();
+    again.useDefaultInputChannels = false;
+    again.inputChannels.setRange (0, 2, true);
+    CHECK (service.applySetup (again).isEmpty());
+    CHECK (manager.getCurrentAudioDevice()->getActiveInputChannels().countNumberOfSetBits() == 1);
+}

@@ -39,7 +39,14 @@ namespace aether::test
                 return lastError;
             }
 
-            if (requiredRate > 0.0 && std::abs (rate - requiredRate) > 0.5)
+            // Like a USB microphone in Exclusive Mode: it only works in mono.
+            if (inputName == "Mono Mic" && ins.getHighestBit() > 0)
+            {
+                lastError = "Unsupported format!";
+                return lastError;
+            }
+
+                        if (requiredRate > 0.0 && std::abs (rate - requiredRate) > 0.5)
             {
                 lastError = "This sample rate isn't supported!";
                 return lastError;
