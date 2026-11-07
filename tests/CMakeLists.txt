@@ -28,6 +28,7 @@ add_executable(aether_tests
     unit/RecordingModelTests.cpp
     unit/ShortcutListTests.cpp
     unit/SpscQueueTests.cpp
+    unit/SynthTests.cpp
     unit/TempoMapTests.cpp
     unit/TestToneGeneratorTests.cpp
     unit/TimelineClipTests.cpp

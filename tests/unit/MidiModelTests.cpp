@@ -42,13 +42,13 @@ namespace
     };
 }
 
-TEST_CASE ("MIDI tracks get the starter synth, and old projects get it too", "[midi][model]")
+TEST_CASE ("MIDI tracks get the Synth, and old projects get it too", "[midi][model]")
 {
     Fixture f;
     const auto instrument = midi::instrumentOf (f.project, f.keys);
     REQUIRE (instrument.isValid());
-    CHECK (instrument[ids::type].toString() == "synth");
-    CHECK (instrument[ids::preset].toString() == "Electric piano");
+    CHECK (instrument[ids::type].toString() == "subtractive");
+    CHECK (instrument[ids::preset].toString() == "Soft keys");
     CHECK_FALSE (midi::instrumentOf (f.project, f.audio).isValid());
 
     // Its settings work like an effect's.
@@ -58,18 +58,19 @@ TEST_CASE ("MIDI tracks get the starter synth, and old projects get it too", "[m
     CHECK (mixer::getInsertParameter (instrument, "cutoff") == 2000.0f);
 
     // A preset changes everything in one step.
-    REQUIRE (edit::setInstrumentPreset (f.project, f.keys, "Bass"));
-    CHECK (mixer::getInsertParameter (instrument, "cutoff") == 700.0f);
-    CHECK (instrument[ids::preset].toString() == "Bass");
+    REQUIRE (edit::setInstrumentPreset (f.project, f.keys, "Analog bass"));
+    CHECK (mixer::getInsertParameter (instrument, "cutoff") == 400.0f);
+    CHECK (instrument[ids::preset].toString() == "Analog bass");
     f.project.getUndoManager().undo();
     CHECK (mixer::getInsertParameter (instrument, "cutoff") == 2000.0f);
 
-    // A MIDI track saved before Milestone 6 has no instrument: it gets the default.
+    // A MIDI track without an instrument (only possible in a hand-edited file) gets the default.
+    // Projects saved since 0.7 keep whichever instrument they had (the starter synth, then).
     auto state = f.project.getState().createCopy();
     for (auto track : state.getChildWithName (ids::Tracks))
         track.removeChild (track.getChildWithName (ids::Instrument), nullptr);
     auto reopened = Project::fromState (state);
-    CHECK (midi::instrumentOf (*reopened, f.keys)[ids::type].toString() == "synth");
+    CHECK (midi::instrumentOf (*reopened, f.keys)[ids::type].toString() == "subtractive");
 
     for (const auto& type : dsp::effectTypes())
         for (const auto& preset : type.presets)
@@ -256,7 +257,7 @@ TEST_CASE ("MIDI files import as tracks with clips, in one undo step", "[midi][i
 TEST_CASE ("MIDI clips and instruments are saved and loaded", "[midi][io]")
 {
     Fixture f;
-    edit::setInstrumentPreset (f.project, f.keys, "Organ");
+    edit::setInstrumentPreset (f.project, f.keys, "Church organ");
     const auto loaded = projectformat::read (projectformat::write (f.project));
     REQUIRE (loaded.result.wasOk());
     CHECK (loaded.state.isEquivalentTo (f.project.getState()));
@@ -265,7 +266,7 @@ TEST_CASE ("MIDI clips and instruments are saved and loaded", "[midi][io]")
     const auto clip = clips::findClip (*reopened, f.clip);
     CHECK (clip.isMidi());
     CHECK (midi::notesOf (clip).size() == 4);
-    CHECK (midi::instrumentOf (*reopened, f.keys)[ids::preset].toString() == "Organ");
+    CHECK (midi::instrumentOf (*reopened, f.keys)[ids::preset].toString() == "Church organ");
 }
 
 TEST_CASE ("A one-part MIDI file dropped on a MIDI track goes onto that track", "[midi][import]")
@@ -299,4 +300,25 @@ TEST_CASE ("A one-part MIDI file dropped on a MIDI track goes onto that track", 
     CHECK (result.trackIds.size() == 1);
     CHECK (project.getNumTracks() == 3);
     temp.deleteFile();
+}
+
+TEST_CASE ("A track's instrument can be changed, and the starter synth still works in old projects", "[midi][model]")
+{
+    Fixture f;
+    REQUIRE (edit::setInstrumentType (f.project, f.keys, "synth", "Organ"));
+    auto instrument = midi::instrumentOf (f.project, f.keys);
+    CHECK (instrument[ids::type].toString() == "synth");
+    CHECK (instrument[ids::preset].toString() == "Organ");
+    CHECK (f.project.getUndoManager().getUndoDescription() == "Use Starter synth");
+
+    f.project.getUndoManager().undo();
+    CHECK (midi::instrumentOf (f.project, f.keys)[ids::type].toString() == "subtractive");
+
+    // Without a preset name: the type's first preset.
+    REQUIRE (edit::setInstrumentType (f.project, f.keys, "subtractive"));
+    CHECK (midi::instrumentOf (f.project, f.keys)[ids::preset].toString() == "Soft keys");
+
+    // Not an instrument, or not a MIDI track.
+    CHECK_FALSE (edit::setInstrumentType (f.project, f.keys, "reverb"));
+    CHECK_FALSE (edit::setInstrumentType (f.project, f.audio, "subtractive"));
 }

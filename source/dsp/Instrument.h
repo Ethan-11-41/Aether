@@ -20,7 +20,8 @@ struct NoteEvent
         sustain,           // value: 1 = pedal down, 0 = up
         pitchBend,         // value: -1 .. +1 (two semitones each way)
         stopClipNotes,     // playback stopped or jumped: release the notes clips started
-        allNotesOff        // release everything
+        allNotesOff,       // release everything
+        modWheel           // value: 0 .. 1 (MIDI controller 1)
     };
 
     Type type = Type::noteOn;

@@ -12,6 +12,9 @@ add_library(aether_core STATIC
     dsp/FastMath.h
     dsp/Instrument.h
     dsp/StarterSynth.cpp
+    dsp/Synth.cpp
+    dsp/Synth.h
+    dsp/SynthPresets.cpp
     dsp/EffectTypes.cpp
     dsp/EffectTypes.h
     engine/AudioEngine.cpp

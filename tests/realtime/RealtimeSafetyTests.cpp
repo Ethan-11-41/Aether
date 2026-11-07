@@ -6,10 +6,13 @@
 // (AETHER_RTSAN=ON, run by the Linux job in CI) any memory allocation, lock or blocking system
 // call inside an AETHER_NONBLOCKING function aborts the test run with a report showing where.
 
+#include <algorithm>
+#include <array>
 #include <vector>
 
 #include <catch2/catch_test_macros.hpp>
 
+#include "dsp/Synth.h"
 #include "engine/AudioEngine.h"
 #include "engine/TimelineSync.h"
 #include "engine/rt/SpscQueue.h"
@@ -300,4 +303,45 @@ TEST_CASE ("MIDI playback, the synth, live MIDI and MIDI recording are real-time
 
     engine.collectGarbage();
     SUCCEED ("no real-time violations");
+}
+
+TEST_CASE ("The Synth is real-time safe with every preset", "[realtime]")
+{
+    using namespace aether::dsp;
+    const auto* type = findEffectType (synth::typeId);
+    REQUIRE (type != nullptr);
+
+    auto instrument = createInstrument (synth::typeId);
+    instrument->prepare (48000.0, 2048);
+    std::vector<float> left (2048), right (2048);
+
+    int block = 0;
+    for (const auto& preset : type->presets)
+    {
+        EffectParameterValues values {};
+        for (size_t i = 0; i < preset.values.size(); ++i)
+            values[i] = preset.values[i];
+
+        for (int b = 0; b < 12; ++b, ++block)
+        {
+            std::array<NoteEvent, 6> events {};
+            for (int i = 0; i < 4; ++i)
+            {
+                events[(size_t) i].type = b % 4 == 3 ? NoteEvent::Type::noteOff : NoteEvent::Type::noteOn;
+                events[(size_t) i].pitch = (std::uint8_t) (40 + (block * 7 + i * 5) % 50);
+                events[(size_t) i].velocity = 90;
+                events[(size_t) i].offset = i * 37;
+            }
+            events[4].type = NoteEvent::Type::modWheel;
+            events[4].value = (float) (b % 5) / 4.0f;
+            events[4].offset = 300;
+            events[5].type = b == 11 ? NoteEvent::Type::allNotesOff : NoteEvent::Type::pitchBend;
+            events[5].value = 0.3f;
+            events[5].offset = 400;
+
+            instrument->process (left.data(), right.data(), 1 + (block * 131) % 2048, values, events.data(), (int) events.size());
+        }
+    }
+
+    CHECK (std::all_of (left.begin(), left.end(), [] (float x) { return std::isfinite (x); }));
 }

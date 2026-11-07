@@ -5,6 +5,7 @@
 
 #include "FastMath.h"
 #include "Instrument.h"
+#include "Synth.h"
 
 #include <algorithm>
 #include <array>
@@ -190,6 +191,9 @@ namespace
                             v.releaseNote();
                     pedal = false;
                     break;
+
+                case NoteEvent::Type::modWheel:
+                    break;   // the starter synth has no use for it
             }
         }
 
@@ -362,6 +366,9 @@ std::unique_ptr<Instrument> createInstrument (const juce::String& typeId)
 {
     if (typeId == "synth")
         return std::make_unique<StarterSynth>();
+
+    if (typeId == synth::typeId)
+        return synth::create();
 
     return nullptr;
 }

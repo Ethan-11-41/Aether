@@ -214,6 +214,27 @@ juce::String edit::addMidiClip (Project& project, const juce::String& trackId, c
     return id;
 }
 
+bool edit::setInstrumentType (Project& project, const juce::String& trackId, const juce::String& typeId,
+                              const juce::String& presetName)
+{
+    auto track = project.findTrack (trackId);
+    const auto* type = dsp::findEffectType (typeId);
+
+    if (track.getKind() != TrackKind::midi || type == nullptr || ! type->isInstrument)
+        return false;
+
+    auto& undo = project.getUndoManager();
+    undo.beginNewTransaction ("Use " + type->name);
+
+    auto state = track.getState();
+    if (auto old = state.getChildWithName (ids::Instrument); old.isValid())
+        state.removeChild (old, &undo);
+
+    const auto preset = presetName.isNotEmpty() || type->presets.empty() ? presetName : type->presets.front().name;
+    state.appendChild (midi::makeInstrument (typeId, preset), &undo);
+    return true;
+}
+
 bool edit::setInstrumentPreset (Project& project, const juce::String& trackId, const juce::String& presetName)
 {
     auto instrument = midi::instrumentOf (project, trackId);
