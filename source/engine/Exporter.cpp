@@ -7,9 +7,11 @@
 
 #include "AudioEngine.h"
 #include "TimelineSync.h"
+#include "dsp/DrumKit.h"
 #include "io/AudioImport.h"
 #include "io/Mp3Encoder.h"
 #include "model/ClipEdits.h"
+#include "model/MidiClips.h"
 #include "model/TimelineEdits.h"
 
 namespace aether
@@ -59,6 +61,18 @@ juce::Result renderProject (const Project& project, const ProjectLocation& locat
     for (const auto& clip : clips::allClips (project))
         if (! clip.isMidi())
             cache.getAudio (resolveClipFile (location, clip.getFile()));
+
+    // ...and the drum pads' sounds that come from files.
+    for (int t = 0; t < project.getNumTracks(); ++t)
+    {
+        const auto instrument = midi::instrumentOf (project, project.getTrack (t).getId());
+
+        if (instrument[ids::type].toString() == dsp::drumkit::typeId)
+            for (int pad = 0; pad < dsp::drums::numPads; ++pad)
+                if (const auto sound = instrument[dsp::drumkit::soundProperty (pad)].toString();
+                    sound.isNotEmpty() && ! dsp::drumkit::isBuiltIn (sound))
+                    cache.getAudio (resolveClipFile (location, sound));
+    }
 
     cache.waitUntilIdle();
 

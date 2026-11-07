@@ -298,9 +298,35 @@ bool edit::setPatternLooping (Project& project, const juce::String& clipId, bool
 
     if (shouldLoop && clip.isLooping())
     {
-        // Already repeating: just a new pattern length.
+        // Already repeating: a new pattern length. What plays stays the same as far as it can: a
+        // longer pattern starts as copies of the old one (change the copies to vary it), and a
+        // shorter one loses the notes after its end.
         undo.beginNewTransaction ("Change pattern length");
+        const auto oldPattern = clip.getPatternLength();
+        const auto all = midi::notesOf (clip);
+
+        if (newPattern > oldPattern)
+        {
+            for (auto offset = oldPattern; offset < newPattern; offset += oldPattern)
+                for (auto n : all)
+                    if (n.start >= 0 && n.start < oldPattern && offset + n.start < newPattern)
+                    {
+                        n.start += offset;
+                        state.appendChild (makeNoteNode (n), &undo);
+                    }
+        }
+        else
+        {
+            for (int i = state.getNumChildren(); --i >= 0;)
+                if (state.getChild (i).hasType (ids::Note) && (Tick) (juce::int64) state.getChild (i)[ids::tick] >= newPattern)
+                    state.removeChild (i, &undo);
+        }
+
         state.setProperty (ids::patternLength, (juce::int64) newPattern, &undo);
+
+        if (clip.getLengthTicks() < newPattern)
+            state.setProperty (ids::length, (juce::int64) newPattern, &undo);
+
         return true;
     }
 
@@ -317,7 +343,8 @@ bool edit::setPatternLooping (Project& project, const juce::String& clipId, bool
             state.removeChild (i, &undo);
 
     for (const auto& n : heard)
-        state.appendChild (makeNoteNode (n), &undo);
+        if (! shouldLoop || n.start < newPattern)   // a pattern shorter than the clip keeps only its own notes
+            state.appendChild (makeNoteNode (n), &undo);
 
     state.setProperty (ids::contentStart, (juce::int64) 0, &undo);
 

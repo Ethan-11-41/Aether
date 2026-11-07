@@ -93,7 +93,10 @@ namespace edit
 
     /** Makes a MIDI clip a repeating pattern (or not): its first `patternLength` ticks of notes
         (the clip's current length if 0) repeat for as long as the clip lasts, so dragging its
-        right edge adds repeats. One undo step. */
+        right edge adds repeats. Turning repeats on or off keeps what you hear (except notes after
+        a pattern that's shorter than the clip, which go). On a clip that already repeats, this
+        changes the pattern's length: a longer pattern starts as copies of the old one, a shorter
+        one loses the notes after its end. One undo step. */
     bool setPatternLooping (Project& project, const juce::String& clipId, bool shouldLoop, Tick patternLength = 0);
 
         /** Puts a sound on a drum kit's pad (0 to 15): a built-in one (dsp::drumkit::builtInReference)

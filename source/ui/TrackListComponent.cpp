@@ -3,6 +3,7 @@
 
 #include "EffectEditor.h"
 #include "MixerControls.h"
+#include "dsp/DrumKit.h"
 #include "dsp/EffectTypes.h"
 #include "dsp/Synth.h"
 #include "model/EditCommands.h"
@@ -602,8 +603,9 @@ void TrackListComponent::showInstrumentEditor (const juce::String& trackId, juce
     if (! instrument.isValid())
         return;
 
-    // The Synth has its own window; the starter synth a small pop-up.
-    if (instrument[ids::type].toString() == dsp::synth::typeId && onOpenInstrument)
+    // The Synth and the drum kit have their own windows; the starter synth a small pop-up.
+    const auto type = instrument[ids::type].toString();
+    if ((type == dsp::synth::typeId || type == dsp::drumkit::typeId) && onOpenInstrument)
         onOpenInstrument (trackId);
     else
         EffectEditor::show (theme, project, instrument[ids::id].toString(), screenArea);

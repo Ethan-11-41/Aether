@@ -9,6 +9,7 @@
 #include "io/AudioImport.h"
 #include "io/FileTypes.h"
 #include "io/MidiImport.h"
+#include "model/DrumPatterns.h"
 #include "model/ClipEdits.h"
 #include "model/MidiClips.h"
 #include "model/Recording.h"
@@ -1208,10 +1209,21 @@ private:
         if (clip.isMidi())
         {
             const auto count = (int) midi::audibleNotes (clip).size();
-            menu.addSectionHeader ("MIDI clip: " + juce::String (count) + (count == 1 ? " note" : " notes"));
+            const auto drums = drumpattern::isDrumClip (proj, clip);
+            menu.addSectionHeader ((drums ? "Drum pattern: " : "MIDI clip: ") + juce::String (count) + (count == 1 ? " note" : " notes"));
+
+            if (drums)
+                menu.addItem ("Edit pattern (drum editor)...", [safeOwner, id]
+                {
+                    if (safeOwner != nullptr && safeOwner->onEditNotes)
+                        safeOwner->onEditNotes (id);
+                });
+
             menu.addItem ("Edit notes (piano roll)...", [safeOwner, id]
             {
-                if (safeOwner != nullptr && safeOwner->onEditNotes)
+                if (safeOwner != nullptr && safeOwner->onOpenPianoRoll)
+                    safeOwner->onOpenPianoRoll (id);
+                else if (safeOwner != nullptr && safeOwner->onEditNotes)
                     safeOwner->onEditNotes (id);
             });
             menu.addItem ("Repeat pattern (drag the right edge for more repeats)", true, clip.isLooping(),
@@ -1699,7 +1711,10 @@ juce::String TimelineComponent::createMidiClipAt (int row, Tick position)
     const auto track = project.getTrack (row);
     const auto bar = tempoMap.ticksToBarBeat (std::max<Tick> (0, position)).bar;
     const auto start = tempoMap.barToTicks (bar);
-    const auto id = edit::addMidiClip (project, track.getId(), track.getName(), start, tempoMap.barLengthAt (start), {});
+    // On a drum track, a new clip is a one-bar pattern that repeats when it's made longer.
+    const auto id = drumpattern::isDrumTrack (project, track.getId())
+                        ? edit::addPattern (project, track.getId(), start, tempoMap.barLengthAt (start), "Beat")
+                        : edit::addMidiClip (project, track.getId(), track.getName(), start, tempoMap.barLengthAt (start), {});
 
     if (id.isNotEmpty())
     {

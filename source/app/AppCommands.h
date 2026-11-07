@@ -43,6 +43,7 @@ namespace commands
         moveTrackUp         = 0x3005,
         moveTrackDown       = 0x3006,
         addBus              = 0x3007,
+        addDrumTrack        = 0x3008,
 
         // Clips
         importAudio         = 0x3101,

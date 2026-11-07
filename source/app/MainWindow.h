@@ -92,6 +92,7 @@ private:
     void showError (const juce::String& title, const juce::String& message);
 
     void addTrack (TrackKind kind);
+    void addDrumTrack();
     void deleteSelectedTrack();
     void moveSelectedTrack (int delta);
     juce::String selectedTrackId() const;

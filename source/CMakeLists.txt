@@ -78,6 +78,8 @@ add_library(aether_core STATIC
     model/Clip.h
     model/ClipEdits.cpp
     model/ClipEdits.h
+    model/DrumPatterns.cpp
+    model/DrumPatterns.h
     model/EditCommands.cpp
     model/EditCommands.h
     model/Ids.h
@@ -124,6 +126,8 @@ add_library(aether_ui STATIC
     ui/DelayedTooltipWindow.h
     ui/DeviceSettingsPanel.cpp
     ui/DeviceSettingsPanel.h
+    ui/DrumEditor.cpp
+    ui/DrumEditor.h
     ui/EffectEditor.cpp
     ui/EffectEditor.h
     ui/IconButton.cpp

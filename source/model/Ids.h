@@ -59,6 +59,8 @@ namespace aether::ids
     inline const juce::Identifier phase         { "phase" };          // looping clips: how far into the content it starts
     inline const juce::Identifier loop          { "loop" };           // true: the content repeats to fill the clip
     inline const juce::Identifier patternLength { "patternLength" };  // MIDI clips that loop: ticks of notes that repeat
+    inline const juce::Identifier stepLength    { "stepLength" };     // drum patterns: the step sequencer's step (ticks)
+    inline const juce::Identifier swing         { "swing" };          // drum patterns: 0 (straight) to 1 (triplet shuffle)
     inline const juce::Identifier gain          { "gain" };           // clip volume in dB
     inline const juce::Identifier fadeIn        { "fadeIn" };
     inline const juce::Identifier fadeOut       { "fadeOut" };

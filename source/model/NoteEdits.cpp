@@ -28,7 +28,8 @@ namespace
     }
 
     /** Grows a clip so every note fits, to the end of the bar the last note ends in. (A repeating
-        pattern grows its pattern instead, to whole bars, and the clip if it's shorter.) */
+        pattern grows its pattern instead, to the end of the bar a note starts in after it, and
+        the clip too if it's shorter.) */
     void growClipToFit (Project& project, juce::ValueTree clipNode)
     {
         const Clip clip (clipNode);
@@ -40,12 +41,19 @@ namespace
 
         if (clip.isLooping())
         {
-            if (lastEnd <= clip.getPatternLength())
+            // Here it's where notes start that counts: one that starts in the pattern can ring on
+            // into the next repeat.
+            Tick lastStart = -1;
+            for (const auto& n : clipNode)
+                if (n.hasType (ids::Note))
+                    lastStart = std::max (lastStart, tickOf (n));
+
+            if (lastStart < clip.getPatternLength())
                 return;
 
             const auto tempo = timeline::buildTempoMap (project);
             const auto bar = tempo.barLengthAt (clip.getStart());
-            const auto pattern = (lastEnd + bar - 1) / bar * bar;
+            const auto pattern = (lastStart + bar) / bar * bar;
             clipNode.setProperty (ids::patternLength, (juce::int64) pattern, &project.getUndoManager());
 
             if (clip.getLengthTicks() < pattern)

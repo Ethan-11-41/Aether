@@ -8,7 +8,9 @@ add_executable(aether_tests
     unit/ClipEditTests.cpp
     unit/ClipPlaybackTests.cpp
     unit/DeviceSettingsPanelTests.cpp
+    unit/DrumEditorTests.cpp
     unit/DrumKitTests.cpp
+    unit/DrumPatternTests.cpp
     unit/DrumSoundTests.cpp
     unit/DiagnosticsTests.cpp
     unit/ExportTests.cpp

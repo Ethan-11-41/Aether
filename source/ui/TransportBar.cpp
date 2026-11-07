@@ -214,7 +214,7 @@ void TransportBar::paint (juce::Graphics&)
 void TransportBar::resized()
 {
     auto area = getLocalBounds();
-    constexpr int button = 38, gap = 6;
+    constexpr int button = 38, gap = 4;
 
     for (auto* b : { &toStartButton, &stopButton, &playButton, &recordButton, &loopButton, &punchButton, &metronomeButton })
     {
@@ -222,7 +222,7 @@ void TransportBar::resized()
         area.removeFromLeft (gap);
     }
 
-    countInBox.setBounds (area.removeFromLeft (118).withSizeKeepingCentre (118, 30));
+    countInBox.setBounds (area.removeFromLeft (112).withSizeKeepingCentre (112, 30));
     area.removeFromLeft (gap * 3);
     positionDisplay->setBounds (area.removeFromLeft (120).withSizeKeepingCentre (120, 40));
     area.removeFromLeft (gap);

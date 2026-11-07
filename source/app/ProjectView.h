@@ -12,6 +12,7 @@
 #include "ui/KeyboardPanel.h"
 #include "ui/MixerComponent.h"
 #include "ui/PianoRoll.h"
+#include "ui/DrumEditor.h"
 #include "ui/SynthEditor.h"
 #include "ui/TimelineComponent.h"
 #include "ui/TrackListComponent.h"
@@ -65,6 +66,14 @@ public:
     void showSynth (const juce::String& trackId);
     ui::SynthEditor* getSynthEditor() noexcept        { return synthEditor; }
 
+    /** Opens (or brings forward) the drum editor, showing a pattern, or a drum track's kit. */
+    void showDrumEditor (const juce::String& clipId);
+    void showDrumKit (const juce::String& trackId);
+    ui::DrumEditor* getDrumEditor() noexcept          { return drumEditor; }
+
+    /** A MIDI clip's own editor: the drum editor for drum patterns, otherwise the piano roll. */
+    void editNotes (const juce::String& clipId);
+
     static constexpr const char* gridKey = "gridSize";
     static constexpr const char* mixerVisibleKey = "mixerVisible";
     static constexpr const char* mixerHeightKey = "mixerHeight";
@@ -112,7 +121,7 @@ private:
     TimelineSync timelineSync;
     std::unique_ptr<Recorder> recorder;
 
-    juce::TextButton undoButton, redoButton, addAudioButton, addMidiButton, addBusButton, mixerButton;
+    juce::TextButton undoButton, redoButton, addAudioButton, addMidiButton, addDrumsButton, addBusButton, mixerButton;
     ui::TransportBar transportBar;
     TrackViewport trackViewport;
     ui::TrackListComponent trackList;
@@ -120,6 +129,7 @@ private:
     std::unique_ptr<ui::MixerComponent> mixer;
     std::unique_ptr<ui::KeyboardPanel> keyboard;
     bool keyboardVisible = false;
+    int octaveBeforeDrums = -1;   // the keyboard's octave before a drum track was selected
     Divider divider;
 
     /** "MIDI" in the toolbar, lit for a moment whenever a MIDI message arrives. */
@@ -146,6 +156,10 @@ private:
     ui::PianoRoll* pianoRoll = nullptr;                      // inside pianoRollWindow
     std::unique_ptr<juce::DocumentWindow> synthWindow;       // the Synth's settings (closes with the project)
     ui::SynthEditor* synthEditor = nullptr;                  // inside synthWindow
+    std::unique_ptr<juce::DocumentWindow> drumWindow;        // the drum editor (closes with the project)
+    ui::DrumEditor* drumEditor = nullptr;                    // inside drumWindow
+    void openDrumWindow();
+    void chooseDrumSoundFile (int pad);
     juce::ComboBox gridBox;
     juce::Rectangle<int> toolbarArea, laneHeaderArea;
     std::unique_ptr<juce::FileChooser> fileChooser;
