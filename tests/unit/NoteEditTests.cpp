@@ -203,7 +203,27 @@ TEST_CASE ("Scales say which notes belong to them", "[notes][scales]")
     CHECK_FALSE (scales::highlights (scales::find ("off")));
     CHECK_FALSE (scales::highlights (scales::find ("nonsense")));
     CHECK (scales::highlights (scales::find ("blues")));
-    CHECK (std::string (scales::keyName (10)) == "A#");
+    // Keys are named as musicians write them.
+    CHECK (std::string (scales::keyName (10)) == "Bb");
+    CHECK (std::string (scales::keyName (1)) == "Db");
+    CHECK (std::string (scales::keyName (6)) == "F#/Gb");
+    CHECK (std::string (scales::keyName (8)) == "Ab");
+    CHECK (std::string (scales::keyName (1, true)) == "C#");    // C# minor
+    CHECK (std::string (scales::keyName (8, true)) == "G#");    // G# minor
+    CHECK (std::string (scales::keyName (10, true)) == "Bb");   // Bb minor
+    CHECK (scales::isMinorLike (scales::find ("minor")));
+    CHECK (scales::isMinorLike (scales::find ("dorian")));
+    CHECK (scales::isMinorLike (scales::find ("blues")));
+    CHECK_FALSE (scales::isMinorLike (scales::find ("mixolydian")));
+    CHECK_FALSE (scales::isMinorLike (scales::find ("off")));
+
+    // Flat keys write their notes with flats.
+    CHECK (scales::usesFlats (5, false));        // F major (Bb)
+    CHECK (scales::usesFlats (2, true));         // D minor (Bb)
+    CHECK_FALSE (scales::usesFlats (7, false));  // G major (F#)
+    CHECK_FALSE (scales::usesFlats (9, true));   // A minor
+    CHECK (midi::noteName (70, true) == "Bb4");
+    CHECK (midi::noteName (70) == "A#4");
 
     // Each scale has the expected number of notes.
     CHECK (juce::BigInteger ((int) major.notes).countNumberOfSetBits() == 7);

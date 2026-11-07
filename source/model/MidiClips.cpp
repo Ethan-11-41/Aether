@@ -90,11 +90,12 @@ juce::ValueTree makeInstrument (const juce::String& typeId, const juce::String& 
     return instrument;
 }
 
-juce::String noteName (int pitch)
+juce::String noteName (int pitch, bool flats)
 {
-    static const char* const names[] = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
+    static const char* const sharpNames[] = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
+    static const char* const flatNames[] = { "C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B" };
     pitch = juce::jlimit (0, 127, pitch);
-    return juce::String (names[pitch % 12]) + juce::String (pitch / 12 - 1);
+    return juce::String ((flats ? flatNames : sharpNames)[pitch % 12]) + juce::String (pitch / 12 - 1);
 }
 
 void NoteCollector::noteOn (std::int64_t time, int pitch, int velocity)
