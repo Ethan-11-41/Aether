@@ -1245,7 +1245,7 @@ private:
                 return juce::String (rate / 1000.0, std::fmod (rate, 1000.0) == 0.0 ? 0 : 1) + " kHz";
             };
 
-            juce::String info = juce::File::createFileWithoutCheckingPath (clip.getFile()).getFileName() + ": "
+            juce::String info = clip.getFile().replaceCharacter ('\\', '/').fromLastOccurrenceOf ("/", false, false) + ": "
                               + rateText (clip.getSourceRate());
 
             if (const auto audio = owner.audioFiles.getAudio (owner.resolve (clip.getFile())))

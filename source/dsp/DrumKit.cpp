@@ -72,7 +72,10 @@ juce::String describeSound (const juce::String& reference)
         return info != nullptr ? juce::String (info->name) : builtInId (reference);
     }
 
-    return juce::File::createFileWithoutCheckingPath (reference.replaceCharacter ('\\', '/')).getFileNameWithoutExtension();
+    // The file's name without its folder or extension. (Done by hand: juce::File only knows the
+    // separator of the system it runs on, and projects store "/" everywhere.)
+    const auto name = reference.replaceCharacter ('\\', '/').fromLastOccurrenceOf ("/", false, false);
+    return name.containsChar ('.') ? name.upToLastOccurrenceOf (".", false, false) : name;
 }
 
 //==============================================================================

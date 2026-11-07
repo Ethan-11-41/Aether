@@ -42,6 +42,8 @@ follow [Semantic Versioning](https://semver.org/) (0.x while Aether is in early 
   brought it in front of the Synth's window. The Synth window now has its own keyboard at the
   bottom (computer keys work there too), so you can change a setting and play straight away.
 
+- A clip's menu showed its file as "Audio/Guitar.wav" on Windows instead of "Guitar.wav".
+
 ### Changed
 - The toolbar buttons are a little narrower, so the transport still fits at 1280 pixels wide with
   the new **+ Drums** button.
