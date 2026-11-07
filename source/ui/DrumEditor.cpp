@@ -15,6 +15,16 @@ namespace kit = dsp::drumkit;
 
 namespace
 {
+    /** Clicking a control leaves the keyboard focus with the editor, so Space (play), Ctrl+Z and
+        the other shortcuts keep working instead of pressing the button clicked last. */
+    void dontTakeFocus (juce::Component& c)
+    {
+        c.setMouseClickGrabsKeyboardFocus (false);
+        c.setWantsKeyboardFocus (false);
+        for (auto* child : c.getChildren())
+            dontTakeFocus (*child);
+    }
+
     const dsp::EffectType& kitType()
     {
         return *dsp::findEffectType (kit::typeId);
@@ -180,14 +190,8 @@ public:
         const auto bar = std::max<Tick> (1, tempo.barLengthAt (clip.getStart()));
         const auto& order = dsp::drums::padDisplayOrder();
 
-        // Every other beat is a little lighter, so the steps are easy to count.
-        for (int step = 0; step < steps; ++step)
-        {
-            const auto at = (Tick) step * stepLength;
-            const auto r = juce::Rectangle<float> ((float) (step * cellWidth), (float) rulerHeight, (float) cellWidth, (float) (16 * rowHeight));
-            g.setColour (t.panel);
-            g.fillRect (r);
-        }
+        g.setColour (t.panel);
+        g.fillRect (0, rulerHeight, steps * cellWidth, 16 * rowHeight);
 
         // The ruler: bar.beat at each beat.
         g.setColour (t.panel);
@@ -233,6 +237,7 @@ public:
 
                 if (velocity == 0)
                 {
+                    // Every other beat is a little lighter, so the steps are easy to count.
                     const auto oddBeat = ((Tick) step * stepLength / beat) % 2 == 1;
                     g.setColour (oddBeat ? t.panelRaised.brighter (0.12f) : t.panelRaised);
                     g.fillRoundedRectangle (r, 3.0f);
@@ -515,6 +520,11 @@ DrumEditor::DrumEditor (const Theme& t, Project& p, AudioEngine& e)
     addAndMakeVisible (*kitVolumeKnob);
 
     rebuildKnobs();
+
+    for (auto* child : getChildren())
+        dontTakeFocus (*child);
+    setWantsKeyboardFocus (true);
+
     projectState.addListener (this);
     startTimerHz (30);
     setSize (1240, 700);
@@ -719,6 +729,7 @@ void DrumEditor::rebuildKnobs()
             edit::setInsertParameter (project, instrument()[ids::id].toString(), id, (float) v, false);
         };
         addAndMakeVisible (*knob);
+        dontTakeFocus (*knob);
         knobs.push_back (std::move (knob));
     }
 

@@ -596,6 +596,7 @@ void ProjectView::showDrumEditor (const juce::String& clipId)
         trackList.focusTrack (clip.getTrackState()[ids::id].toString());
 
     drumWindow->toFront (true);
+    drumEditor->grabKeyboardFocus();
 }
 
 void ProjectView::showDrumKit (const juce::String& trackId)
@@ -605,6 +606,7 @@ void ProjectView::showDrumKit (const juce::String& trackId)
     drumWindow->setName (drumEditor->getTitle());
     trackList.focusTrack (trackId);
     drumWindow->toFront (true);
+    drumEditor->grabKeyboardFocus();
 }
 
 ProjectView::~ProjectView()

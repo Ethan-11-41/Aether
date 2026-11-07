@@ -173,9 +173,10 @@ TEST_CASE ("An audio file can be put on a drum pad", "[drums][io]")
     const auto source = folder.getFile().getChildFile ("My kick.wav");
     {
         juce::WavAudioFormat wav;
-        auto stream = source.createOutputStream();
-        REQUIRE (stream != nullptr);
-        std::unique_ptr<juce::AudioFormatWriter> writer (wav.createWriterFor (stream.release(), 48000.0, 1, 16, {}, 0));
+        std::unique_ptr<juce::OutputStream> stream = std::make_unique<juce::FileOutputStream> (source);
+        auto writer = wav.createWriterFor (stream, juce::AudioFormatWriterOptions{}.withSampleRate (48000.0)
+                                                                                 .withNumChannels (1)
+                                                                                 .withBitsPerSample (16));
         REQUIRE (writer != nullptr);
         juce::AudioBuffer<float> b (1, 4800);
         b.clear();

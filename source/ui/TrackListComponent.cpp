@@ -6,6 +6,7 @@
 #include "dsp/DrumKit.h"
 #include "dsp/EffectTypes.h"
 #include "dsp/Synth.h"
+#include "model/DrumPatterns.h"
 #include "model/EditCommands.h"
 #include "model/MidiClips.h"
 #include "model/Mixer.h"
@@ -131,8 +132,9 @@ public:
             g.drawText (track.getName(), getNameArea(), juce::Justification::centredLeft, true);
         }
 
-        // Kind badge, e.g. "AUDIO", "MIDI" or "BUS".
-        const auto kindText = track.getKind() == TrackKind::midi ? juce::String ("MIDI")
+        // Kind badge, e.g. "AUDIO", "MIDI", "DRUMS" or "BUS".
+        const auto kindText = track.getKind() == TrackKind::midi
+                                ? juce::String (drumpattern::isDrumTrack (owner.project, track.getId()) ? "DRUMS" : "MIDI")
                             : track.isBus() ? juce::String ("BUS") : juce::String ("AUDIO");
         g.setColour (track.getColour().withAlpha (0.18f));
         g.fillRoundedRectangle (getBadgeArea().toFloat(), 4.0f);
