@@ -155,8 +155,10 @@ TEST_CASE ("The Synth window draws both pages", "[ui][synth]")
     {
         f.editor->showPage (page);
         juce::Image image (juce::Image::ARGB, f.editor->getWidth(), f.editor->getHeight(), true);
-        juce::Graphics g (image);
-        f.editor->paintEntireComponent (g, false);
+        {
+            juce::Graphics g (image);   // (on Windows, drawing is finished when this goes away)
+            f.editor->paintEntireComponent (g, false);
+        }
         CHECK (image.getPixelAt (f.editor->getWidth() / 2, f.editor->getHeight() / 2).getAlpha() > 0);
     }
 }

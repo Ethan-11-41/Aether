@@ -5,7 +5,6 @@
 #include "Synth.h"
 
 #include <initializer_list>
-#include <utility>
 
 namespace aether::dsp::synth
 {
@@ -90,7 +89,13 @@ std::vector<EffectParameter> parameters()
 
 namespace
 {
-    using Settings = std::initializer_list<std::pair<const char*, float>>;
+    struct Setting
+    {
+        const char* id;
+        float value;
+    };
+
+    using Settings = std::initializer_list<Setting>;
 
     /** A preset: the default settings, with these changed. */
     EffectPreset make (const std::vector<EffectParameter>& params, const char* name, const char* category, Settings changes)
