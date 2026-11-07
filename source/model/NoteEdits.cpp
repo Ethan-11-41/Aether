@@ -161,7 +161,7 @@ NoteNodes edit::addNotes (Project& project, const juce::String& clipId, const st
     return added;
 }
 
-void edit::deleteNotes (Project& project, const NoteNodes& notesToEdit)
+void edit::deleteNotes (Project& project, const NoteNodes& notesToEdit, bool newUndoStep)
 {
     // A copy: the list passed in may be a selection that listeners change while notes change.
     const NoteNodes notes (notesToEdit);
@@ -170,7 +170,7 @@ void edit::deleteNotes (Project& project, const NoteNodes& notesToEdit)
         return;
 
     auto& undo = project.getUndoManager();
-    undo.beginNewTransaction (plural (notes, "Delete note", "Delete notes"));
+    begin (project, newUndoStep, plural (notes, "Delete note", "Delete notes"));
 
     for (auto n : notes)
         if (auto parent = n.getParent(); parent.isValid())

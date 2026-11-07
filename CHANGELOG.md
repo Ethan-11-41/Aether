@@ -6,6 +6,33 @@ follow [Semantic Versioning](https://semver.org/) (0.x while Aether is in early 
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-11-07
+
+From your M9 testing.
+
+### Fixed
+- **Deleting many selected notes** left some behind: the selection changed while the notes were
+  being deleted. All of them go now, in one undo step.
+- **Exclusive Mode with your Fifine microphone:** Aether asked for the microphone in stereo, which
+  many USB microphones refuse in Exclusive Mode (AUDCLNT_E_UNSUPPORTED_FORMAT). It now tries the
+  microphone in mono, then at other sample rates, and only switches it off if nothing works.
+- **The piano roll's keyboard** looked wrong: it now looks like a real piano (the seven white keys
+  of each octave share its height, the black keys sit between them, with no white strip beside
+  them), and clicking plays the key that's really under the mouse.
+
+### Changed
+- **Scale highlighting:** instead of darkening the notes outside the scale, the notes in it get a
+  mark beside their key (a wider one for the key note) and a tinted row.
+- **Velocity of chords:** dragging a chord's stem changes all its notes, keeping their
+  differences. To change one note of a chord, select just that note first. The value is shown
+  while you drag.
+- **Dragging a note past the edge** of the piano roll scrolls to follow it.
+- **Right-click** on a selected note deletes all the selected notes; **right-drag** deletes every
+  note you pass over.
+- **Key and note names as musicians write them:** Db, Eb, F#/Gb, Ab and Bb major (C#, G#, D#/Eb
+  minor...), and notes spelled for the key (Bb in F major or D minor, A# in B major).
+- The piano roll's keyboard is a little wider.
+
 ## [0.10.0] - 2026-11-06 - Milestone 9: piano roll
 
 The first milestone of Phase 2 (making music).

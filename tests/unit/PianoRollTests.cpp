@@ -333,3 +333,33 @@ TEST_CASE ("The piano roll's keys are laid out like a piano", "[ui][pianoroll]")
     f.click (keys, { 8.0f, rowMiddle (65) });
     CHECK (f.previews[4].first == 65);
 }
+
+TEST_CASE ("Right-clicking a selected note deletes the whole selection; right-dragging deletes what it passes", "[ui][pianoroll]")
+{
+    Fixture f;
+    NoteNodes row;
+    for (int i = 0; i < 6; ++i)
+        row.push_back (edit::addNote (f.project, f.clipId, { 60, 100, i * q / 2, q / 4 }));
+    const auto keep = edit::addNote (f.project, f.clipId, { 67, 100, 0, q / 4 });
+
+    // Select four, right-click one of them: all four go, in one undo step.
+    f.roll.setSelection ({ row[0], row[1], row[2], row[3] });
+    f.click (f.grid(), f.at (q / 2, 60), Mods (Mods::rightButtonModifier));
+    CHECK (f.nodes().size() == 3);
+    CHECK (f.roll.getSelection().empty());
+    f.project.getUndoManager().undo();
+    CHECK (f.nodes().size() == 7);
+
+    // Right-drag along the row: every note it touches goes, the other row stays; one undo step.
+    f.roll.setSelection ({});
+    const Mods right (Mods::rightButtonModifier);
+    f.grid().mouseDown (Fixture::event (f.grid(), f.at (0, 60), f.at (0, 60), right));
+    for (int i = 1; i <= 5; ++i)
+        f.grid().mouseDrag (Fixture::event (f.grid(), f.at (i * q / 2, 60), f.at (0, 60), Mods (Mods::rightButtonModifier), true));
+    f.grid().mouseUp (Fixture::event (f.grid(), f.at (5 * q / 2, 60), f.at (0, 60), Mods (Mods::rightButtonModifier), true));
+
+    REQUIRE (f.nodes().size() == 1);
+    CHECK (f.nodes()[0] == keep);
+    f.project.getUndoManager().undo();
+    CHECK (f.nodes().size() == 7);
+}

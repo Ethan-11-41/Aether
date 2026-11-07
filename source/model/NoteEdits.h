@@ -45,7 +45,7 @@ namespace edit
     NoteNodes addNotes (Project& project, const juce::String& clipId, const std::vector<NoteData>& notes,
                         const juce::String& undoName = "Paste notes");
 
-    void deleteNotes (Project& project, const NoteNodes& notes);
+    void deleteNotes (Project& project, const NoteNodes& notes, bool newUndoStep = true);
 
     /** Moves notes in time and pitch together (kept within 0..127 and after the clip's start). */
     void moveNotes (Project& project, const NoteNodes& notes, Tick deltaTicks, int deltaPitch, bool newUndoStep = true);

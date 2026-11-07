@@ -273,7 +273,8 @@ public:
     explicit Grid (PianoRoll& o) : owner (o)
     {
         setTooltip ("Click to add a note. Drag a note to move it, its right edge to change its length. "
-                    "Right-click a note to delete it. Ctrl+click or Ctrl+drag to select several.");
+                    "Right-click a note to delete it (or all the selected notes); right-drag to delete several. "
+                    "Ctrl+click or Ctrl+drag to select several.");
     }
 
     void paint (juce::Graphics& g) override
@@ -357,9 +358,17 @@ public:
 
         if (e.mods.isPopupMenu())
         {
-            // Right-click deletes the note under the mouse.
+            // Right-click deletes the note under the mouse (all the selected notes, if it's one of
+            // them); keep the button down and drag to delete every note the mouse passes over.
+            mode = Mode::erase;
+            owner.project.getUndoManager().beginNewTransaction ("Delete notes");
+
             if (hit.note.isValid())
-                edit::deleteNotes (owner.project, { hit.note });
+            {
+                auto doomed = isIn (owner.selection, hit.note) ? owner.selection : NoteNodes { hit.note };
+                owner.setSelection ({});
+                edit::deleteNotes (owner.project, doomed, false);
+            }
 
             return;
         }
@@ -422,19 +431,20 @@ public:
 
     void mouseDrag (const juce::MouseEvent& e) override
     {
-        if (! grabbed.isValid() && mode != Mode::box)
+        if (! grabbed.isValid() && mode != Mode::box && mode != Mode::erase)
             return;
 
         // Past the edge: scroll to follow the note (this is called repeatedly while the mouse is
         // held still, see beginDragAutoRepeat in mouseDown).
-        if (mode != Mode::box)
+        if (mode != Mode::box && mode != Mode::erase)
             autoScroll (e.getPosition());
 
         auto& proj = owner.project;
 
         // While scrolling past an edge, the note stays at the edge (so it's always in view).
-        const auto x = mode == Mode::box ? e.x : juce::jlimit (0, getWidth(), e.x);
-        const auto y = mode == Mode::box ? e.y : juce::jlimit (0, getHeight() - 1, e.y);
+        const auto free = mode == Mode::box || mode == Mode::erase;
+        const auto x = free ? e.x : juce::jlimit (0, getWidth(), e.x);
+        const auto y = free ? e.y : juce::jlimit (0, getHeight() - 1, e.y);
         const auto tick = owner.view.xToTick (x);
 
         switch (mode)
@@ -496,6 +506,11 @@ public:
                 repaint();
                 break;
             }
+
+            case Mode::erase:
+                if (const auto hit = hitAt (e.position); hit.note.isValid())
+                    edit::deleteNotes (proj, { hit.note }, false);
+                break;
 
             case Mode::none:
                 break;
@@ -570,7 +585,7 @@ public:
     }
 
 private:
-    enum class Mode { none, draw, move, resize, box };
+    enum class Mode { none, draw, move, resize, box, erase };
 
     struct Hit
     {
