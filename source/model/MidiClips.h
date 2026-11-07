@@ -91,7 +91,11 @@ namespace edit
     /** Chooses an instrument preset for a track (all its settings change, in one undo step). */
     bool setInstrumentPreset (Project& project, const juce::String& trackId, const juce::String& presetName);
 
-    /** Changes the instrument on a MIDI track (e.g. from the starter synth to the Synth), with a
+    /** Puts a sound on a drum kit's pad (0 to 15): a built-in one (dsp::drumkit::builtInReference)
+        or a file in the project (e.g. "Audio/My kick.wav"). One undo step. */
+    bool setPadSound (Project& project, const juce::String& trackId, int pad, const juce::String& reference);
+
+        /** Changes the instrument on a MIDI track (e.g. from the starter synth to the Synth), with a
         preset of the new one (its first, if empty). One undo step. */
     bool setInstrumentType (Project& project, const juce::String& trackId, const juce::String& typeId,
                             const juce::String& presetName = {});

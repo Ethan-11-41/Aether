@@ -754,7 +754,7 @@ void AudioEngine::playInstruments (const TimelineSnapshot& timeline, int chunkSt
                 std::swap (noteEvents[(size_t) j], noteEvents[(size_t) j - 1]);
 
         track.instrument->process (track.state->input.getWritePointer (0), track.state->input.getWritePointer (1),
-                                   numSamples, track.instrumentParameters, noteEvents.data(), count);
+                                   numSamples, track.instrumentParameters, noteEvents.data(), count, &track.sounds);
     }
 
     stopClipNotes = false;

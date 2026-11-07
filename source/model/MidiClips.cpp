@@ -4,6 +4,7 @@
 #include <algorithm>
 
 #include "ClipEdits.h"
+#include "dsp/DrumKit.h"
 #include "dsp/EffectTypes.h"
 
 namespace aether
@@ -85,6 +86,18 @@ juce::ValueTree makeInstrument (const juce::String& typeId, const juce::String& 
 
             instrument.setProperty (ids::preset, presetName, nullptr);
         }
+    }
+
+    // A drum kit's pads also get the kit's sounds.
+    if (typeId == dsp::drumkit::typeId)
+    {
+        const auto* kit = dsp::drums::findKit (presetName);
+        if (kit == nullptr && ! dsp::drums::kits().empty())
+            kit = &dsp::drums::kits().front();
+
+        if (kit != nullptr)
+            for (int pad = 0; pad < dsp::drums::numPads; ++pad)
+                instrument.setProperty (dsp::drumkit::soundProperty (pad), dsp::drumkit::builtInReference (kit->pads[(size_t) pad].sound), nullptr);
     }
 
     return instrument;
@@ -235,6 +248,19 @@ bool edit::setInstrumentType (Project& project, const juce::String& trackId, con
     return true;
 }
 
+bool edit::setPadSound (Project& project, const juce::String& trackId, int pad, const juce::String& reference)
+{
+    auto instrument = midi::instrumentOf (project, trackId);
+
+    if (instrument[ids::type].toString() != dsp::drumkit::typeId || ! juce::isPositiveAndBelow (pad, dsp::drums::numPads))
+        return false;
+
+    auto& undo = project.getUndoManager();
+    undo.beginNewTransaction ("Pad " + juce::String (pad + 1) + ": " + dsp::drumkit::describeSound (reference));
+    instrument.setProperty (dsp::drumkit::soundProperty (pad), reference, &undo);
+    return true;
+}
+
 bool edit::setInstrumentPreset (Project& project, const juce::String& trackId, const juce::String& presetName)
 {
     auto instrument = midi::instrumentOf (project, trackId);
@@ -253,6 +279,11 @@ bool edit::setInstrumentPreset (Project& project, const juce::String& trackId, c
 
         for (size_t i = 0; i < type->parameters.size() && i < preset.values.size(); ++i)
             instrument.setProperty (type->parameters[i].id, preset.values[i], &undo);
+
+        // A drum kit: its sounds too.
+        if (const auto* kit = type->id == dsp::drumkit::typeId ? dsp::drums::findKit (presetName) : nullptr)
+            for (int pad = 0; pad < dsp::drums::numPads; ++pad)
+                instrument.setProperty (dsp::drumkit::soundProperty (pad), dsp::drumkit::builtInReference (kit->pads[(size_t) pad].sound), &undo);
 
         instrument.setProperty (ids::preset, presetName, &undo);
         return true;

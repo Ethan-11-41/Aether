@@ -5,6 +5,7 @@
 
 #include "FastMath.h"
 #include "Instrument.h"
+#include "DrumKit.h"
 #include "Synth.h"
 
 #include <algorithm>
@@ -118,7 +119,7 @@ namespace
         }
 
         void process (float* left, float* right, int numSamples, const EffectParameterValues& p,
-                      const NoteEvent* events, int numEvents) noexcept AETHER_NONBLOCKING override
+                      const NoteEvent* events, int numEvents, const InstrumentSounds*) noexcept AETHER_NONBLOCKING override
         {
             int done = 0, next = 0;
 
@@ -369,6 +370,9 @@ std::unique_ptr<Instrument> createInstrument (const juce::String& typeId)
 
     if (typeId == synth::typeId)
         return synth::create();
+
+    if (typeId == drumkit::typeId)
+        return drumkit::create();
 
     return nullptr;
 }

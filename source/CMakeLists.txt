@@ -7,6 +7,8 @@ add_library(aether_core STATIC
     devices/DriverErrors.h
     devices/LatencyInfo.cpp
     devices/LatencyInfo.h
+    dsp/DrumKit.cpp
+    dsp/DrumKit.h
     dsp/DrumSounds.cpp
     dsp/DrumSounds.h
     dsp/Effect.h
@@ -22,6 +24,8 @@ add_library(aether_core STATIC
     engine/AudioEngine.cpp
     engine/AudioFileCache.cpp
     engine/AudioFileCache.h
+    engine/DrumSoundCache.cpp
+    engine/DrumSoundCache.h
     engine/AudioEngine.h
     engine/Exporter.cpp
     engine/Exporter.h
