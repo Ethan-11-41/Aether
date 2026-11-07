@@ -11,6 +11,7 @@
 #include "model/EditCommands.h"
 #include "model/MidiClips.h"
 #include "model/Mixer.h"
+#include "model/NoteEdits.h"
 #include "model/Recording.h"
 #include "model/TimelineEdits.h"
 
@@ -321,4 +322,89 @@ TEST_CASE ("A track's instrument can be changed, and the starter synth still wor
     // Not an instrument, or not a MIDI track.
     CHECK_FALSE (edit::setInstrumentType (f.project, f.keys, "reverb"));
     CHECK_FALSE (edit::setInstrumentType (f.project, f.audio, "subtractive"));
+}
+
+TEST_CASE ("A MIDI clip can repeat its pattern when it's made longer", "[midi][model]")
+{
+    Fixture f;
+    const auto before = f.xml();
+
+    // Turning repeats on changes nothing you hear; making the clip longer repeats the bar.
+    REQUIRE (edit::setClipLooping (f.project, f.clip, true));
+    CHECK (f.project.getUndoManager().getUndoDescription() == "Repeat pattern");
+    CHECK (f.c().isLooping());
+    CHECK (f.c().getPatternLength() == 4 * q);
+    CHECK (midi::audibleNotes (f.c()).size() == 4);
+
+    REQUIRE (edit::trimClipEnd (f.project, f.clip, 4 * q + 10 * q));   // two and a half bars
+    auto notes = midi::audibleNotes (f.c());
+    REQUIRE (notes.size() == 10);
+    CHECK (notes[4] == NoteData { 60, 100, 4 * q, q });
+    CHECK (notes[9] == NoteData { 62, 90, 9 * q, q });
+
+    // A repeat that's cut off at the end is shortened.
+    edit::trimClipEnd (f.project, f.clip, 4 * q + 9 * q + q / 2);
+    CHECK (midi::audibleNotes (f.c()).back() == NoteData { 62, 90, 9 * q, q / 2 });
+
+    // Trimming the start (even to before the pattern began) starts part-way through a repeat,
+    // and the notes stay where they were in time.
+    REQUIRE (edit::trimClipStart (f.project, f.clip, 3 * q));
+    CHECK (f.c().getStart() == 3 * q);
+    notes = midi::audibleNotes (f.c());
+    REQUIRE (! notes.empty());
+    CHECK (notes[0] == NoteData { 65, 70, 0, q });             // the F from the repeat before
+    CHECK (f.c().getStart() + notes[1].start == 4 * q);
+    CHECK (notes[1].pitch == 60);
+
+    // Splitting: both halves still repeat the same bar.
+    const auto right = edit::splitClip (f.project, f.clip, 10 * q);
+    REQUIRE (right.isNotEmpty());
+    const auto rightClip = clips::findClip (f.project, right);
+    CHECK (rightClip.isLooping());
+    notes = midi::audibleNotes (rightClip);
+    REQUIRE (notes.size() == 4);
+    CHECK (notes[0] == NoteData { 64, 80, 0, q });             // beat 10: the E of the third bar
+    CHECK (notes[3] == NoteData { 62, 90, 3 * q, q / 2 });
+
+    // Turning repeats off keeps what you hear, as ordinary notes.
+    const auto heard = midi::audibleNotes (f.c());
+    REQUIRE (edit::setClipLooping (f.project, f.clip, false));
+    CHECK_FALSE (f.c().isLooping());
+    CHECK (midi::audibleNotes (f.c()) == heard);
+    CHECK (midi::notesOf (f.c()).size() == heard.size());
+
+    while (f.project.getUndoManager().canUndo())
+        f.project.getUndoManager().undo();
+    CHECK (f.xml() == before);
+}
+
+TEST_CASE ("A repeating pattern's length can be set, and notes past its end lengthen it", "[midi][model]")
+{
+    Fixture f;
+    REQUIRE (edit::trimClipEnd (f.project, f.clip, 12 * q));   // two bars, the second empty
+    REQUIRE (edit::setPatternLooping (f.project, f.clip, true, 2 * q));
+    CHECK (f.c().getPatternLength() == 2 * q);
+
+    auto notes = midi::audibleNotes (f.c());
+    REQUIRE (notes.size() == 8);                                 // C D, four times
+    CHECK (notes[2].pitch == 60);
+    CHECK (notes[2].start == 2 * q);
+
+    REQUIRE (edit::setPatternLooping (f.project, f.clip, true, 4 * q));
+    CHECK (f.project.getUndoManager().getUndoDescription() == "Change pattern length");
+    CHECK_FALSE (edit::setPatternLooping (f.project, f.clip, true, 4 * q));   // no change
+
+    // A note added after the pattern's end makes the pattern longer, to the end of its bar.
+    edit::addNote (f.project, f.clip, { 67, 100, 5 * q, q });
+    CHECK (f.c().getPatternLength() == 8 * q);
+    CHECK (f.c().getLengthTicks() == 8 * q);
+    CHECK (midi::audibleNotes (f.c()).size() == 5);
+
+    // Saved and loaded.
+    const auto loaded = projectformat::read (projectformat::write (f.project));
+    REQUIRE (loaded.result.wasOk());
+    auto reopened = Project::fromState (loaded.state);
+    const auto clip = clips::findClip (*reopened, f.clip);
+    CHECK (clip.isLooping());
+    CHECK (clip.getPatternLength() == 8 * q);
 }

@@ -7,6 +7,19 @@
 #include "dsp/DrumKit.h"
 #include "dsp/EffectTypes.h"
 
+namespace
+{
+    juce::ValueTree makeNoteNode (const aether::NoteData& n)
+    {
+        juce::ValueTree note (aether::ids::Note);
+        note.setProperty (aether::ids::tick, (juce::int64) n.start, nullptr);
+        note.setProperty (aether::ids::length, (juce::int64) std::max<aether::Tick> (1, n.length), nullptr);
+        note.setProperty (aether::ids::pitch, juce::jlimit (0, 127, n.pitch), nullptr);
+        note.setProperty (aether::ids::velocity, juce::jlimit (1, 127, n.velocity), nullptr);
+        return note;
+    }
+}
+
 namespace aether
 {
 
@@ -43,6 +56,33 @@ std::vector<NoteData> audibleNotes (const Clip& clip)
     std::vector<NoteData> result;
     const auto from = clip.getContentStart();
     const auto to = from + clip.getLengthTicks();
+
+    // A pattern that loops: the notes in its first `patternLength` ticks repeat, end to end, for as
+    // long as the clip lasts (a trimmed start begins part-way through a repeat).
+    if (clip.isLooping())
+    {
+        const auto pattern = clip.getPatternLength();
+        const auto all = notesOf (clip);
+
+        for (auto repeat = from >= 0 ? from / pattern : -((-from + pattern - 1) / pattern); repeat * pattern < to; ++repeat)
+        {
+            for (auto n : all)
+            {
+                if (n.start < 0 || n.start >= pattern)
+                    continue;
+
+                const auto at = repeat * pattern + n.start;
+                if (at < from || at >= to)
+                    continue;
+
+                n.length = std::min (n.length, to - at);
+                n.start = at - from;
+                result.push_back (n);
+            }
+        }
+
+        return result;
+    }
 
     for (auto n : notesOf (clip))
     {
@@ -214,14 +254,7 @@ juce::String edit::addMidiClip (Project& project, const juce::String& trackId, c
     clip.setProperty (ids::contentStart, (juce::int64) 0, nullptr);
 
     for (const auto& n : notes)
-    {
-        juce::ValueTree note (ids::Note);
-        note.setProperty (ids::tick, (juce::int64) n.start, nullptr);
-        note.setProperty (ids::length, (juce::int64) std::max<Tick> (1, n.length), nullptr);
-        note.setProperty (ids::pitch, juce::jlimit (0, 127, n.pitch), nullptr);
-        note.setProperty (ids::velocity, juce::jlimit (1, 127, n.velocity), nullptr);
-        clip.appendChild (note, nullptr);
-    }
+        clip.appendChild (makeNoteNode (n), nullptr);
 
     clips::clipsNodeOf (track.getState()).appendChild (clip, &project.getUndoManager());
     return id;
@@ -245,6 +278,55 @@ bool edit::setInstrumentType (Project& project, const juce::String& trackId, con
 
     const auto preset = presetName.isNotEmpty() || type->presets.empty() ? presetName : type->presets.front().name;
     state.appendChild (midi::makeInstrument (typeId, preset), &undo);
+    return true;
+}
+
+bool edit::setPatternLooping (Project& project, const juce::String& clipId, bool shouldLoop, Tick patternLength)
+{
+    auto clip = clips::findClip (project, clipId);
+
+    if (! clip.isValid() || ! clip.isMidi())
+        return false;
+
+    const auto newPattern = std::max (midi::minimumClipLength, patternLength > 0 ? patternLength : clip.getLengthTicks());
+
+    if (clip.isLooping() == shouldLoop && (! shouldLoop || newPattern == clip.getPatternLength()))
+        return false;
+
+    auto& undo = project.getUndoManager();
+    auto state = clip.getState();
+
+    if (shouldLoop && clip.isLooping())
+    {
+        // Already repeating: just a new pattern length.
+        undo.beginNewTransaction ("Change pattern length");
+        state.setProperty (ids::patternLength, (juce::int64) newPattern, &undo);
+        return true;
+    }
+
+    undo.beginNewTransaction (shouldLoop ? "Repeat pattern" : "Stop repeating pattern");
+
+    // Either way, what you hear stays the same: the notes are rewritten as the clip plays them
+    // now (from 0, as they start in the clip). Turning repeats on makes the clip's current length
+    // the pattern, so nothing repeats until the clip is made longer; turning them off writes every
+    // repeat out as ordinary notes.
+    const auto heard = midi::audibleNotes (clip);
+
+    for (int i = state.getNumChildren(); --i >= 0;)
+        if (state.getChild (i).hasType (ids::Note))
+            state.removeChild (i, &undo);
+
+    for (const auto& n : heard)
+        state.appendChild (makeNoteNode (n), &undo);
+
+    state.setProperty (ids::contentStart, (juce::int64) 0, &undo);
+
+    if (shouldLoop)
+        state.setProperty (ids::patternLength, (juce::int64) newPattern, &undo);
+    else
+        state.removeProperty (ids::patternLength, &undo);
+
+    state.setProperty (ids::loop, shouldLoop, &undo);
     return true;
 }
 

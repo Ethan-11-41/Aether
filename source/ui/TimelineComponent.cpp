@@ -1020,6 +1020,21 @@ private:
         if (clip.isMidi())
         {
             drawNotes (g, box, r);
+
+            // Where a repeating pattern starts again.
+            if (clip.isLooping())
+            {
+                const auto pattern = clip.getPatternLength();
+                g.setColour (colours.text.withAlpha (0.35f));
+
+                for (auto pos = pattern - clip.getContentStart() % pattern; pos < clip.getLengthTicks(); pos += pattern)
+                {
+                    const auto x = (float) owner.view.tickToX (clip.getStart() + pos);
+                    for (float y = r.getY(); y < r.getBottom(); y += 6.0f)
+                        g.drawLine (x, y, x, std::min (y + 3.0f, r.getBottom()), 1.0f);
+                }
+            }
+
             g.setColour (box.selected ? colours.text : box.colour.darker (0.3f));
             g.drawRoundedRectangle (box.bounds, 4.0f, box.selected ? 1.8f : 1.0f);
             return;
@@ -1199,6 +1214,8 @@ private:
                 if (safeOwner != nullptr && safeOwner->onEditNotes)
                     safeOwner->onEditNotes (id);
             });
+            menu.addItem ("Repeat pattern (drag the right edge for more repeats)", true, clip.isLooping(),
+                          [&proj, id, loop = ! clip.isLooping()] { edit::setPatternLooping (proj, id, loop); });
             menu.addSeparator();
             menu.addItem ("Split at the playhead (S)", [safeOwner] { if (safeOwner) safeOwner->splitClipsAtPlayhead(); });
             menu.addItem ("Duplicate (Ctrl+D)", [safeOwner] { if (safeOwner) safeOwner->duplicateSelectedClips(); });

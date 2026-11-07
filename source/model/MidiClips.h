@@ -91,7 +91,12 @@ namespace edit
     /** Chooses an instrument preset for a track (all its settings change, in one undo step). */
     bool setInstrumentPreset (Project& project, const juce::String& trackId, const juce::String& presetName);
 
-    /** Puts a sound on a drum kit's pad (0 to 15): a built-in one (dsp::drumkit::builtInReference)
+    /** Makes a MIDI clip a repeating pattern (or not): its first `patternLength` ticks of notes
+        (the clip's current length if 0) repeat for as long as the clip lasts, so dragging its
+        right edge adds repeats. One undo step. */
+    bool setPatternLooping (Project& project, const juce::String& clipId, bool shouldLoop, Tick patternLength = 0);
+
+        /** Puts a sound on a drum kit's pad (0 to 15): a built-in one (dsp::drumkit::builtInReference)
         or a file in the project (e.g. "Audio/My kick.wav"). One undo step. */
     bool setPadSound (Project& project, const juce::String& trackId, int pad, const juce::String& reference);
 

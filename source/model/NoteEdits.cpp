@@ -27,7 +27,8 @@ namespace
         return note;
     }
 
-    /** Grows a clip so every note fits, to the end of the bar the last note ends in. */
+    /** Grows a clip so every note fits, to the end of the bar the last note ends in. (A repeating
+        pattern grows its pattern instead, to whole bars, and the clip if it's shorter.) */
     void growClipToFit (Project& project, juce::ValueTree clipNode)
     {
         const Clip clip (clipNode);
@@ -36,6 +37,22 @@ namespace
         for (const auto& n : clipNode)
             if (n.hasType (ids::Note))
                 lastEnd = std::max (lastEnd, tickOf (n) + lengthOf (n));
+
+        if (clip.isLooping())
+        {
+            if (lastEnd <= clip.getPatternLength())
+                return;
+
+            const auto tempo = timeline::buildTempoMap (project);
+            const auto bar = tempo.barLengthAt (clip.getStart());
+            const auto pattern = (lastEnd + bar - 1) / bar * bar;
+            clipNode.setProperty (ids::patternLength, (juce::int64) pattern, &project.getUndoManager());
+
+            if (clip.getLengthTicks() < pattern)
+                clipNode.setProperty (ids::length, (juce::int64) pattern, &project.getUndoManager());
+
+            return;
+        }
 
         if (lastEnd <= clip.getContentStart() + clip.getLengthTicks())
             return;

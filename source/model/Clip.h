@@ -54,6 +54,8 @@ public:
     bool isMidi() const                      { return state[ids::kind].toString() == "midi"; }
     Tick getLengthTicks() const              { return std::max<Tick> (1, (Tick) (juce::int64) state[ids::length]); }   // MIDI
     Tick getContentStart() const             { return (Tick) (juce::int64) state[ids::contentStart]; }                 // MIDI
+    /** MIDI clips that loop: how long the repeating part (from the start of the notes) is. */
+    Tick getPatternLength() const            { return std::max<Tick> (1, (Tick) (juce::int64) state.getProperty (ids::patternLength, (juce::int64) getLengthTicks())); }
     double getSourceRate() const             { const auto r = (double) state[ids::sourceRate]; return r > 0.0 ? r : 48000.0; }
     juce::int64 getSourceLength() const      { return (juce::int64) state[ids::sourceLength]; }
     juce::int64 getOffset() const            { return (juce::int64) state[ids::offset]; }
