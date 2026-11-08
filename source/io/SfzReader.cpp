@@ -129,7 +129,7 @@ namespace
     const juce::StringArray known {
         "sample", "default_path", "key", "lokey", "hikey", "pitch_keycenter", "lovel", "hivel", "tune", "transpose",
         "volume", "pan", "seq_length", "seq_position", "offset", "end", "loop_mode", "loopmode", "loop_start", "loop_end",
-        "loopstart", "loopend", "ampeg_attack", "ampeg_decay", "ampeg_sustain", "ampeg_release", "trigger"
+        "loopstart", "loopend", "ampeg_attack", "ampeg_decay", "ampeg_sustain", "ampeg_release", "amp_veltrack", "trigger"
     };
 }
 
@@ -196,6 +196,7 @@ Instrument parse (const juce::String& source, const juce::File& includeFolder)
             result.decay = number (o, "ampeg_decay");
             result.sustain = number (o, "ampeg_sustain");
             result.release = number (o, "ampeg_release");
+            result.velocityTracking = number (o, "amp_veltrack");
             envelopeTaken = true;
         }
 
@@ -268,6 +269,7 @@ juce::String write (const Instrument& instrument)
     if (instrument.decay)   text << " ampeg_decay=" << juce::String (*instrument.decay, 3);
     if (instrument.sustain) text << " ampeg_sustain=" << juce::String (*instrument.sustain, 1);
     if (instrument.release) text << " ampeg_release=" << juce::String (*instrument.release, 3);
+    if (instrument.velocityTracking) text << " amp_veltrack=" << juce::String (*instrument.velocityTracking, 1);
     text << "\n";
 
     for (const auto& r : instrument.regions)

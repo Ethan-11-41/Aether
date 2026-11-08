@@ -171,7 +171,7 @@ TEST_CASE ("SFZ instruments and the built-in library", "[sampler][engine]")
     const auto sounds = temp.folder.getChildFile ("Sounds");
     writeWav (sounds.getChildFile ("Keys/Bell/Bell C4.wav"), 261.63, 1.0, 24000.0);
     sounds.getChildFile ("Keys/Bell.sfz").replaceWithText (
-        "<global> ampeg_release=0.6 ampeg_attack=0.005\n"
+        "<global> ampeg_release=0.6 ampeg_attack=0.005 amp_veltrack=0\n"
         "<region> sample=Bell/Bell C4.wav lokey=0 hikey=127 pitch_keycenter=60 loop_mode=loop_continuous loop_start=1000 loop_end=20000\n");
     sounds.getChildFile ("library.json").replaceWithText (R"({ "version": 1, "instruments": [
         { "category": "Keys", "name": "Bell", "file": "Keys/Bell.sfz", "description": "A bell" },
@@ -189,6 +189,7 @@ TEST_CASE ("SFZ instruments and the built-in library", "[sampler][engine]")
     CHECK (std::abs (settings.at ("release") - 600.0f) < 0.01f);
     CHECK (std::abs (settings.at ("attack") - 5.0f) < 0.01f);
     CHECK (settings.at ("voiceMode") == (float) sm::poly);
+    CHECK (settings.at ("touch") == 0.0f);   // amp_veltrack=0
 
     // Regions point at the files themselves; loops are converted from the file's rate.
     const auto regions = samplerlibrary::regionsOf (entries[0].reference, 60, {});
@@ -219,4 +220,43 @@ TEST_CASE ("SFZ instruments and the built-in library", "[sampler][engine]")
     CHECK (*std::max_element (out.begin(), out.end()) > 0.2f);
 
     samplerlibrary::setBuiltInFolder ({});
+}
+
+TEST_CASE ("The recorded instrument pack is complete and readable", "[sampler][pack]")
+{
+    // Only where the pack is present (the Windows build downloads it; elsewhere set AETHER_SOUNDS).
+    const auto folder = samplerlibrary::builtInFolder();
+    if (! folder.getChildFile ("library.json").existsAsFile())
+        SKIP ("The sound pack isn't here (set AETHER_SOUNDS to its folder to check it).");
+
+    const auto entries = samplerlibrary::list();
+    CHECK (entries.size() >= 20);
+
+    juce::AudioFormatManager formats;
+    formats.registerBasicFormats();
+    juce::StringArray categories;
+
+    for (const auto& e : entries)
+    {
+        INFO (e.name);
+        categories.addIfNotAlreadyThere (e.category);
+        CHECK (e.description.isNotEmpty());
+
+        const auto regions = samplerlibrary::regionsOf (e.reference, 60, {});
+        REQUIRE (! regions.empty());
+
+        // Every recording is there; the first can be decoded, and its loop is inside it.
+        for (const auto& r : regions)
+            CHECK (juce::File (r.sample).existsAsFile());
+
+        std::unique_ptr<juce::AudioFormatReader> reader (formats.createReaderFor (juce::File (regions.front().sample)));
+        REQUIRE (reader != nullptr);
+        CHECK (reader->lengthInSamples > 1000);
+        if (regions.front().loop)
+            CHECK (regions.front().loopEnd <= reader->lengthInSamples);
+
+        CHECK (sfz::read (samplerlibrary::sfzFileOf (e.reference, {})).ignored.isEmpty());
+    }
+
+    CHECK (categories.size() == 5);
 }

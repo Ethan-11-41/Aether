@@ -1,7 +1,9 @@
 # Builds Aether automatically on GitHub's computers every time code is pushed.
 #
-# - "windows": compiles Aether, runs the tests, makes Setup.exe and a screenshot.
-#              Download Setup.exe from the run's page under "Artifacts".
+# - "sounds":  builds the recorded instrument pack from public-domain (CC0) recordings with
+#              tools/sounds/build_pack.py (kept in GitHub's cache until the builder changes).
+# - "windows": compiles Aether, runs the tests, makes Setup.exe (with the instrument pack) and a
+#              screenshot. Download Setup.exe from the run's page under "Artifacts".
 # - "linux":   runs the tests again, plus the RealtimeSanitizer build that checks the
 #              audio thread never allocates memory or takes locks.
 #
@@ -24,8 +26,37 @@ permissions:
   contents: read
 
 jobs:
+  sounds:
+    name: Recorded instrument pack
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Get the code
+        uses: actions/checkout@v7
+
+      - name: Reuse the pack if the builder hasn't changed
+        id: cache
+        uses: actions/cache@v6
+        with:
+          path: pack/Sounds
+          key: sounds-${{ hashFiles('tools/sounds/**') }}
+
+      - name: Build the pack (downloads about 2 GB of recordings)
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          pip install --quiet soundfile numpy
+          python3 tools/sounds/build_pack.py --work "$RUNNER_TEMP/sound-sources" --out pack/Sounds
+
+      - name: Upload the pack for the Windows build
+        uses: actions/upload-artifact@v7
+        with:
+          name: aether-sounds
+          path: pack/Sounds
+          if-no-files-found: error
+
   windows:
     name: Windows - build, test, Setup.exe
+    needs: sounds
     runs-on: windows-2025
     timeout-minutes: 90
     outputs:
@@ -50,8 +81,16 @@ jobs:
             choco install innosetup --no-progress -y
           }
 
+      - name: Get the recorded instrument pack
+        uses: actions/download-artifact@v8
+        with:
+          name: aether-sounds
+          path: build/sounds/Sounds
+
       - name: Build, test and make Setup.exe
         shell: cmd
+        env:
+          AETHER_SOUNDS: ${{ github.workspace }}\build\sounds\Sounds
         run: build-windows.bat
 
       - name: Take screenshots of Aether running on Windows

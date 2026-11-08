@@ -19,8 +19,8 @@
     - seq_length, seq_position (round robin)
     - offset, end, loop_mode (no_loop, one_shot, loop_continuous, loop_sustain), loop_start,
       loop_end (also loopstart, loopend)
-    - ampeg_attack, ampeg_decay, ampeg_sustain, ampeg_release (from the first region that has
-      them: the sampler uses one envelope for the whole instrument)
+    - ampeg_attack, ampeg_decay, ampeg_sustain, ampeg_release and amp_veltrack (from the first
+      region: the sampler uses one envelope and one velocity response for the whole instrument)
 
     Regions that play when a key is let go (trigger=release) are skipped. Anything else is
     ignored, and listed in `ignored` (so a strange-sounding instrument can be explained). */
@@ -45,6 +45,7 @@ struct Instrument
 {
     std::vector<Region> regions;
     std::optional<float> attack, decay, sustain, release;   // seconds (sustain: %)
+    std::optional<float> velocityTracking;                  // amp_veltrack: how much velocity changes loudness, %
     juce::StringArray ignored;                              // opcodes Aether doesn't use
 };
 

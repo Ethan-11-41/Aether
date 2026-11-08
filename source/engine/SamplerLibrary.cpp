@@ -21,7 +21,13 @@ namespace
     };
 
     std::mutex sfzLock;
-    std::map<juce::String, CachedSfz> sfzCache;
+
+    // Made on first use (so it's destroyed before JUCE's leak checks run at exit).
+    std::map<juce::String, CachedSfz>& sfzCache()
+    {
+        static std::map<juce::String, CachedSfz> cache;
+        return cache;
+    }
 }
 
 juce::File builtInFolder()
@@ -90,7 +96,7 @@ std::shared_ptr<const sfz::Instrument> readSfz (const juce::File& file)
 
     const auto modified = file.getLastModificationTime();
     const std::scoped_lock lock (sfzLock);
-    auto& entry = sfzCache[file.getFullPathName()];
+    auto& entry = sfzCache()[file.getFullPathName()];
 
     if (entry.instrument == nullptr || entry.modified != modified)
     {
@@ -143,6 +149,10 @@ std::map<juce::String, float> suggestedSettings (const samplersound::Reference& 
             if (instrument->decay)   settings["decay"] = *instrument->decay * 1000.0f;
             if (instrument->sustain) settings["sustain"] = *instrument->sustain;
             if (instrument->release) settings["release"] = *instrument->release * 1000.0f;
+
+            // amp_veltrack 0 (organ, harpsichord): playing harder doesn't make it louder.
+            if (instrument->velocityTracking)
+                settings["touch"] = std::clamp (*instrument->velocityTracking, 0.0f, 100.0f) * 0.7f;
         }
 
         return settings;
