@@ -37,7 +37,7 @@ KeyboardPanel::KeyboardPanel (const Theme& themeToUse, std::function<void (const
     : theme (themeToUse), send (std::move (sendToEngine))
 {
     keys = std::make_unique<Keys> (*this, state);
-    keys->setVelocity (0.8f, true);   // softer near the top of a key, harder near the bottom
+    keys->setVelocity (1.0f, true);   // softer near the top of a key, full strength at the bottom
     keys->setAvailableRange (21, 108); // a piano's 88 keys
     keys->setOctaveForMiddleC (4);     // middle C is C4, as on most pianos (and elsewhere in Aether)
     keys->setWantsKeyboardFocus (true);

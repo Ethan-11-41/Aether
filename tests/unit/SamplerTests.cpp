@@ -346,3 +346,35 @@ TEST_CASE ("A loop that runs to the very end of its recording holds the note smo
     const auto higher = g.run (144000, { Fixture::on (67) });
     CHECK (*std::max_element (higher.begin() + 140000, higher.end()) > 0.45f);
 }
+
+TEST_CASE ("Loudness layers blend, so playing harder changes the sound gradually", "[sampler]")
+{
+    const auto soft = steady (0.2f), loud = steady (0.8f);
+    auto levelAt = [&] (int velocity)
+    {
+        Fixture f;
+        f.map.zones.reserve (2);
+        auto& s = f.addZone (soft);
+        s.highVelocity = 63;
+        auto& l = f.addZone (loud);
+        l.lowVelocity = 64;
+        return f.run (2400, { Fixture::on (60, velocity) })[1000];
+    };
+
+    // Far from where they meet: one recording each.
+    CHECK (std::abs (levelAt (30) - 0.2f) < 0.005f);
+    CHECK (std::abs (levelAt (110) - 0.8f) < 0.005f);
+
+    // Where they meet, half of each; and the level only ever rises, a little at a time.
+    CHECK (std::abs (levelAt (64) - 0.5f) < 0.04f);
+
+    float previous = levelAt (40);
+    for (int velocity = 41; velocity <= 90; ++velocity)
+    {
+        const auto level = levelAt (velocity);
+        INFO ("velocity " << velocity);
+        CHECK (level >= previous - 1.0e-4f);
+        CHECK (level - previous < 0.04f);
+        previous = level;
+    }
+}

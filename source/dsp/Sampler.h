@@ -10,7 +10,8 @@
 /** The sampler (Milestone 12): plays recorded sounds (a SampleMap, handed to process() by the
     engine) across the keyboard.
 
-    - Several recordings per key range and loudness ("velocity layers"), alternating takes
+    - Several recordings per key range and loudness ("velocity layers", blended near where one
+      hands over to the next so playing harder changes the sound gradually), alternating takes
       ("round robin") so repeated notes don't sound mechanical, loops for held notes.
     - A volume envelope (attack, decay, sustain, release), a tone control (a low-pass filter),
       tuning, volume, pan and how much playing harder makes it louder.
