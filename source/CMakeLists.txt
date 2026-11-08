@@ -61,6 +61,8 @@ add_library(aether_core STATIC
     io/AppFolders.h
     io/AppLog.cpp
     io/AppLog.h
+    io/SamplerImport.cpp
+    io/SamplerImport.h
     io/SampleMapping.cpp
     io/SampleMapping.h
     io/SfzReader.cpp

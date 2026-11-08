@@ -12,6 +12,7 @@
 #include "engine/AudioEngine.h"
 #include "engine/SamplerLibrary.h"
 #include "engine/TimelineSync.h"
+#include "io/SamplerImport.h"
 #include "model/EditCommands.h"
 #include "model/MidiClips.h"
 #include "model/Mixer.h"
@@ -259,4 +260,77 @@ TEST_CASE ("The recorded instrument pack is complete and readable", "[sampler][p
     }
 
     CHECK (categories.size() == 5);
+}
+
+TEST_CASE ("Your own sounds become sampler sounds", "[sampler][io]")
+{
+    TempFolder temp;
+    ProjectLocation location;
+    REQUIRE (projectfiles::createProjectFolder (temp.folder, "Song", location).wasOk());
+    juce::AudioFormatManager formats;
+    formats.registerBasicFormats();
+
+    // One recording, named after its note.
+    const auto named = temp.folder.getChildFile ("Elsewhere/Bass C2.wav");
+    writeWav (named, 65.4, 1.0);
+    auto result = importSamplerSound (location, formats, { named });
+    CHECK (result.problem.isEmpty());
+    CHECK (result.sound == samplersound::recording ("Audio/Bass C2.wav"));
+    CHECK (result.name == "Bass C2");
+    CHECK (result.rootKey == 36);
+    CHECK (result.keyFound);
+    CHECK (location.getAudioFolder().getChildFile ("Bass C2.wav").existsAsFile());
+
+    // One without a note in its name: its pitch says (110 Hz is A2).
+    const auto plain = temp.folder.getChildFile ("Elsewhere/My bass.wav");
+    writeWav (plain, 110.0, 1.0);
+    result = importSamplerSound (location, formats, { plain });
+    CHECK (result.rootKey == 45);
+    CHECK (result.keyFound);
+
+    // A folder of notes: copied together, laid out, with an SFZ beside them.
+    const auto folder = temp.folder.getChildFile ("Elsewhere/Glass");
+    for (const auto* name : { "Glass C4.wav", "Glass E4.wav", "Glass G4.wav" })
+        writeWav (folder.getChildFile (name), 300.0, 0.5);
+    folder.getChildFile ("notes.txt").replaceWithText ("not audio");
+
+    result = importSamplerSound (location, formats, { folder });
+    CHECK (result.problem.isEmpty());
+    CHECK (result.name == "Glass");
+    CHECK (result.sound == samplersound::sfzFile ("Audio/Glass/Glass.sfz"));
+    const auto instrument = sfz::read (location.getFolder().getChildFile ("Audio/Glass/Glass.sfz"));
+    REQUIRE (instrument.regions.size() == 3);
+    CHECK (instrument.regions[0].sample == "Glass C4.wav");
+    CHECK (instrument.regions[0].rootKey == 60);
+
+    // An SFZ elsewhere is used where it is.
+    const auto outside = temp.folder.getChildFile ("Elsewhere/Glass/Copy.sfz");
+    outside.replaceWithText ("<region> sample=Glass C4.wav key=60\n");
+    result = importSamplerSound (location, formats, { outside });
+    CHECK (result.sound == samplersound::sfzFile (outside.getFullPathName().replaceCharacter ('\\', '/')));
+
+    // Nothing playable.
+    result = importSamplerSound (location, formats, { folder.getChildFile ("notes.txt") });
+    CHECK (result.problem.isNotEmpty());
+    CHECK (result.sound.kind == samplersound::Kind::none);
+
+    // Aether's 808 is about G1.
+    const auto key = findDrumRootKey ("kick-808");
+    CHECK ((key == 30 || key == 31));
+}
+
+TEST_CASE ("A sampler track can be added in one step", "[sampler][model]")
+{
+    Project project;
+    edit::addTrack (project, TrackKind::audio);
+    project.getUndoManager().clearUndoHistory();
+
+    const auto track = edit::addSamplerTrack (project, samplersound::drum ("kick-808"), "808", 31, { { "voiceMode", (float) sm::slide } }, 0);
+    CHECK (project.getTrack (0).getId() == track.getId());
+    CHECK (track.getName() == "808");
+    CHECK (samplersound::of (project, track.getId()) == samplersound::drum ("kick-808"));
+    CHECK (project.getUndoManager().getUndoDescription() == "Add 808 track");
+
+    project.getUndoManager().undo();
+    CHECK (project.getNumTracks() == 1);
 }

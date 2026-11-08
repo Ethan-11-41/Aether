@@ -59,7 +59,12 @@ namespace edit
         one), and applies `settings` (parameter id -> value, e.g. the instrument's own envelope)
         in the same undo step. `rootKey` is for single recordings and drum sounds. */
     bool setSamplerSound (Project& project, const juce::String& trackId, const samplersound::Reference& sound,
-                          const juce::String& name = {}, int rootKey = -1, const std::map<juce::String, float>& settings = {});
+                          const juce::String& name = {}, int rootKey = -1, const std::map<juce::String, float>& settings = {},
+                          bool newUndoStep = true);
+
+    /** Adds a MIDI track (named after the sound) with a sampler playing `sound`, as one undo step. */
+    Track addSamplerTrack (Project& project, const samplersound::Reference& sound, const juce::String& name, int rootKey,
+                           const std::map<juce::String, float>& settings, int insertIndex = -1);
 
     /** Which key a single recording plays at its own pitch. */
     bool setSamplerRootKey (Project& project, const juce::String& trackId, int rootKey);

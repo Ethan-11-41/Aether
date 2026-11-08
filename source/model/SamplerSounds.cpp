@@ -1,6 +1,7 @@
 // Aether - Copyright (C) 2026 The Aether authors. Licensed under the GNU AGPLv3 or later.
 #include "SamplerSounds.h"
 
+#include "EditCommands.h"
 #include "MidiClips.h"
 #include "Mixer.h"
 #include "dsp/DrumSounds.h"
@@ -87,7 +88,7 @@ int rootKeyOf (const Project& project, const juce::String& trackId)
 
 //==============================================================================
 bool edit::setSamplerSound (Project& project, const juce::String& trackId, const samplersound::Reference& sound,
-                            const juce::String& name, int rootKey, const std::map<juce::String, float>& settings)
+                            const juce::String& name, int rootKey, const std::map<juce::String, float>& settings, bool newUndoStep)
 {
     auto track = project.findTrack (trackId);
 
@@ -96,7 +97,8 @@ bool edit::setSamplerSound (Project& project, const juce::String& trackId, const
 
     const auto displayName = name.isNotEmpty() ? name : samplersound::defaultName (sound);
     auto& undo = project.getUndoManager();
-    undo.beginNewTransaction ("Use " + displayName);
+    if (newUndoStep)
+        undo.beginNewTransaction ("Use " + displayName);
 
     auto state = track.getState();
     auto instrument = state.getChildWithName (ids::Instrument);
@@ -126,6 +128,16 @@ bool edit::setSamplerSound (Project& project, const juce::String& trackId, const
                     instrument.setProperty (parameter.id, parameter.clamp (value), &undo);
 
     return true;
+}
+
+Track edit::addSamplerTrack (Project& project, const samplersound::Reference& sound, const juce::String& name, int rootKey,
+                             const std::map<juce::String, float>& settings, int insertIndex)
+{
+    const auto displayName = name.isNotEmpty() ? name : samplersound::defaultName (sound);
+    project.getUndoManager().beginNewTransaction ("Add " + displayName + " track");
+    auto track = edit::addTrack (project, TrackKind::midi, insertIndex, false, displayName);
+    setSamplerSound (project, track.getId(), sound, displayName, rootKey, settings, false);
+    return track;
 }
 
 bool edit::setSamplerRootKey (Project& project, const juce::String& trackId, int rootKey)
