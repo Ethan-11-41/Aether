@@ -6,6 +6,44 @@ follow [Semantic Versioning](https://semver.org/) (0.x while Aether is in early 
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-11-08 - Milestone 12: the sampler and recorded instruments
+
+### Added
+- **28 recorded instruments**, included in the installer (about 57 MB): pianos (grand, upright,
+  harpsichord), strings (string ensemble, violins, cellos, pizzicato, tremolo, short notes, solo
+  violin), woodwinds (flute, oboe, clarinet, bassoon, tenor saxophone), brass (brass section,
+  trumpet, French horn, trombone, tuba), and mallets, harp and organ (marimba, vibraphone,
+  glockenspiel, xylophone, tubular bells, kalimba, harp, pipe organ). They're real recordings by
+  Versilian Studios, given away into the public domain (CC0), so they're free to use in anything.
+  Strings, winds, brass and organ hold for as long as you hold the key.
+- **+ MIDI** now offers a menu: the Synth, drums, or any recorded instrument (by kind), or your own
+  sound. A track's menu (Instrument > Recorded instruments) switches it to one.
+- **The sampler**, in its own window (click the track's **MIDI** badge): the instrument (with **<**
+  and **>** to step through them), a picture of which keys each recording covers, its envelope
+  (attack, decay, sustain, release), tone, touch (how much harder means louder), tuning, voices,
+  glide, volume and pan, and a keyboard to play while you change them.
+- **808 bass lines**: in the drum editor, a pad's **Play it as notes...** makes a new track that
+  plays that sound across the keyboard, tuned to its own pitch, in **Slide** mode: notes that
+  overlap glide from one pitch to the next, without starting again, like trap 808s. Separate notes
+  play normally. Any sampler can use Poly, Mono or Slide. The sampler's sound menu also offers all
+  of Aether's drum sounds as notes.
+- **Your own sounds**: drop audio files on the sampler window, or use **Your own sound...**:
+  - one recording plays across the keyboard; Aether works out which note it is (from its name,
+    like "Bass C2.wav", or by listening to it) and you can adjust it;
+  - several recordings, or a folder, named by their notes ("Piano C4 mf.wav", "Piano E4 f.wav"...)
+    become one instrument: each covers the keys around its note, louder recordings answer harder
+    playing, and takes marked rr1, rr2... alternate;
+  - **SFZ instruments** (the common free format for sampled instruments) load directly.
+  Your recordings are copied into the project's Audio folder, so the project keeps working if you
+  move them.
+- Recordings no track uses any more are let go after 20 seconds, so trying instruments one after
+  another doesn't fill up your PC's memory.
+- The installer's recorded instruments are built from the original recordings by
+  `tools/sounds/build_pack.py` (GitHub builds and caches them), so anyone can rebuild them exactly.
+- Tests for the sampler (pitch, layers, takes, envelope, loops, Slide and Mono, tone, real-time
+  safety), SFZ files, laying out recordings by name, pitch detection, your own sounds, the window,
+  and a check of every recorded instrument (345 tests).
+
 ## [0.12.1] - 2026-11-08
 
 From your M11 testing.

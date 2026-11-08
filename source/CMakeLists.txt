@@ -9,6 +9,11 @@ add_library(aether_core STATIC
     devices/LatencyInfo.h
     dsp/DrumKit.cpp
     dsp/DrumKit.h
+    dsp/PitchDetect.cpp
+    dsp/PitchDetect.h
+    dsp/Sampler.cpp
+    dsp/Sampler.h
+    dsp/SampleMap.h
     dsp/DrumSounds.cpp
     dsp/DrumSounds.h
     dsp/Effect.h
@@ -21,6 +26,8 @@ add_library(aether_core STATIC
     dsp/SynthPresets.cpp
     dsp/EffectTypes.cpp
     dsp/EffectTypes.h
+    engine/SamplerLibrary.cpp
+    engine/SamplerLibrary.h
     engine/AudioEngine.cpp
     engine/AudioFileCache.cpp
     engine/AudioFileCache.h
@@ -54,6 +61,12 @@ add_library(aether_core STATIC
     io/AppFolders.h
     io/AppLog.cpp
     io/AppLog.h
+    io/SamplerImport.cpp
+    io/SamplerImport.h
+    io/SampleMapping.cpp
+    io/SampleMapping.h
+    io/SfzReader.cpp
+    io/SfzReader.h
     io/AudioImport.cpp
     io/AudioImport.h
     io/Autosaver.cpp
@@ -80,6 +93,8 @@ add_library(aether_core STATIC
     model/ClipEdits.h
     model/DrumPatterns.cpp
     model/DrumPatterns.h
+    model/SamplerSounds.cpp
+    model/SamplerSounds.h
     model/EditCommands.cpp
     model/EditCommands.h
     model/Ids.h
@@ -128,6 +143,8 @@ add_library(aether_ui STATIC
     ui/DeviceSettingsPanel.h
     ui/DrumEditor.cpp
     ui/DrumEditor.h
+    ui/SamplerEditor.cpp
+    ui/SamplerEditor.h
     ui/EffectEditor.cpp
     ui/EffectEditor.h
     ui/IconButton.cpp

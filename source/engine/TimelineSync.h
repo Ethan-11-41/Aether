@@ -2,6 +2,8 @@
 #pragma once
 
 #include <functional>
+#include <set>
+#include <map>
 
 #include <juce_events/juce_events.h>
 
@@ -41,12 +43,14 @@ struct PartLoop
 
     `resources` keeps the mixer's working objects (effect tails, fades) from one build to the
     next; without it, everything starts afresh. With no sample rate, only the tempo and loop are
-    filled in. `partLoop`, if active, replaces the loop (and the solos), see PartLoop. */
+    filled in. `partLoop`, if active, replaces the loop (and the solos), see PartLoop.
+    `projectFolder` is where samplers' SFZ files with relative paths are found. */
 std::unique_ptr<TimelineSnapshot> buildTimelineSnapshot (const Project& project, double sampleRate = 0.0,
                                                          const AudioResolver& resolver = {},
                                                          MixerResources* resources = nullptr,
                                                          const juce::String& focusedTrackId = {},
-                                                         const PartLoop& partLoop = {});
+                                                         const PartLoop& partLoop = {},
+                                                         const juce::File& projectFolder = {});
 
 /** Keeps the audio engine up to date with a project: whenever the tempo, loop or clips change,
     or an audio file finishes loading, a new TimelineSnapshot is built and handed to the engine.
@@ -77,6 +81,10 @@ public:
     /** Gives the engine somewhere to record into (or takes it away, with null). */
     void setRecordingRing (std::shared_ptr<RecordingRing> ring)   { recordRing = std::move (ring); update(); }
 
+    /** Gives back the memory of audio files no track has used for `graceSeconds` (called by
+        the timer every few seconds; public for the tests). `now` is in seconds. */
+    void releaseUnusedAudio (double now, double graceSeconds = 20.0);
+
     /** Loops one part on its own (or with the song) until set back to an empty PartLoop. */
     void setPartLoop (const PartLoop& loop)   { if (! (partLoop == loop)) { partLoop = loop; update(); } }
     const PartLoop& getPartLoop() const noexcept   { return partLoop; }
@@ -98,6 +106,9 @@ private:
     std::shared_ptr<RecordingRing> recordRing;
     juce::String focusedTrack;
     PartLoop partLoop;
+    std::set<juce::String> filesInUse;                  // asked for by the latest build
+    std::map<juce::String, double> filesLastUsed;       // and when each file was last asked for
+    int timerTicks = 0;
 };
 
 } // namespace aether

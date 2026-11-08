@@ -134,4 +134,16 @@ juce::String importPadSound (Project& project, const ProjectLocation& location, 
     return {};
 }
 
+juce::File copyIntoAudioFolder (const ProjectLocation& location, const juce::File& file, const juce::String& subfolder)
+{
+    auto folder = location.getAudioFolder();
+    if (subfolder.isNotEmpty())
+        folder = folder.getChildFile (projectfiles::safeFileName (subfolder));
+
+    if (! folder.createDirectory())
+        return {};
+
+    return copyIntoProject (folder, file);
+}
+
 } // namespace aether

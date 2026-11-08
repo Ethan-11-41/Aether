@@ -4,16 +4,18 @@ A free, open-source digital audio workstation (DAW) for Windows: record, arrange
 music, in the spirit of GarageBand, FL Studio, LMMS and Reaper. Beginner-friendly on the surface,
 with deep customisation underneath.
 
-> **Status: early development (Milestone 11 of 30; Phase 1, the core, is complete).** Aether
+> **Status: early development (Milestone 12 of 30; Phase 1, the core, is complete).** Aether
 > can create, save and open projects with full undo/redo, autosave and crash recovery; play with
 > tempo changes, time signatures, looping and a metronome; record audio (with latency
 > compensation, punch in/out and loop takes) and MIDI from a keyboard (or the on-screen one)
 > into MIDI tracks played by a full synthesizer (pads, strings, keys, organ, bass, leads); make
-> beats on drum tracks with a step sequencer and 16-pad drum kits (or your own sounds); write
+> beats on drum tracks with a step sequencer and 16-pad drum kits (or your own sounds); play 28
+> recorded instruments (pianos, strings, woodwinds, brass, mallets, harp, organ), your own
+> recordings or SFZ instruments in a sampler, with 808 slides; write
 > and edit notes in a piano roll (with quantize, swing, humanize and scale highlighting);
 > import, arrange, copy and paste audio and MIDI clips on a snap grid; import MIDI files; mix
 > with volume, pan, mute, solo, buses, sends and two simple effects; and export the mix and stems
-> to WAV, FLAC or MP3. Next: a sampler for recorded instruments (M12). See
+> to WAV, FLAC or MP3. Next: effects (M13). See
 > [docs/STATUS.md](docs/STATUS.md) for exactly what works, and
 > [docs/ROADMAP.md](docs/ROADMAP.md) for what's coming.
 
@@ -125,6 +127,11 @@ automated tests and makes the installer.
 - The first build takes 10 to 20 minutes. Later builds only recompile what changed.
 - The program ends up at `build\windows-release\stage\Aether.exe`.
 - The installer ends up at `build\installer\Aether-Setup-<version>.exe`.
+- The recorded instruments (optional; Aether works without them) are made by
+  `tools\sounds\build_pack.py` from the original public-domain recordings: install Python, run
+  `pip install soundfile numpy`, then
+  `python tools\sounds\build_pack.py --work C:\Temp\sound-sources --out build\sounds\Sounds`
+  (it downloads about 2 GB). `build-windows.bat` then includes them in Setup.exe.
 
 To work in the Visual Studio editor instead: **File > Open > Folder…**, pick the `aether` folder,
 choose the **Windows (Release)** or **Windows (Debug)** configuration in the toolbar, and press
@@ -175,7 +182,8 @@ xvfb-run -a build/linux-debug/source/AetherApp_artefacts/Debug/Aether --screensh
 | `source/io/` | Saving and loading, the file format, autosave, crash recovery, recent projects |
 | `source/devices/` | Sound card setup and latency |
 | `source/engine/` | The audio engine (everything that runs on the audio thread), including the mixer |
-| `source/dsp/` | Built-in effects and instruments (the temporary Reverb and Delay, the Synth, the drum kit and its sounds, and the starter synth from 0.7) |
+| `source/dsp/` | Built-in effects and instruments (the temporary Reverb and Delay, the Synth, the drum kit and its sounds, the sampler, and the starter synth from 0.7) |
+| `tools/sounds/` | The builder of the recorded instrument pack |
 | `source/engine/rt/` | Real-time tools: lock-free queues, audio-thread annotations |
 | `source/ui/` | Interface pieces: timeline, track list, mixer, meters, look and feel |
 | `tests/` | Automated tests (`unit/`, `realtime/`, and `fixtures/`: sample files, kept forever) |

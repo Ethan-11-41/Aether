@@ -60,9 +60,13 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Type: filesandordirs; Name: "{app}\include"
 Type: filesandordirs; Name: "{app}\lib"
 Type: filesandordirs; Name: "{app}\bin"
+; The recorded instruments are replaced as a whole, so ones renamed or removed don't linger.
+Type: filesandordirs; Name: "{app}\Sounds"
 
 [Files]
-Source: "{#StageDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#StageDir}\*"; Excludes: "\Sounds,\Sounds\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+; The recorded instruments (Ogg Vorbis, already compressed), if the build has them.
+Source: "{#StageDir}\Sounds\*"; DestDir: "{app}\Sounds"; Flags: ignoreversion recursesubdirs createallsubdirs nocompression skipifsourcedoesntexist
 
 [Icons]
 Name: "{autoprograms}\Aether"; Filename: "{app}\Aether.exe"

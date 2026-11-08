@@ -10,6 +10,7 @@ void MixerResources::beginBuild()
     for (auto& [id, entry] : sends)    entry.used = false;
     for (auto& [id, entry] : effects)  entry.used = false;
     for (auto& [id, entry] : instruments) entry.used = false;
+    for (auto& [id, entry] : sampleMaps) entry.used = false;
 }
 
 template <typename T>
@@ -25,6 +26,7 @@ void MixerResources::endBuild()
     dropUnused (sends);
     dropUnused (effects);
     dropUnused (instruments);
+    dropUnused (sampleMaps);
 }
 
 std::shared_ptr<ChannelState> MixerResources::channel (const juce::String& channelId)
@@ -84,6 +86,17 @@ std::shared_ptr<dsp::Instrument> MixerResources::instrument (const juce::String&
         entry.type = type;
         entry.sampleRate = sampleRate;
     }
+
+    entry.used = true;
+    return entry.object;
+}
+
+std::shared_ptr<const dsp::SampleMap> MixerResources::sampleMap (const juce::String& instrumentId, dsp::SampleMap&& candidate)
+{
+    auto& entry = sampleMaps[instrumentId];
+
+    if (entry.object == nullptr || entry.object->zones != candidate.zones)
+        entry.object = std::make_shared<const dsp::SampleMap> (std::move (candidate));
 
     entry.used = true;
     return entry.object;

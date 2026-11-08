@@ -3,6 +3,8 @@
 
 #include "EffectEditor.h"
 #include "MixerControls.h"
+#include "engine/SamplerLibrary.h"
+#include "dsp/Sampler.h"
 #include "dsp/DrumKit.h"
 #include "dsp/EffectTypes.h"
 #include "dsp/Synth.h"
@@ -534,6 +536,33 @@ void TrackListComponent::showContextMenu (const juce::String& trackId)
                                  instrument[ids::type].toString() != type.id, instrument[ids::type].toString() == type.id,
                                  whenStillOpen ([trackId, id = type.id] (TrackListComponent& list) { edit::setInstrumentType (list.project, trackId, id); }));
 
+        // Aether's recorded instruments (the sampler), by kind.
+        const auto entries = samplerlibrary::list();
+        juce::StringArray categories;
+        for (const auto& e : entries)
+            categories.addIfNotAlreadyThere (e.category);
+
+        if (! categories.isEmpty())
+        {
+            juce::PopupMenu recorded;
+            const auto current = samplersound::of (project, trackId);
+
+            for (const auto& category : categories)
+            {
+                juce::PopupMenu sub;
+                for (const auto& e : entries)
+                    if (e.category == category)
+                        sub.addItem (e.name, true, current == e.reference, whenStillOpen ([trackId, e] (TrackListComponent& list)
+                        {
+                            edit::setSamplerSound (list.project, trackId, e.reference, e.name, -1, samplerlibrary::suggestedSettings (e.reference, {}));
+                        }));
+                recorded.addSubMenu (category, sub);
+            }
+
+            presets.addSeparator();
+            presets.addSubMenu ("Recorded instruments", recorded);
+        }
+
         menu.addSubMenu ("Instrument (" + instrument[ids::preset].toString() + ")", presets);
         menu.addItem ("Instrument settings...", whenStillOpen ([trackId] (TrackListComponent& list)
         {
@@ -607,7 +636,7 @@ void TrackListComponent::showInstrumentEditor (const juce::String& trackId, juce
 
     // The Synth and the drum kit have their own windows; the starter synth a small pop-up.
     const auto type = instrument[ids::type].toString();
-    if ((type == dsp::synth::typeId || type == dsp::drumkit::typeId) && onOpenInstrument)
+    if ((type == dsp::synth::typeId || type == dsp::drumkit::typeId || type == dsp::sampler::typeId) && onOpenInstrument)
         onOpenInstrument (trackId);
     else
         EffectEditor::show (theme, project, instrument[ids::id].toString(), screenArea);

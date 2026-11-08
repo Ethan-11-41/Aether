@@ -7,6 +7,7 @@
 #include <juce_core/juce_core.h>
 
 #include "TimelineSnapshot.h"
+#include "dsp/SampleMap.h"
 
 namespace aether
 {
@@ -36,6 +37,10 @@ public:
     /** The same for a MIDI track's instrument (so held notes carry on through edits). */
     std::shared_ptr<dsp::Instrument> instrument (const juce::String& instrumentId, const juce::String& type, double sampleRate);
 
+    /** A sampler's map: the same object as last time if nothing in it changed (a new map makes
+        the sampler stop the notes it's playing, so edits elsewhere mustn't make one). */
+    std::shared_ptr<const dsp::SampleMap> sampleMap (const juce::String& instrumentId, dsp::SampleMap&& candidate);
+
     /** A channel's highest level (linear, left and right) since the last call. */
     std::pair<float, float> takePeaks (const juce::String& channelId);
 
@@ -56,6 +61,7 @@ private:
     std::map<juce::String, Entry<SendState>> sends;
     std::map<juce::String, Entry<dsp::Effect>> effects;
     std::map<juce::String, Entry<dsp::Instrument>> instruments;
+    std::map<juce::String, Entry<const dsp::SampleMap>> sampleMaps;
 };
 
 } // namespace aether

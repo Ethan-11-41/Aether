@@ -513,6 +513,11 @@ DrumEditor::DrumEditor (const Theme& t, Project& p, AudioEngine& e)
                             "(you can also drop a file on the pad).");
     soundButton.onClick = [this] { showSoundMenu (selectedPad); };
     addAndMakeVisible (soundButton);
+    asNotesButton.setTooltip ("Make a new track that plays this pad's sound as notes across the keyboard: an 808 bass line, "
+                              "a melody from a tom... It slides between notes that overlap.");
+    asNotesButton.onClick = [this] { if (onPlayPadAsNotes) onPlayPadAsNotes (selectedPad); };
+    addAndMakeVisible (asNotesButton);
+
     hearButton.setTooltip ("Play this pad.");
     hearButton.onClick = [this] { hearPad (selectedPad); };
     addAndMakeVisible (hearButton);
@@ -829,6 +834,8 @@ void DrumEditor::refresh()
     soundLabel.setText (getPadName (selectedPad), juce::dontSendNotification);
     chokeBox.setSelectedId ((int) mixer::getInsertParameter (inst, padParameter (selectedPad, kit::choke).id) + 1, juce::dontSendNotification);
 
+    asNotesButton.setEnabled (drums && inst[kit::soundProperty (selectedPad)].toString().isNotEmpty());
+
     for (auto* control : std::initializer_list<juce::Component*> { &soundButton, &hearButton, &chokeBox, kitVolumeKnob.get() })
         control->setEnabled (drums);
     for (auto& k : knobs)
@@ -989,6 +996,8 @@ void DrumEditor::resized()
         row.removeFromRight (8);
         soundButton.setBounds (row);
     }
+    panel.removeFromTop (6);
+    asNotesButton.setBounds (panel.removeFromTop (28));
     panel.removeFromTop (14);
 
     constexpr int knobWidth = 76, knobHeight = 86;

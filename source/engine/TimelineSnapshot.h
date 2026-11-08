@@ -154,8 +154,11 @@ struct TrackPlayback
     bool liveInput = false;                                // plays what's played on a MIDI keyboard
     std::uint64_t idHash = 0;                              // the track's id, for notes previewed on it
 
-    // Drum kits: the pads' sounds (kept alive here; `sounds` points into them).
+    // Drum kits: the pads' sounds (kept alive here; `sounds` points into them). Samplers: their
+    // map of recordings (`sounds.map` points to it) and the audio it plays.
     std::array<std::shared_ptr<const AudioData>, dsp::InstrumentSounds::maxSounds> soundData;
+    std::shared_ptr<const dsp::SampleMap> sampleMap;
+    std::vector<std::shared_ptr<const AudioData>> sampleAudio;
     dsp::InstrumentSounds sounds;
 };
 

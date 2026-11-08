@@ -35,6 +35,10 @@ ImportResult importAudioFiles (Project& project, const ProjectLocation& location
 juce::String importPadSound (Project& project, const ProjectLocation& location, juce::AudioFormatManager& formats,
                              const juce::File& file, const juce::String& trackId, int pad);
 
+/** Copies a file into the project's Audio folder (or a folder inside it), unless it's already
+    there, without overwriting anything. The copy, or an empty File if it couldn't be copied. */
+juce::File copyIntoAudioFolder (const ProjectLocation& location, const juce::File& file, const juce::String& subfolder = {});
+
 /** The project-relative path of a file in the project folder, e.g. "Audio/Guitar.wav". */
 juce::String relativePathInProject (const ProjectLocation& location, const juce::File& file);
 

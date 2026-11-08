@@ -66,6 +66,17 @@ if not exist "%STAGE_DIR%\libmp3lame.dll" (
     goto :fail
 )
 
+rem The recorded instruments (built by tools\sounds\build_pack.py; the GitHub build makes them).
+rem Without them Aether still works, just without its recorded instruments.
+set "SOUNDS_DIR=%CD%\build\sounds\Sounds"
+if exist "%SOUNDS_DIR%\library.json" (
+    xcopy "%SOUNDS_DIR%" "%STAGE_DIR%\Sounds\" /E /I /Q /Y >nul
+    if errorlevel 1 goto :fail
+    echo Included the recorded instruments from %SOUNDS_DIR%
+) else (
+    echo NOTE: no recorded instruments in build\sounds\Sounds ^(see tools\sounds\build_pack.py^); Setup.exe won't have them.
+)
+
 rem --- 4. Make Setup.exe with Inno Setup ---------------------------------------
 echo.
 echo ==== Step 4 of 4: making Setup.exe ====

@@ -30,6 +30,10 @@ add_executable(aether_tests
     unit/ProjectSessionTests.cpp
     unit/RecordingEngineTests.cpp
     unit/RecordingModelTests.cpp
+    unit/SamplerEditorTests.cpp
+    unit/SamplerEngineTests.cpp
+    unit/SamplerTests.cpp
+    unit/SfzTests.cpp
     unit/ShortcutListTests.cpp
     unit/SpscQueueTests.cpp
     unit/SynthEditorTests.cpp
