@@ -19,17 +19,34 @@ namespace aether
     Returns null if it isn't ready yet. */
 using AudioResolver = std::function<std::shared_ptr<const AudioData> (const juce::String& relativePath)>;
 
+/** Playing one part over and over while editing it (the drum editor's Space): the range loops
+    instead of the project's loop, and (with `onlyThisTrack`) only that track is heard, as if it
+    were soloed. Nothing in the project changes. */
+struct PartLoop
+{
+    juce::String trackId;
+    Tick start = 0, end = 0;
+    bool onlyThisTrack = true;
+
+    bool isActive() const noexcept   { return trackId.isNotEmpty() && end > start; }
+    bool operator== (const PartLoop& o) const noexcept
+    {
+        return trackId == o.trackId && start == o.start && end == o.end && onlyThisTrack == o.onlyThisTrack;
+    }
+};
+
 /** Builds the audio engine's view of a project: tempo, loop, the mixer (every track, bus and
     the master, with their settings, routing and effects) and (if `resolver` is given) every clip
     that has its audio ready, with positions in samples at `sampleRate`.
 
     `resources` keeps the mixer's working objects (effect tails, fades) from one build to the
     next; without it, everything starts afresh. With no sample rate, only the tempo and loop are
-    filled in. */
+    filled in. `partLoop`, if active, replaces the loop (and the solos), see PartLoop. */
 std::unique_ptr<TimelineSnapshot> buildTimelineSnapshot (const Project& project, double sampleRate = 0.0,
                                                          const AudioResolver& resolver = {},
                                                          MixerResources* resources = nullptr,
-                                                         const juce::String& focusedTrackId = {});
+                                                         const juce::String& focusedTrackId = {},
+                                                         const PartLoop& partLoop = {});
 
 /** Keeps the audio engine up to date with a project: whenever the tempo, loop or clips change,
     or an audio file finishes loading, a new TimelineSnapshot is built and handed to the engine.
@@ -60,6 +77,10 @@ public:
     /** Gives the engine somewhere to record into (or takes it away, with null). */
     void setRecordingRing (std::shared_ptr<RecordingRing> ring)   { recordRing = std::move (ring); update(); }
 
+    /** Loops one part on its own (or with the song) until set back to an empty PartLoop. */
+    void setPartLoop (const PartLoop& loop)   { if (! (partLoop == loop)) { partLoop = loop; update(); } }
+    const PartLoop& getPartLoop() const noexcept   { return partLoop; }
+
 private:
     void valueTreePropertyChanged (juce::ValueTree&, const juce::Identifier&) override  { update(); }
     void valueTreeChildAdded (juce::ValueTree&, juce::ValueTree&) override               { update(); }
@@ -76,6 +97,7 @@ private:
     MixerResources mixerResources;
     std::shared_ptr<RecordingRing> recordRing;
     juce::String focusedTrack;
+    PartLoop partLoop;
 };
 
 } // namespace aether

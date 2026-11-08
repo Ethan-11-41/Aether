@@ -6,6 +6,25 @@ follow [Semantic Versioning](https://semver.org/) (0.x while Aether is in early 
 
 ## [Unreleased]
 
+## [0.12.1] - 2026-11-08
+
+From your M11 testing.
+
+### Fixed
+- **808s got louder and louder until they peaked** (in the export too): every hit kept ringing
+  under the next one, and long sounds like the 808 piled up, to 2.5 times the level of a single
+  hit. Now a pad hit again cuts off its previous hit (as a real drum would), so a fast 808 pattern
+  is never louder than one hit.
+
+### Changed
+- **Space in the drum editor plays just the pattern you're making**, over and over, until you
+  press Space again (or close the editor); the playhead then goes back to where it was. Space in
+  the main window still plays the whole song. New **Play** and **With song** buttons at the top
+  of the drum editor: with **With song** on, you hear the rest of the song along with the
+  pattern.
+- **Shift+click an accented step again** to make it a normal hit (it used to stay accented).
+  Right-click still removes a hit.
+
 ## [0.12.0] - 2026-11-07 - Milestone 11: drums
 
 ### Added

@@ -35,7 +35,7 @@ how quickly testing rounds come back. It will keep being updated.
 | ✅ **M9** | Piano roll (in its own window): click to add notes, hear them as you edit, velocity, length, quantize (strength, swing), humanize, scale highlighting |
 | ✅ **M10** | Subtractive synth, in its own window: a simple page (tone, filter, envelope, effects) and an Advanced page (oscillators, LFOs, modulation), with live pictures of the waveform, filter and envelopes. Presets focused on pads, strings, keys and organ first |
 | ✅ **M11** | Drum sampler + step sequencer; patterns on the timeline; custom kits (per-pad tune, volume, pan, envelope, choke groups) |
-| M12 | Multi-sample sampler (key zones, velocity layers, ADSR) |
+| M12 | Multi-sample sampler (key zones, velocity layers, ADSR); any drum sound (e.g. an 808) playable across the keyboard, with glide |
 | M13 | Effects: EQ, compressor, limiter, reverb, delay, chorus, distortion, filter, gate, with presets |
 | M14 | Automation lanes for any parameter, including plug-ins |
 | M15 | VST3 hosting: safe scanning, blacklist, browser, favourites, presets, plug-in delay compensation |

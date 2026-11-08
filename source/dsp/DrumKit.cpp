@@ -134,7 +134,7 @@ namespace
             {
                 for (auto& v : voices)
                     if (v.active)
-                        cut (v);
+                        cut (v, chokeFadeSeconds);
                 return;
             }
 
@@ -150,11 +150,16 @@ namespace
             const auto setting = [&p, pad] (PadSetting s) { return (double) p[(size_t) parameterIndex (pad, s)]; };
             const auto group = std::clamp ((int) std::lround (setting (choke)), 0, 4);
 
-            // Pads in the same choke group cut each other off (a closed hi-hat stops an open one).
-            if (group > 0)
-                for (auto& v : voices)
-                    if (v.active && v.chokeGroup == group)
-                        cut (v);
+            // A pad hit again cuts off its previous hit, like a real drum (otherwise long sounds
+            // such as 808s pile up and get louder and louder). Pads in the same choke group cut
+            // each other off too (a closed hi-hat stops an open one).
+            for (auto& v : voices)
+            {
+                if (v.active && v.pad == pad)
+                    cut (v, retriggerFadeSeconds);   // quicker: the new hit covers the cut
+                else if (v.active && group > 0 && v.chokeGroup == group)
+                    cut (v, chokeFadeSeconds);
+            }
 
             auto& v = freeVoice();
             v.active = true;
@@ -179,11 +184,13 @@ namespace
             v.gainRight = (float) (gain * std::sin (angle) * juce::MathConstants<double>::sqrt2);
         }
 
-        void cut (Voice& v) noexcept
+        void cut (Voice& v, double fadeSeconds) noexcept
         {
-            // A quick fade (5 ms), not an instant stop, so there's no click.
-            v.chokeStep = (float) (1.0 / std::max (1.0, 0.005 * sampleRate));
+            // A quick fade, not an instant stop, so there's no click.
+            v.chokeStep = std::max (v.chokeStep, (float) (1.0 / std::max (1.0, fadeSeconds * sampleRate)));
         }
+
+        static constexpr double chokeFadeSeconds = 0.005, retriggerFadeSeconds = 0.001;
 
         Voice& freeVoice() noexcept
         {

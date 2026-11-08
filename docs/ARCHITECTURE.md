@@ -159,6 +159,9 @@ Separate process:   plug-in scanner
   the notes that sit on its steps (`model/DrumPatterns`): pads are notes 36 to 51, swing really
   moves the notes on every second step, so the piano roll, quantize and copy/paste work on drum
   patterns unchanged.
+- The drum editor's Space plays its pattern on its own without touching the project:
+  `TimelineSync::setPartLoop` makes the snapshot loop that range and treat that track as the only
+  soloed one (`PartLoop`), and the app puts everything back when playback stops.
 
 ### Mixer
 - Tracks → buses → master, with pre- or post-fader sends. Feedback loops are refused when

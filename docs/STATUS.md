@@ -4,7 +4,7 @@ An honest list of what works. Updated at the end of every milestone.
 
 **Legend:** ✅ Working · 🟡 Partial · 🧪 Stub/placeholder · ⬜ Not started
 
-Current version: **0.12.0** (Milestone 11: drums)
+Current version: **0.12.1** (Milestone 11: drums, with fixes from testing)
 
 ## Milestone 0: skeleton and build pipeline
 
@@ -187,7 +187,8 @@ Current version: **0.12.0** (Milestone 11: drums)
 | 37 drum sounds and 5 kits (Tight kit, 808, Electronic, Lo-fi, Deep) | ✅ | Made by Aether's own code, so they're free to share. Recorded (sampled) acoustic kits come with the sampler and sound library (M12, M17). |
 | Your own sounds on pads (drop a file on a pad, or Choose sound > From an audio file) | ✅ | Copied into the project's Audio folder. |
 | Per-pad tune, volume, pan, attack, length, choke groups; kit volume | ✅ | |
-| Drum editor window: step sequencer (1/8, 1/16, 1/32 steps; 1 to 8 bars), accents, velocity lane, swing | ✅ | One drum editor window at a time. |
+| Drum editor window: step sequencer (1/8, 1/16, 1/32 steps; 1 to 8 bars), accents, velocity lane, swing | ✅ | One drum editor window at a time. Space plays just the pattern (0.12.1), or with the song. |
+| Playing a drum sound at different pitches (e.g. an 808 bass line) | ⬜ | The drum kit plays one sound per note, like a drum machine. Comes with the sampler (M12): any drum sound across the keyboard, with glide. Meanwhile, a pad's Tune knob changes its pitch for every hit. |
 | Repeating patterns: drag a pattern's right edge to repeat it | ✅ | Works for any MIDI clip (clip menu > Repeat pattern). |
 | Saving your own kits | ⬜ | Comes with the sound library (M17). Meanwhile a kit you change is saved in its project. |
 | Per-pad outputs to separate mixer channels | ⬜ | Not planned yet; tell me if you want it. |

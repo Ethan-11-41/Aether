@@ -160,6 +160,14 @@ private:
     ui::DrumEditor* drumEditor = nullptr;                    // inside drumWindow
     void openDrumWindow();
     void chooseDrumSoundFile (int pad);
+
+    // The drum editor's Space: its pattern over and over, on its own (or with the song).
+    void startPatternPlay();
+    void stopPatternPlay();
+    void followPatternPlay();   // from the timer
+    bool patternPlaying = false, patternSeenPlaying = false;
+    Tick positionBeforePattern = 0;
+    double patternStartTime = 0.0;
     juce::ComboBox gridBox;
     juce::Rectangle<int> toolbarArea, laneHeaderArea;
     std::unique_ptr<juce::FileChooser> fileChooser;
