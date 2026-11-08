@@ -58,6 +58,9 @@ public:
     std::function<void (int pad, const juce::File& file)> onImportSound;
     std::function<void (int pad)> onChooseSoundFile;
 
+    /** Make a new track that plays a pad's sound as notes (an 808 bass line). */
+    std::function<void (int pad)> onPlayPadAsNotes;
+
     /** Open the pattern in the piano roll. */
     std::function<void (const juce::String& clipId)> onOpenPianoRoll;
 
@@ -98,6 +101,7 @@ public:
     juce::TextButton& getAddPatternButton() noexcept   { return actionButton; }
     juce::TextButton& getPlayButton() noexcept         { return playButton; }
     juce::TextButton& getWithSongButton() noexcept     { return withSongButton; }
+    juce::TextButton& getAsNotesButton() noexcept      { return asNotesButton; }
     juce::String getPadName (int pad) const;
     bool isShowingSteps() const;
 
@@ -144,6 +148,7 @@ private:
     juce::Slider swingSlider;
     juce::TextButton pianoRollButton { "Piano roll" }, actionButton, soundButton { "Choose sound..." }, hearButton { "Hear" };
     juce::TextButton playButton { "Play" }, withSongButton { "With song" };
+    juce::TextButton asNotesButton { "Play it as notes..." };
 
     std::unique_ptr<PadList> padList;
     std::unique_ptr<StepArea> stepArea;

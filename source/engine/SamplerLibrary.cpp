@@ -185,6 +185,34 @@ juce::Array<juce::File> filesUsed (const Project& project, const juce::File& pro
     return files;
 }
 
+std::pair<int, int> loadingProgress (const Project& project, const juce::String& trackId, const juce::File& projectFolder,
+                                     AudioFileCache& cache)
+{
+    const auto sound = samplersound::of (project, trackId);
+    const auto regions = regionsOf (sound, samplersound::rootKeyOf (project, trackId), projectFolder);
+    int ready = 0, total = 0;
+
+    for (const auto& r : regions)
+    {
+        if (r.sample.startsWith ("drum:"))
+        {
+            ++ready;
+            ++total;
+            continue;
+        }
+
+        const auto file = projectFolder.getChildFile (r.sample);
+        if (! file.existsAsFile())
+            continue;   // missing recordings aren't counted (so "0 of 0" means none were found)
+
+        ++total;
+        if (cache.getState (file) == AudioFileCache::State::ready)
+            ++ready;
+    }
+
+    return { ready, total };
+}
+
 dsp::SampleMap buildMap (const std::vector<sfz::Region>& regions, const std::vector<std::shared_ptr<const AudioData>>& audio)
 {
     dsp::SampleMap map;

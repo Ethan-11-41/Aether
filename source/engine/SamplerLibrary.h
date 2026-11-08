@@ -47,6 +47,10 @@ std::map<juce::String, float> suggestedSettings (const samplersound::Reference& 
 /** Every audio file the project's samplers use (absolute), e.g. to load before exporting. */
 juce::Array<juce::File> filesUsed (const Project& project, const juce::File& projectFolder);
 
+/** How many of a sampler track's recordings are loaded, out of how many (0 of 0: none found). */
+std::pair<int, int> loadingProgress (const Project& project, const juce::String& trackId, const juce::File& projectFolder,
+                                     AudioFileCache& cache);
+
 /** A map of zones from regions and their audio (null audio: that zone is left out for now).
     Offsets and loops are converted from the file's rate to the audio's. */
 dsp::SampleMap buildMap (const std::vector<sfz::Region>& regions, const std::vector<std::shared_ptr<const AudioData>>& audio);

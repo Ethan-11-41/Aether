@@ -143,6 +143,8 @@ add_library(aether_ui STATIC
     ui/DeviceSettingsPanel.h
     ui/DrumEditor.cpp
     ui/DrumEditor.h
+    ui/SamplerEditor.cpp
+    ui/SamplerEditor.h
     ui/EffectEditor.cpp
     ui/EffectEditor.h
     ui/IconButton.cpp

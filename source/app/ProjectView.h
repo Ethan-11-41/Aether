@@ -13,6 +13,7 @@
 #include "ui/MixerComponent.h"
 #include "ui/PianoRoll.h"
 #include "ui/DrumEditor.h"
+#include "ui/SamplerEditor.h"
 #include "ui/SynthEditor.h"
 #include "ui/TimelineComponent.h"
 #include "ui/TrackListComponent.h"
@@ -65,6 +66,13 @@ public:
     /** Opens (or brings forward) the Synth's window for a MIDI track. */
     void showSynth (const juce::String& trackId);
     ui::SynthEditor* getSynthEditor() noexcept        { return synthEditor; }
+
+    /** Opens (or brings forward) the sampler's window for a MIDI track. */
+    void showSampler (const juce::String& trackId);
+    ui::SamplerEditor* getSamplerEditor() noexcept    { return samplerEditor; }
+
+    /** Adds a track playing a sound in the sampler (and shows it). */
+    void addSamplerTrack (const samplersound::Reference& sound, const juce::String& name, int rootKey, bool slide = false);
 
     /** Opens (or brings forward) the drum editor, showing a pattern, or a drum track's kit. */
     void showDrumEditor (const juce::String& clipId);
@@ -156,6 +164,11 @@ private:
     ui::PianoRoll* pianoRoll = nullptr;                      // inside pianoRollWindow
     std::unique_ptr<juce::DocumentWindow> synthWindow;       // the Synth's settings (closes with the project)
     ui::SynthEditor* synthEditor = nullptr;                  // inside synthWindow
+    std::unique_ptr<juce::DocumentWindow> samplerWindow;     // the sampler's window (closes with the project)
+    ui::SamplerEditor* samplerEditor = nullptr;              // inside samplerWindow
+    void chooseSamplerFiles (const juce::String& trackId);
+    void importSamplerFiles (const juce::String& trackId, const juce::Array<juce::File>& files);
+    void showAddMidiMenu();
     std::unique_ptr<juce::DocumentWindow> drumWindow;        // the drum editor (closes with the project)
     ui::DrumEditor* drumEditor = nullptr;                    // inside drumWindow
     void openDrumWindow();

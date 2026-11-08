@@ -6,6 +6,11 @@
 #include <map>
 
 #include "io/AudioImport.h"
+#include "model/MidiClips.h"
+#include "dsp/DrumKit.h"
+#include "dsp/Sampler.h"
+#include "io/SamplerImport.h"
+#include "engine/SamplerLibrary.h"
 #include "io/FileTypes.h"
 #include "io/MidiImport.h"
 #include "model/DrumPatterns.h"
@@ -45,6 +50,12 @@ ProjectView::ProjectView (AppContext& context, Project& projectToShow)
         b.button.setWantsKeyboardFocus (false);   // keep the arrow keys working in the track list
         addAndMakeVisible (b.button);
     }
+
+    // "+ MIDI" offers the Synth, drums, and the recorded instruments.
+    addMidiButton.setCommandToTrigger (nullptr, 0, false);
+    addMidiButton.setTooltip ("Add a MIDI track: the Synth (Ctrl+Shift+T), drums, or a recorded instrument (piano, strings, "
+                              "woodwinds, brass, mallets...).");
+    addMidiButton.onClick = [this] { showAddMidiMenu(); };
 
     addAndMakeVisible (transportBar);
 
@@ -137,6 +148,8 @@ ProjectView::ProjectView (AppContext& context, Project& projectToShow)
     {
         if (drumpattern::isDrumTrack (project, trackId))
             showDrumKit (trackId);
+        else if (midi::instrumentOf (project, trackId)[ids::type].toString() == dsp::sampler::typeId)
+            showSampler (trackId);
         else
             showSynth (trackId);
     };
@@ -590,6 +603,156 @@ void ProjectView::showPianoRoll (const juce::String& clipId)
     pianoRoll->grabKeyboardFocus();
 }
 
+void ProjectView::showSampler (const juce::String& trackId)
+{
+    if (samplerWindow == nullptr)
+    {
+        juce::Component::SafePointer<ProjectView> safeThis (this);
+        auto window = std::make_unique<PianoRollWindow> (ctx.theme.background, [safeThis]
+        {
+            juce::MessageManager::callAsync ([safeThis]
+            {
+                if (safeThis != nullptr)
+                {
+                    safeThis->samplerEditor = nullptr;
+                    safeThis->samplerWindow = nullptr;
+                }
+            });
+        });
+
+        auto editor = std::make_unique<ui::SamplerEditor> (ctx.theme, project, trackId);
+        samplerEditor = editor.get();
+        samplerEditor->playNote = [safeThis] (int pitch, int velocity, bool on)
+        {
+            if (safeThis != nullptr && safeThis->samplerEditor != nullptr)
+                safeThis->ctx.engine.sendPreviewNote (safeThis->samplerEditor->getTrackId(), pitch, velocity, on);
+        };
+        samplerEditor->onTitleChanged = [safeThis]
+        {
+            if (safeThis != nullptr && safeThis->samplerWindow != nullptr && safeThis->samplerEditor != nullptr)
+                safeThis->samplerWindow->setName (safeThis->samplerEditor->getTitle());
+        };
+        samplerEditor->projectFolder = [safeThis]
+        {
+            return safeThis != nullptr ? safeThis->ctx.session.getLocation().getFolder() : juce::File();
+        };
+        samplerEditor->loadingProgress = [safeThis]
+        {
+            if (safeThis == nullptr || safeThis->samplerEditor == nullptr)
+                return std::pair<int, int> { 0, 0 };
+
+            return samplerlibrary::loadingProgress (safeThis->project, safeThis->samplerEditor->getTrackId(),
+                                                    safeThis->ctx.session.getLocation().getFolder(), safeThis->ctx.audioFiles);
+        };
+        samplerEditor->onImportFiles = [safeThis] (const juce::Array<juce::File>& files)
+        {
+            if (safeThis != nullptr && safeThis->samplerEditor != nullptr)
+                safeThis->importSamplerFiles (safeThis->samplerEditor->getTrackId(), files);
+        };
+        samplerEditor->onChooseFiles = [safeThis]
+        {
+            if (safeThis != nullptr && safeThis->samplerEditor != nullptr)
+                safeThis->chooseSamplerFiles (safeThis->samplerEditor->getTrackId());
+        };
+
+        window->setUsingNativeTitleBar (true);
+        window->setResizable (true, false);
+        window->setResizeLimits (960, 520, 4000, 3000);
+        window->setContentOwned (editor.release(), true);
+        window->addKeyListener (ctx.commands.getKeyMappings());
+        window->centreAroundComponent (this, window->getWidth(), window->getHeight());
+        window->setVisible (true);
+        samplerWindow = std::move (window);
+    }
+
+    samplerEditor->setTrack (trackId);
+    samplerWindow->setName (samplerEditor->getTitle());
+    trackList.focusTrack (trackId);
+    samplerWindow->toFront (true);
+    samplerEditor->focusKeyboard();
+}
+
+void ProjectView::importSamplerFiles (const juce::String& trackId, const juce::Array<juce::File>& files)
+{
+    const auto location = ctx.session.getLocation();
+    const auto result = importSamplerSound (location, ctx.audioFiles.getFormats(), files);
+
+    if (result.problem.isNotEmpty())
+    {
+        showProblem ("Sound not used", result.problem);
+        return;
+    }
+
+    // No track yet ("+ MIDI" > Your own sound): a new one.
+    if (trackId.isEmpty() || ! project.findTrack (trackId).isValid())
+    {
+        addSamplerTrack (result.sound, result.name, result.rootKey);
+        return;
+    }
+
+    edit::setSamplerSound (project, trackId, result.sound, result.name, result.rootKey,
+                           samplerlibrary::suggestedSettings (result.sound, location.getFolder()));
+}
+
+void ProjectView::chooseSamplerFiles (const juce::String& trackId)
+{
+    fileChooser = std::make_unique<juce::FileChooser> ("Choose your sound: one recording, several (named by their notes), a folder, or an SFZ instrument",
+                                                       juce::File::getSpecialLocation (juce::File::userMusicDirectory),
+                                                       ctx.audioFiles.getWildcard() + ";*.sfz");
+    juce::Component::SafePointer<ProjectView> safeThis (this);
+
+    fileChooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles
+                                  | juce::FileBrowserComponent::canSelectDirectories | juce::FileBrowserComponent::canSelectMultipleItems,
+                              [safeThis, trackId] (const juce::FileChooser& chooser)
+    {
+        if (safeThis != nullptr && ! chooser.getResults().isEmpty())
+            safeThis->importSamplerFiles (trackId, chooser.getResults());
+    });
+}
+
+void ProjectView::addSamplerTrack (const samplersound::Reference& sound, const juce::String& name, int rootKey, bool slide)
+{
+    const auto index = project.indexOfTrack (trackList.getSelectedTrackId());
+    auto settings = samplerlibrary::suggestedSettings (sound, ctx.session.getLocation().getFolder());
+    if (slide)
+        settings["voiceMode"] = (float) dsp::sampler::slide;
+    const auto track = edit::addSamplerTrack (project, sound, name, rootKey, settings, index >= 0 ? index + 1 : -1);
+
+    trackList.selectTrack (track.getId());
+    showSampler (track.getId());
+}
+
+void ProjectView::showAddMidiMenu()
+{
+    juce::PopupMenu menu;
+    juce::Component::SafePointer<ProjectView> safeThis (this);
+
+    menu.addCommandItem (&ctx.commands, commands::addMidiTrack, "Synth (electronic sounds)");
+    menu.addCommandItem (&ctx.commands, commands::addDrumTrack, "Drums");
+    menu.addSectionHeader ("Recorded instruments");
+
+    const auto entries = samplerlibrary::list();
+    juce::StringArray categories;
+    for (const auto& e : entries)
+        categories.addIfNotAlreadyThere (e.category);
+
+    for (const auto& category : categories)
+    {
+        juce::PopupMenu sub;
+        for (const auto& e : entries)
+            if (e.category == category)
+                sub.addItem (e.name, [safeThis, e] { if (safeThis) safeThis->addSamplerTrack (e.reference, e.name, -1); });
+        menu.addSubMenu (category, sub);
+    }
+
+    if (entries.empty())
+        menu.addItem ("(not installed: reinstall Aether to get them)", false, false, nullptr);
+
+    menu.addSeparator();
+    menu.addItem ("Your own sound (audio files or an SFZ)...", [safeThis] { if (safeThis) safeThis->chooseSamplerFiles ({}); });
+    menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&addMidiButton));
+}
+
 void ProjectView::editNotes (const juce::String& clipId)
 {
     if (drumpattern::isDrumClip (project, clips::findClip (project, clipId)))
@@ -651,6 +814,28 @@ void ProjectView::openDrumWindow()
         else
             safeThis->drumEditor->hearPad (pad);
     };
+    drumEditor->onPlayPadAsNotes = [safeThis] (int pad)
+    {
+        if (safeThis == nullptr || safeThis->drumEditor == nullptr)
+            return;
+
+        // The pad's sound in a sampler, on its own track, at its own pitch on its own key.
+        const auto reference = midi::instrumentOf (safeThis->project, safeThis->drumEditor->getTrackId())[dsp::drumkit::soundProperty (pad)].toString();
+        const auto name = dsp::drumkit::describeSound (reference);
+
+        if (dsp::drumkit::isBuiltIn (reference))
+        {
+            const auto id = dsp::drumkit::builtInId (reference);
+            const auto key = findDrumRootKey (id);
+            safeThis->addSamplerTrack (samplersound::drum (id), name, key >= 0 ? key : 36, true);
+        }
+        else if (reference.isNotEmpty())
+        {
+            const auto file = safeThis->ctx.session.getLocation().getFolder().getChildFile (reference);
+            const auto key = findRootKey (safeThis->ctx.audioFiles.getFormats(), file);
+            safeThis->addSamplerTrack (samplersound::recording (reference), name, key >= 0 ? key : 36, true);
+        }
+    };
     drumEditor->onChooseSoundFile = [safeThis] (int pad)
     {
         if (safeThis != nullptr)
@@ -709,6 +894,8 @@ ProjectView::~ProjectView()
 {
     stopTimer();
     stopPatternPlay();
+    samplerEditor = nullptr;
+    samplerWindow = nullptr;
     drumEditor = nullptr;
     drumWindow = nullptr;
     pianoRoll = nullptr;
