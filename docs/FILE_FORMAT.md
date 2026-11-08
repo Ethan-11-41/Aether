@@ -201,6 +201,22 @@ The timeline's snap setting (in the settings file, not the project) can also be 
 | | `stepLength` | The drum editor's step size, in ticks (default 240000, a 1/16 note; a quarter note is 960000). Only for showing the pattern. |
 | | `swing` | The drum editor's swing, 0 (straight) to 1 (triplet shuffle). The notes themselves are moved, so players that don't know this property still play the swing. |
 
+### Added in Aether 0.13.0 (still format version 1)
+
+- An `Instrument`'s `type` can be `"sampler"`. Its settings (`attack`, `decay`, `sustain`,
+  `release`, `tone`, `touch`, `tune`, `fine`, `voiceMode` (0 Poly, 1 Mono, 2 Slide), `glide`,
+  `volume`, `pan`, `bendRange`; see `source/dsp/Sampler.cpp`) are stored like any instrument's.
+
+| Node | Property | Meaning |
+|---|---|---|
+| `Instrument` (sampler) | `sound` | What it plays: `"builtin:Pianos/Grand piano"` (one of Aether's recorded instruments, in its Sounds folder), `"recording:Audio/My 808.wav"` (one recording), `"drum:kick-808"` (one of Aether's drum sounds), or `"sfz:Audio/Piano/Piano.sfz"` (an SFZ instrument). Paths are relative to the project folder, or absolute for files elsewhere. |
+| | `rootKey` | For one recording or drum sound: the key that plays it at its own pitch (0-127). |
+| | `soundName` | What it's called in the interface. |
+
+Your own recordings are copied into the project's `Audio` folder (several at once go into a folder
+inside it, with an SFZ file Aether writes); SFZ instruments chosen elsewhere are referred to where
+they are, so Save As doesn't copy them.
+
 ## Rules for changing the format
 
 1. Never rename or reuse a node type or property name (see `source/model/Ids.h`).

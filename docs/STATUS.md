@@ -4,7 +4,7 @@ An honest list of what works. Updated at the end of every milestone.
 
 **Legend:** ✅ Working · 🟡 Partial · 🧪 Stub/placeholder · ⬜ Not started
 
-Current version: **0.12.1** (Milestone 11: drums, with fixes from testing)
+Current version: **0.13.0** (Milestone 12: the sampler and recorded instruments)
 
 ## Milestone 0: skeleton and build pipeline
 
@@ -188,17 +188,30 @@ Current version: **0.12.1** (Milestone 11: drums, with fixes from testing)
 | Your own sounds on pads (drop a file on a pad, or Choose sound > From an audio file) | ✅ | Copied into the project's Audio folder. |
 | Per-pad tune, volume, pan, attack, length, choke groups; kit volume | ✅ | |
 | Drum editor window: step sequencer (1/8, 1/16, 1/32 steps; 1 to 8 bars), accents, velocity lane, swing | ✅ | One drum editor window at a time. Space plays just the pattern (0.12.1), or with the song. |
-| Playing a drum sound at different pitches (e.g. an 808 bass line) | ⬜ | The drum kit plays one sound per note, like a drum machine. Comes with the sampler (M12): any drum sound across the keyboard, with glide. Meanwhile, a pad's Tune knob changes its pitch for every hit. |
+| Playing a drum sound at different pitches (e.g. an 808 bass line) | ✅ | Since 0.13.0: a pad's "Play it as notes..." makes a sampler track with Slide (see M12). |
 | Repeating patterns: drag a pattern's right edge to repeat it | ✅ | Works for any MIDI clip (clip menu > Repeat pattern). |
 | Saving your own kits | ⬜ | Comes with the sound library (M17). Meanwhile a kit you change is saved in its project. |
 | Per-pad outputs to separate mixer channels | ⬜ | Not planned yet; tell me if you want it. |
 | Fixed: playing notes while the Synth window is open | ✅ | The Synth window has its own keyboard (from 0.11.0 testing). |
 
+## Milestone 12: the sampler and recorded instruments
+
+| Feature | Status | Notes |
+|---|---|---|
+| Sampler: key zones, velocity layers, round robin, loops, envelope, tone, tuning, Poly/Mono/Slide, glide | ✅ | 64 notes at once. |
+| 28 recorded instruments in the installer (pianos, strings, woodwinds, brass, mallets, harp, organ) | ✅ | Public-domain (CC0) recordings by Versilian Studios. A grand or upright piano takes about 130-145 MB of memory while a track uses it; most others 10-80 MB. Not there: guitars, bass guitar, electric pianos and choirs, which aren't in the public-domain libraries Aether uses (your own recordings or SFZ instruments can fill the gap). |
+| Held notes on strings, winds, brass and organ last as long as the key is held | ✅ | Loops made by the pack builder; a faint repeat may be audible on some notes every two seconds. Tell me which. |
+| Your own sounds: one recording (pitch found automatically), several or a folder (laid out by note names), SFZ instruments | ✅ | SFZ: the common opcodes (keys, velocities, round robin, tuning, volume, pan, loops, envelope). Release samples, crossfades and filters in SFZ files are left out. |
+| 808 bass lines from drum pads, with Slide | ✅ | |
+| Recordings let go when no track uses them | ✅ | After 20 seconds. |
+| Editing zones by hand (dragging key ranges) | ⬜ | Recordings are laid out by their names or the SFZ file. Tell me if you need it. |
+| Streaming long recordings from disk | ⬜ | Everything is held in memory (see above). |
+
 ## Everything else
 
 | Area | Status | Milestone |
 |---|---|---|
-| Sampler, effects, automation | ⬜ | M12–M14 |
+| Effects, automation | ⬜ | M13–M14 |
 | VST3 / CLAP plug-ins | ⬜ | M15 / M28 |
 | Sound library | ⬜ | M17, M23 |
 | Import/export with other DAWs | 🟡 | MIDI file import since 0.7.0; the rest in M18, M26, M27 |

@@ -159,6 +159,18 @@ Separate process:   plug-in scanner
   the notes that sit on its steps (`model/DrumPatterns`): pads are notes 36 to 51, swing really
   moves the notes on every second step, so the piano roll, quantize and copy/paste work on drum
   patterns unchanged.
+- The sampler (M12, `dsp/Sampler`) plays a `dsp::SampleMap` (zones: a recording with its keys,
+  velocities, root, round robin and loop) handed over in `InstrumentSounds`. The map is built on
+  the UI thread when the snapshot is (`engine/SamplerLibrary`: SFZ files are parsed once and
+  cached; recordings come from the audio file cache, at the engine's rate) and kept in
+  `MixerResources` as the same object while nothing in it changes, because the sampler stops its
+  notes when it's given another map. Interpolation is 4-point Hermite; pitch and glide are worked
+  out every 16 samples.
+- Recorded instruments live in a `Sounds` folder next to the program (`library.json` lists them;
+  each is an SFZ file and Ogg Vorbis recordings), built by `tools/sounds/build_pack.py` from the
+  CC0 libraries at pinned commits. CI builds and caches it and Setup.exe installs it.
+- `TimelineSync` remembers which audio files each build asked for and, every 5 seconds, tells the
+  audio file cache to forget files not used for 20 seconds (`AudioFileCache::keepOnly`).
 - The drum editor's Space plays its pattern on its own without touching the project:
   `TimelineSync::setPartLoop` makes the snapshot loop that range and treat that track as the only
   soloed one (`PartLoop`), and the app puts everything back when playback stops.
