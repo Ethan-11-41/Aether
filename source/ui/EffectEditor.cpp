@@ -66,7 +66,7 @@ void ParameterKnob::paint (juce::Graphics& g)
 
     g.setFont (juce::FontOptions (12.0f));
     g.setColour (theme.textDim);
-    g.drawText (parameter.name, area.removeFromTop (18.0f), juce::Justification::centred);
+    g.drawText (label.isNotEmpty() ? label : parameter.name, area.removeFromTop (18.0f), juce::Justification::centred);
     g.setColour (theme.text);
     g.drawText (parameter.format ((float) currentValue()), area.removeFromTop (18.0f), juce::Justification::centred);
 }

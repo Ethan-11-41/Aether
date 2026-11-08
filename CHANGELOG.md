@@ -6,6 +6,63 @@ follow [Semantic Versioning](https://semver.org/) (0.x while Aether is in early 
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-11-08 - Milestone 13: effects
+
+### Added
+- **Ten effects**, on any track, bus or the master (mixer > **+ Effect**):
+  - **EQ**: a low cut, bass, three bands in the middle (low mids, mids, high mids), treble and a
+    high cut: less mud, more clarity, more or less bass and treble.
+  - **Compressor**: turns the loud parts down so a voice or instrument sits evenly in the mix,
+    then brings it all back up (threshold, ratio, attack, release, knee, makeup, mix).
+  - **Limiter**: a ceiling nothing goes above, for the end of the master: makes the whole song
+    louder without clipping.
+  - **Gate**: silences room noise and breaths between phrases.
+  - **De-esser**: tames harsh "s" and "t" sounds in a voice.
+  - **Saturation**: warmth and grit, from a gentle tape glow (Tape, Tube) to Fuzz and Hard clip.
+  - **Filter**: darker (low-pass), thinner (high-pass), band-pass or notch, and it can sweep by
+    itself for movement.
+  - **Chorus**: a wavering copy mixed in, for wider, fuller pads, pianos and backing vocals.
+  - **Delay** and **Reverb** (both rebuilt: see Changed).
+- **Each effect opens in its own window** (click it in the mixer), with a **picture** of what it
+  does, drawn from the same maths as the sound:
+  - **EQ**: the curve, with a coloured point for each band. Drag a point left/right for the
+    frequency and up/down to turn it up or down; scroll on it to make it narrower or wider;
+    double-click to put it back to 0 dB.
+  - **Compressor**: level in against level out (the bend is where it starts turning down), and
+    **how much it's turning down as the song plays**, with the last five seconds as a moving line.
+  - **Limiter** and **De-esser**: how much they're turning down, live. **Gate**: whether it's open.
+  - **Reverb**: the sound, then the room's tail dying away (and how long it takes). **Delay**: the
+    echoes on the beat grid, left and right for ping-pong. **Chorus**, **Saturation** and
+    **Filter** (which moves when it sweeps) have their own pictures too.
+  - Settings as knobs in labelled groups, an **On** switch to compare with and without, and the
+    preset menu with **<** and **>**. Several effect windows can be open at once.
+- **64 presets**, for **vocals**, **instruments** (piano, strings, pads, acoustic) and **the
+  whole song** (on the master), plus a starting point for each effect.
+- **16 ready-made chains**: several effects at once, set up for a common job, from **+ Effect >
+  Ready-made chains**: for vocals (clear and up front, warm and smooth, rap / spoken, dreamy,
+  recorded in a noisy room, telephone / radio), instruments (bright piano, warm piano, lush
+  strings, wide synth pad, acoustic in a natural room) and the whole song (polished and louder,
+  gentle, bright and punchy, warm, as loud as possible). One Ctrl+Z takes a whole chain off again.
+- Up to **eight effects** per channel (was four). The mixer's strips make room when a channel has
+  more than three.
+
+### Changed
+- **The Reverb is new**: a richer, smoother room (eight delay lines feeding each other, with
+  diffusion and gentle movement), with two new settings: **Pre-delay** (a short gap before the
+  room answers, which keeps a voice clear) and **Low cut** (keeps the reverb from getting muddy).
+  Projects with the old Reverb keep their settings (size, damping, width, mix) but sound a little
+  different: fuller and more natural.
+- **The Delay** has a **Low cut** for its echoes, and gets a picture too.
+- A new effect starts on its first preset ("... (start here)").
+- **Soft to loud is gradual now** (from your M12 testing): the recorded instruments blend between
+  their soft, medium and loud recordings as you play harder, instead of jumping between them. With
+  your Kawai you'll hear every step in between.
+- The on-screen keyboards reach full strength at the bottom of a key (they stopped at 80%).
+
+### Fixed
+- The Delay could read just past the end of its memory now and then (since 0.5.0), which could
+  make a tiny click. The new Reverb and the Chorus are checked for the same thing by a test.
+
 ## [0.13.1] - 2026-11-08
 
 From your M12 testing.

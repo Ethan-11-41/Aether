@@ -202,6 +202,33 @@ float getInsertParameter (const juce::ValueTree& insert, const juce::Identifier&
     return 0.0f;
 }
 
+int currentPresetIndex (const juce::ValueTree& insert)
+{
+    const auto* type = dsp::findEffectType (insert[ids::type].toString());
+
+    if (type == nullptr)
+        return -1;
+
+    auto matches = [&] (const dsp::EffectPreset& preset)
+    {
+        for (size_t p = 0; p < type->parameters.size() && p < preset.values.size(); ++p)
+            if (std::abs (getInsertParameter (insert, type->parameters[p].id) - type->parameters[p].clamp (preset.values[p])) > 1.0e-3f)
+                return false;
+
+        return true;
+    };
+
+    if (const auto chosen = dsp::findPresetIndex (*type, insert[ids::preset].toString());
+        chosen >= 0 && matches (type->presets[(size_t) chosen]))
+        return chosen;
+
+    for (size_t i = 0; i < type->presets.size(); ++i)
+        if (matches (type->presets[i]))
+            return (int) i;
+
+    return -1;
+}
+
 } // namespace aether::mixer
 
 //==============================================================================
@@ -487,6 +514,16 @@ namespace
         for (const auto& parameter : type.parameters)
             insert.setProperty (parameter.id, parameter.defaultValue, nullptr);
 
+        // A new effect starts on its first preset ("... (start here)").
+        if (! type.presets.empty())
+        {
+            const auto& preset = type.presets.front();
+            for (size_t i = 0; i < type.parameters.size() && i < preset.values.size(); ++i)
+                insert.setProperty (type.parameters[i].id, type.parameters[i].clamp (preset.values[i]), nullptr);
+
+            insert.setProperty (ids::preset, preset.name, nullptr);
+        }
+
         getOrCreateList (channel, ids::Inserts, undo).appendChild (insert, &undo);
         return id;
     }
@@ -522,6 +559,77 @@ juce::StringArray addInsertToChannels (Project& project, const juce::StringArray
     // Named after what actually happened (full channels are skipped).
     if (added.size() > 1)
         project.getUndoManager().setCurrentTransactionName ("Add " + type->name + " to " + juce::String (added.size()) + " tracks");
+
+    return added;
+}
+
+bool setInsertPreset (Project& project, const juce::String& insertId, const juce::String& presetName)
+{
+    auto insert = mixer::findInsert (project, insertId);
+    const auto* type = insert.isValid() ? dsp::findEffectType (insert[ids::type].toString()) : nullptr;
+    const auto index = type != nullptr ? dsp::findPresetIndex (*type, presetName) : -1;
+
+    if (index < 0)
+        return false;
+
+    auto& undo = project.getUndoManager();
+    undo.beginNewTransaction ("Choose \"" + presetName + "\" (" + type->name + ")");
+
+    const auto& preset = type->presets[(size_t) index];
+    for (size_t i = 0; i < type->parameters.size() && i < preset.values.size(); ++i)
+        insert.setProperty (type->parameters[i].id, type->parameters[i].clamp (preset.values[i]), &undo);
+
+    insert.setProperty (ids::preset, presetName, &undo);
+    return true;
+}
+
+bool hasRoomForEffects (const Project& project, const juce::String& channelId, int count)
+{
+    return mixer::findChannel (project, channelId).isValid()
+        && (int) mixer::insertsOf (project, channelId).size() + count <= mixer::maxInsertsPerChannel;
+}
+
+juce::StringArray addEffectChain (Project& project, const juce::StringArray& channelIds, const juce::String& chainName)
+{
+    juce::StringArray added;
+    const auto* chain = dsp::findEffectChain (chainName);
+
+    if (chain == nullptr)
+        return added;
+
+    auto& undo = project.getUndoManager();
+    undo.beginNewTransaction ("Add \"" + chain->name + "\"");
+    int channelsChanged = 0;
+
+    for (const auto& channelId : channelIds)
+    {
+        if (! hasRoomForEffects (project, channelId, (int) chain->steps.size()))
+            continue;
+
+        for (const auto& step : chain->steps)
+        {
+            const auto* type = dsp::findEffectType (step.typeId);
+            const auto index = type != nullptr ? dsp::findPresetIndex (*type, step.presetName) : -1;
+
+            if (index < 0)
+                continue;   // (the tests check every chain's effects and presets exist)
+
+            const auto id = appendInsert (project, channelId, *type);
+            auto insert = mixer::findInsert (project, id);
+            const auto& preset = type->presets[(size_t) index];
+
+            for (size_t i = 0; i < type->parameters.size() && i < preset.values.size(); ++i)
+                insert.setProperty (type->parameters[i].id, type->parameters[i].clamp (preset.values[i]), &undo);
+
+            insert.setProperty (ids::preset, step.presetName, &undo);
+            added.add (id);
+        }
+
+        ++channelsChanged;
+    }
+
+    if (channelsChanged > 1)
+        undo.setCurrentTransactionName ("Add \"" + chain->name + "\" to " + juce::String (channelsChanged) + " tracks");
 
     return added;
 }

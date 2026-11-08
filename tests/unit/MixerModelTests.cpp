@@ -2,6 +2,8 @@
 //
 // The mixer's data: volume, pan, mute, solo, routing, sends and effects, and their undo.
 
+#include <algorithm>
+
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
@@ -263,10 +265,11 @@ TEST_CASE ("Effects can be added, set, switched off, reordered and removed", "[m
     REQUIRE (echo.isNotEmpty());
     CHECK (edit::addInsert (f.project, f.drums, "no-such-effect").isEmpty());
 
-    // New effects start at their default settings.
+    // New effects start on their first preset ("Room (start here)").
     const auto* reverbType = dsp::findEffectType ("reverb");
     REQUIRE (reverbType != nullptr);
-    CHECK (mixer::getInsertParameter (mixer::findInsert (f.project, reverb), "mix") == 30.0f);
+    CHECK (mixer::getInsertParameter (mixer::findInsert (f.project, reverb), "mix") == 22.0f);
+    CHECK (mixer::findInsert (f.project, reverb)[ids::preset].toString() == reverbType->presets.front().name);
 
     // Settings are kept in range; choices are whole numbers.
     REQUIRE (edit::setInsertParameter (f.project, reverb, "size", 150.0f));
@@ -283,9 +286,10 @@ TEST_CASE ("Effects can be added, set, switched off, reordered and removed", "[m
     REQUIRE (inserts.size() == 2);
     CHECK (inserts[0][ids::id].toString() == echo);
 
-    // At most four per channel (for now).
-    edit::addInsert (f.project, f.drums, "reverb");
-    edit::addInsert (f.project, f.drums, "reverb");
+    // At most eight per channel.
+    for (int i = 2; i < mixer::maxInsertsPerChannel; ++i)
+        CHECK (edit::addInsert (f.project, f.drums, "reverb").isNotEmpty());
+
     CHECK (edit::addInsert (f.project, f.drums, "reverb").isEmpty());
 
     // The master can have effects too.
@@ -293,9 +297,9 @@ TEST_CASE ("Effects can be added, set, switched off, reordered and removed", "[m
     CHECK (mixer::insertsOf (f.project, mixer::masterId).size() == 1);
 
     REQUIRE (edit::removeInsert (f.project, reverb));
-    CHECK (mixer::insertsOf (f.project, f.drums).size() == 3);
+    CHECK ((int) mixer::insertsOf (f.project, f.drums).size() == mixer::maxInsertsPerChannel - 1);
     f.project.getUndoManager().undo();
-    CHECK (mixer::insertsOf (f.project, f.drums).size() == 4);
+    CHECK ((int) mixer::insertsOf (f.project, f.drums).size() == mixer::maxInsertsPerChannel);
 }
 
 TEST_CASE ("Effect settings are shown in plain units", "[model][effects]")
@@ -372,4 +376,124 @@ TEST_CASE ("An effect can be added to several tracks in one undo step", "[mixer]
     project.getUndoManager().undo();
     CHECK (mixer::insertsOf (project, a).empty());
     CHECK (mixer::insertsOf (project, b).empty());
+}
+
+TEST_CASE ("Choosing an effect preset sets all its settings in one undo step", "[mixer][model][effects]")
+{
+    Project project;
+    const auto track = edit::addTrack (project, TrackKind::audio).getId();
+    const auto insert = edit::addInsert (project, track, "compressor");
+    const auto* type = dsp::findEffectType ("compressor");
+    REQUIRE (type != nullptr);
+
+    // A new effect is on its first ("start here") preset.
+    CHECK (mixer::currentPresetIndex (mixer::findInsert (project, insert)) == 0);
+
+    REQUIRE (edit::setInsertPreset (project, insert, "Vocal: up front"));
+    const auto index = dsp::findPresetIndex (*type, "Vocal: up front");
+    REQUIRE (index > 0);
+    CHECK (mixer::currentPresetIndex (mixer::findInsert (project, insert)) == index);
+
+    for (size_t i = 0; i < type->parameters.size(); ++i)
+        CHECK_THAT (mixer::getInsertParameter (mixer::findInsert (project, insert), type->parameters[i].id),
+                    WithinAbs (type->parameters[i].clamp (type->presets[(size_t) index].values[i]), 1.0e-4));
+
+    CHECK (project.getUndoManager().getUndoDescription() == "Choose \"Vocal: up front\" (Compressor)");
+
+    // Changing a setting: the user's own settings now.
+    edit::setInsertParameter (project, insert, "threshold", -3.0f);
+    CHECK (mixer::currentPresetIndex (mixer::findInsert (project, insert)) == -1);
+
+    project.getUndoManager().undo();
+    CHECK (mixer::currentPresetIndex (mixer::findInsert (project, insert)) == index);
+    project.getUndoManager().undo();
+    CHECK (mixer::currentPresetIndex (mixer::findInsert (project, insert)) == 0);
+
+    CHECK_FALSE (edit::setInsertPreset (project, insert, "No such preset"));
+}
+
+TEST_CASE ("Every ready-made chain uses effects and presets that exist, and fits a channel", "[mixer][model][effects]")
+{
+    REQUIRE (dsp::effectChains().size() >= 12);
+
+    for (const auto& category : { "Vocals", "Instruments", "Master" })
+        CHECK (std::count_if (dsp::effectChains().begin(), dsp::effectChains().end(),
+                              [&] (const dsp::EffectChain& c) { return c.category == category; }) >= 4);
+
+    for (const auto& chain : dsp::effectChains())
+    {
+        INFO (chain.name);
+        CHECK (chain.description.isNotEmpty());
+        CHECK ((int) chain.steps.size() <= mixer::maxInsertsPerChannel - 3);
+        CHECK (dsp::findEffectChain (chain.name) == &chain);
+
+        for (const auto& step : chain.steps)
+        {
+            INFO (step.typeId + " / " + step.presetName);
+            const auto* type = dsp::findEffectType (step.typeId);
+            REQUIRE (type != nullptr);
+            CHECK_FALSE (type->isInstrument);
+            CHECK (dsp::findPresetIndex (*type, step.presetName) >= 0);
+        }
+    }
+}
+
+TEST_CASE ("A chain adds its effects with their presets, to several tracks, in one undo step", "[mixer][model][effects]")
+{
+    Project project;
+    const auto a = edit::addTrack (project, TrackKind::audio).getId();
+    const auto b = edit::addTrack (project, TrackKind::audio).getId();
+    const auto full = edit::addTrack (project, TrackKind::audio).getId();
+
+    for (int i = 0; i < mixer::maxInsertsPerChannel - 2; ++i)
+        edit::addInsert (project, full, "delay");
+
+    edit::addInsert (project, a, "gate");   // the chain goes after what's there
+    project.getUndoManager().clearUndoHistory();
+
+    const auto* chain = dsp::findEffectChain ("Vocal: clear and up front");
+    REQUIRE (chain != nullptr);
+    CHECK_FALSE (edit::hasRoomForEffects (project, full, (int) chain->steps.size()));
+    CHECK (edit::hasRoomForEffects (project, a, (int) chain->steps.size()));
+
+    const auto added = edit::addEffectChain (project, { a, b, full }, chain->name);
+    CHECK (added.size() == 2 * (int) chain->steps.size());
+    CHECK (project.getUndoManager().getUndoDescription() == "Add \"Vocal: clear and up front\" to 2 tracks");
+
+    const auto inserts = mixer::insertsOf (project, a);
+    REQUIRE (inserts.size() == chain->steps.size() + 1);
+    CHECK (inserts[0][ids::type].toString() == "gate");
+
+    for (size_t i = 0; i < chain->steps.size(); ++i)
+    {
+        const auto& insert = inserts[i + 1];
+        const auto* type = dsp::findEffectType (insert[ids::type].toString());
+        REQUIRE (type != nullptr);
+        CHECK (type->id == chain->steps[i].typeId);
+        CHECK (type->presets[(size_t) mixer::currentPresetIndex (insert)].name == chain->steps[i].presetName);
+    }
+
+    CHECK (mixer::insertsOf (project, b).size() == chain->steps.size());
+    CHECK (mixer::insertsOf (project, full).size() == (size_t) mixer::maxInsertsPerChannel - 2);
+
+    project.getUndoManager().undo();
+    CHECK (mixer::insertsOf (project, a).size() == 1);
+    CHECK (mixer::insertsOf (project, b).empty());
+
+    // On the master.
+    CHECK (edit::addEffectChain (project, { mixer::masterId }, "Master: polished and louder").size() == 3);
+    CHECK (mixer::insertsOf (project, mixer::masterId).back()[ids::type].toString() == "limiter");
+    CHECK (edit::addEffectChain (project, { a }, "No such chain").isEmpty());
+}
+
+TEST_CASE ("No effect or instrument setting has a name the project file uses for something else", "[mixer][model][effects]")
+{
+    // (A setting called "type" would overwrite which effect it is.)
+    for (const auto& type : dsp::effectTypes())
+        for (const auto& parameter : type.parameters)
+        {
+            INFO (type.name + ": " + parameter.id.toString());
+            for (const auto& reserved : { ids::id, ids::type, ids::bypass, ids::preset, ids::name })
+                CHECK (parameter.id != reserved);
+        }
 }

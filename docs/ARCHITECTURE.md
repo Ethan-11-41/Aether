@@ -184,7 +184,15 @@ Separate process:   plug-in scanner
 - Each channel: effects → mute → pre-fader sends → volume and pan → post-fader sends → meter →
   output. Solo is worked out when the snapshot is built, as a gain on each connection.
 - Plug-in delay compensation (from M15) will delay the shorter signal paths so everything stays
-  in time. Aether's own effects add no delay.
+  in time. Aether's own effects add no delay, except the limiter's 1.5 ms look-ahead.
+- Effect windows read what an effect is doing (how much a compressor is turning down) through
+  `dsp::Effect::getMeter()`: one atomic value the effect writes on the audio thread and the
+  window reads about 30 times a second, so neither ever waits for the other. The windows'
+  pictures are drawn from the same functions the sound uses (`eq::responseDb`,
+  `compressor::outputDb`, `reverb::decaySeconds`...), so the picture is what you hear.
+- An effect's settings are properties of its `Insert` node named after its parameters. The names
+  `id`, `type`, `bypass`, `preset` and `name` are the node's own, so no setting may use them (a
+  test checks this).
 
 ### Plug-ins
 - VST3 through JUCE (CLAP through our own host code, Phase 3).

@@ -49,9 +49,9 @@ struct EffectType
     std::vector<EffectPreset> presets;
 };
 
-/** Every built-in effect and instrument. Milestone 4 has two simple temporary effects (Reverb
-    and Delay), the full set arrives in M13; Milestone 6 adds the starter synth ("synth") and
-    Milestone 10 the Synth ("subtractive", see Synth.h). */
+/** Every built-in effect and instrument: the effects in the order the mixer lists them (EQ,
+    Compressor, De-esser, Gate, Saturation, Filter, Chorus, Delay, Reverb, Limiter), then the
+    instruments (the starter synth, the Synth, the Drum kit and the Sampler). */
 const std::vector<EffectType>& effectTypes();
 
 /** The instrument new MIDI tracks get (the Synth, since 0.11.0), and its starting preset. Projects
@@ -61,6 +61,31 @@ inline const juce::String defaultInstrumentPreset { "Soft keys" };
 
 /** The effect type with this id, or null. */
 const EffectType* findEffectType (const juce::String& id);
+
+/** A ready-made set of effects for a common job, e.g. "Vocal: clear and up front": effects, each
+    with one of its presets, in the order the sound goes through them. */
+struct EffectChain
+{
+    struct Step
+    {
+        juce::String typeId;      // e.g. "eq"
+        juce::String presetName;  // one of that effect's presets
+    };
+
+    juce::String name;
+    juce::String category;        // "Vocals", "Instruments" or "Master" (the whole song)
+    juce::String description;
+    std::vector<Step> steps;
+};
+
+/** The built-in chains, by category (vocals, instruments, the whole song). */
+const std::vector<EffectChain>& effectChains();
+
+/** The chain with this name, or null. */
+const EffectChain* findEffectChain (const juce::String& name);
+
+/** The index of a type's preset with this name, or -1. */
+int findPresetIndex (const EffectType& type, const juce::String& presetName);
 
 namespace delay
 {

@@ -4,7 +4,7 @@ An honest list of what works. Updated at the end of every milestone.
 
 **Legend:** ✅ Working · 🟡 Partial · 🧪 Stub/placeholder · ⬜ Not started
 
-Current version: **0.13.1** (Milestone 12: the sampler and recorded instruments, with fixes from testing)
+Current version: **0.14.0** (Milestone 13: effects)
 
 ## Milestone 0: skeleton and build pipeline
 
@@ -84,7 +84,7 @@ Current version: **0.13.1** (Milestone 12: the sampler and recorded instruments,
 | Buses, buses into buses, refusing loops | ✅ | |
 | Sends, before or after the fader | ✅ | The mixer shows up to three sends per track. |
 | Solo "in place" | ✅ | See the M4 checklist for how it behaves with buses. |
-| Effects slots, with Reverb and Delay | 🟡 | Up to four per channel. These two are simple temporary effects; the real set (EQ, compressor, better reverb and delay...) is M13. |
+| Effects slots | ✅ | Up to eight per channel since 0.14.0, with the ten effects of M13. |
 | Selecting several tracks; group volume/pan moves by the same amount | ✅ | |
 | Smooth (click-free) volume, pan and mute changes | ✅ | |
 | Delay compensation | ⬜ | Moved to M15 (plug-in hosting). Aether's own effects add no delay, so there is nothing to compensate yet; it matters when plug-ins arrive. |
@@ -208,11 +208,27 @@ Current version: **0.13.1** (Milestone 12: the sampler and recorded instruments,
 | Editing zones by hand (dragging key ranges) | ⬜ | Recordings are laid out by their names or the SFZ file. Tell me if you need it. |
 | Streaming long recordings from disk | ⬜ | Everything is held in memory (see above). |
 
+## Milestone 13: effects
+
+| Feature | Status | Notes |
+|---|---|---|
+| EQ, compressor, limiter, gate, de-esser, saturation, filter, chorus, delay, reverb | ✅ | On tracks, buses and the master, up to eight per channel. Aether's own code. |
+| Each effect in its own window, with a picture of what it does | ✅ | The EQ's points can be dragged. The compressor, limiter, de-esser and gate show what they're doing as the song plays. |
+| 64 presets for vocals, instruments and the whole song | ✅ | Saving your own presets: ⬜ (with the sound library, M17). Meanwhile, settings you change are saved in the project. |
+| 16 ready-made chains (vocals, instruments, the whole song) | ✅ | One undo step each. |
+| New Reverb (pre-delay, low cut) and a low cut on the Delay | ✅ | Old projects keep their reverb settings, but the reverb sounds a little different (fuller). |
+| Gradual soft-to-loud on the recorded instruments | ✅ | From M12 testing. |
+| The limiter's 1.5 ms look-ahead delays its channel slightly | 🟡 | On the master it doesn't matter. On a single track it's 1.5 ms late against the others until delay compensation arrives (M15). |
+| A frequency analyser (spectrum) behind the EQ's curve | ⬜ | Not planned yet; tell me if you'd use it. |
+| Sidechain (e.g. the bass ducking under the kick) | ⬜ | M22. |
+| Loudness (LUFS) meter for the master | ⬜ | Not planned yet. |
+| Changing effect settings over time | ⬜ | Automation, M14. |
+
 ## Everything else
 
 | Area | Status | Milestone |
 |---|---|---|
-| Effects, automation | ⬜ | M13–M14 |
+| Automation | ⬜ | M14 |
 | VST3 / CLAP plug-ins | ⬜ | M15 / M28 |
 | Sound library | ⬜ | M17, M23 |
 | Import/export with other DAWs | 🟡 | MIDI file import since 0.7.0; the rest in M18, M26, M27 |

@@ -16,6 +16,9 @@ class ParameterKnob final : public DragControl
 public:
     ParameterKnob (const Theme& theme, const dsp::EffectParameter& parameter);
 
+    /** Written under the knob instead of the setting's name (e.g. "Gain" in a group called "Mids"). */
+    juce::String label;
+
     void paint (juce::Graphics&) override;
 
 private:

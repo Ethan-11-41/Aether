@@ -33,6 +33,7 @@ std::vector<EffectParameter> parameters()
 namespace
 {
     constexpr int controlInterval = 16;     // pitch and glide are worked out every 16 samples
+    constexpr double layerCrossfade = 24.0; // velocities over which loudness layers blend
     constexpr int scratchSize = 1024;
 
     /** Where to read sample `i`: past a loop's end it carries on from the loop's start (so the
@@ -292,6 +293,23 @@ namespace
             startNote (note, velocity, fromClip, length, settings.mode != poly);
         }
 
+        /** How much of a zone plays at a velocity: loudness layers blend near their edges (the next
+            softer or louder recording fading in over `layerCrossfade` velocities), so playing
+            harder gets gradually louder and brighter instead of jumping between recordings. */
+        static double layerWeight (const SampleZone& zone, int velocity) noexcept
+        {
+            constexpr double half = layerCrossfade * 0.5;
+            auto weight = 1.0;
+
+            if (zone.lowVelocity > 1)       // a softer layer below
+                weight = std::min (weight, std::clamp ((velocity - (zone.lowVelocity - 0.5 - half)) / layerCrossfade, 0.0, 1.0));
+
+            if (zone.highVelocity < 127)    // a louder layer above
+                weight = std::min (weight, std::clamp (((zone.highVelocity + 0.5 + half) - velocity) / layerCrossfade, 0.0, 1.0));
+
+            return weight;
+        }
+
         void startNote (int note, int velocity, bool fromClip, std::int64_t length, bool mono) noexcept
         {
             // Round robin: each key counts its hits, and zones play on their turn.
@@ -302,8 +320,12 @@ namespace
 
             for (const auto& zone : currentMap->zones)
             {
-                if (zone.sample == nullptr || ! zone.matches (note, vel)
+                if (zone.sample == nullptr || note < zone.lowKey || note > zone.highKey
                     || (int) (hit % (std::uint32_t) std::max (1, zone.sequenceLength)) + 1 != std::max (1, zone.sequencePosition))
+                    continue;
+
+                const auto weight = layerWeight (zone, vel);
+                if (weight < 0.001 || vel < zone.lowVelocity - (int) layerCrossfade || vel > zone.highVelocity + (int) layerCrossfade)
                     continue;
 
                 if (zone.lastSample() - zone.start < 4)
@@ -324,7 +346,7 @@ namespace
                 v.amp.trigger();
 
                 const auto angle = (std::clamp ((double) zone.pan, -1.0, 1.0) + 1.0) * juce::MathConstants<double>::pi * 0.25;
-                const auto gain = (double) zone.gain * velocityGain;
+                const auto gain = (double) zone.gain * velocityGain * weight;
                 v.gainLeft = (float) (gain * std::cos (angle) * juce::MathConstants<double>::sqrt2);
                 v.gainRight = (float) (gain * std::sin (angle) * juce::MathConstants<double>::sqrt2);
                 updateStep (v);

@@ -9,6 +9,15 @@ add_library(aether_core STATIC
     devices/LatencyInfo.h
     dsp/DrumKit.cpp
     dsp/DrumKit.h
+    dsp/Biquad.h
+    dsp/ColourEffects.cpp
+    dsp/ColourEffects.h
+    dsp/Dynamics.cpp
+    dsp/Dynamics.h
+    dsp/Eq.cpp
+    dsp/Eq.h
+    dsp/Presets.h
+    dsp/SpaceEffects.h
     dsp/PitchDetect.cpp
     dsp/PitchDetect.h
     dsp/Sampler.cpp
@@ -147,6 +156,10 @@ add_library(aether_ui STATIC
     ui/SamplerEditor.h
     ui/EffectEditor.cpp
     ui/EffectEditor.h
+    ui/EffectPictures.cpp
+    ui/EffectPictures.h
+    ui/EffectView.cpp
+    ui/EffectView.h
     ui/IconButton.cpp
     ui/KeyboardPanel.cpp
     ui/KeyboardPanel.h

@@ -12,7 +12,7 @@ namespace aether::ui
 
 /** The mixer: one channel strip per track and bus, and the master on the right.
 
-    Each strip has, from top to bottom: the name, up to four effects, up to three sends, the
+    Each strip has, from top to bottom: the name, up to eight effects, up to three sends, the
     output (the master or a bus), pan, mute and solo, the volume fader with a level meter, and
     the volume in dB. Track selection is shared with the track list (click, Ctrl+click,
     Shift+click), and so is "a control on one selected track changes them all".
@@ -22,8 +22,8 @@ class MixerComponent final : public juce::Component,
 {
 public:
     static constexpr int stripWidth = 104;
-    static constexpr int minimumHeight = 320;
     static constexpr int maxVisibleSends = 3;
+    static constexpr int minimumInsertRows = 4;
 
     MixerComponent (const Theme& theme, Project& project, TrackListComponent& trackList);
     ~MixerComponent() override;
@@ -33,6 +33,18 @@ public:
 
     /** Call when the track selection changes. */
     void selectionChanged();
+
+    /** The smallest height that shows everything: more when a channel has more than three
+        effects (the strips make room for up to eight). */
+    int getMinimumHeight() const noexcept;
+    int getNumInsertRows() const noexcept   { return insertRows; }
+
+    /** Called when getMinimumHeight() changes. */
+    std::function<void()> onMinimumHeightChanged;
+
+    /** Opens an effect's window (if not set, a small pop-up with its knobs). */
+    std::function<void (const juce::String& insertId)> onOpenEffect;
+    void openEffect (const juce::String& insertId, juce::Rectangle<int> screenArea);
 
     /** One channel strip (public so the tests can check them). */
     class Strip;
@@ -46,6 +58,7 @@ public:
 private:
     void rebuild();
     void repaintStrips();
+    void updateInsertRows();
 
     void valueTreePropertyChanged (juce::ValueTree&, const juce::Identifier&) override   { repaintStrips(); }
     void valueTreeChildAdded (juce::ValueTree& parent, juce::ValueTree&) override        { treeChildrenChanged (parent); }
@@ -62,6 +75,7 @@ private:
     juce::Component content;
     std::vector<std::unique_ptr<Strip>> strips;
     std::unique_ptr<Strip> masterStrip;
+    int insertRows = minimumInsertRows;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MixerComponent)
 };

@@ -15,13 +15,23 @@ namespace
     constexpr int nameHeight = 24, labelHeight = 12, rowHeight = 16, outputHeight = 18,
                   panHeight = 28, buttonsHeight = 20, readoutHeight = 16;
     constexpr int insertsTop = nameHeight + labelHeight;
-    constexpr int sendsLabelTop = insertsTop + rowHeight * mixer::maxInsertsPerChannel;
-    constexpr int sendsTop = sendsLabelTop + labelHeight;
-    constexpr int outputTop = sendsTop + rowHeight * MixerComponent::maxVisibleSends + 2;
-    constexpr int panTop = outputTop + outputHeight;
-    constexpr int buttonsTop = panTop + panHeight;
-    constexpr int faderTop = buttonsTop + buttonsHeight;
     constexpr int powerWidth = 16;
+    constexpr int minimumFaderHeight = 76;
+
+    /** Where the parts below the effects go: they move down when a channel has more effects. */
+    struct Layout
+    {
+        explicit Layout (int insertRows)
+            : sendsLabelTop (insertsTop + rowHeight * insertRows),
+              sendsTop (sendsLabelTop + labelHeight),
+              outputTop (sendsTop + rowHeight * MixerComponent::maxVisibleSends + 2),
+              panTop (outputTop + outputHeight),
+              buttonsTop (panTop + panHeight),
+              faderTop (buttonsTop + buttonsHeight)
+        {}
+
+        int sendsLabelTop, sendsTop, outputTop, panTop, buttonsTop, faderTop;
+    };
 }
 
 //==============================================================================
@@ -71,16 +81,22 @@ juce::StringArray MixerComponent::Strip::group() const
 
 juce::Rectangle<int> MixerComponent::Strip::nameArea() const          { return { 0, 0, getWidth(), nameHeight }; }
 juce::Rectangle<int> MixerComponent::Strip::insertArea (int i) const   { return { 4, insertsTop + i * rowHeight, getWidth() - 8, rowHeight - 2 }; }
-juce::Rectangle<int> MixerComponent::Strip::sendArea (int i) const     { return { 4, sendsTop + i * rowHeight, getWidth() - 8, rowHeight - 2 }; }
-juce::Rectangle<int> MixerComponent::Strip::outputArea() const         { return { 4, outputTop, getWidth() - 8, outputHeight - 2 }; }
-juce::Rectangle<int> MixerComponent::Strip::faderArea() const          { return { 0, faderTop, getWidth(), std::max (20, getHeight() - faderTop - readoutHeight) }; }
+juce::Rectangle<int> MixerComponent::Strip::sendArea (int i) const     { return { 4, Layout (owner.insertRows).sendsTop + i * rowHeight, getWidth() - 8, rowHeight - 2 }; }
+juce::Rectangle<int> MixerComponent::Strip::outputArea() const         { return { 4, Layout (owner.insertRows).outputTop, getWidth() - 8, outputHeight - 2 }; }
+
+juce::Rectangle<int> MixerComponent::Strip::faderArea() const
+{
+    const auto top = Layout (owner.insertRows).faderTop;
+    return { 0, top, getWidth(), std::max (20, getHeight() - top - readoutHeight) };
+}
 
 void MixerComponent::Strip::resized()
 {
+    const Layout layout (owner.insertRows);
     const auto panSize = panHeight - 4;
-    pan.setBounds (juce::Rectangle<int> (panSize, panSize).withCentre ({ getWidth() / 2 - 14, panTop + panHeight / 2 }));
+    pan.setBounds (juce::Rectangle<int> (panSize, panSize).withCentre ({ getWidth() / 2 - 14, layout.panTop + panHeight / 2 }));
 
-    auto buttons = juce::Rectangle<int> (4, buttonsTop + 1, getWidth() - 8, buttonsHeight - 4);
+    auto buttons = juce::Rectangle<int> (4, layout.buttonsTop + 1, getWidth() - 8, buttonsHeight - 4);
     mute.setBounds (buttons.removeFromLeft (buttons.getWidth() / 2 - 2));
     solo.setBounds (buttons.removeFromRight (buttons.getWidth() - 4));
 
@@ -127,7 +143,7 @@ void MixerComponent::Strip::paint (juce::Graphics& g)
     label ("EFFECTS", nameHeight);
     const auto inserts = mixer::insertsOf (proj, channelId);
 
-    for (int i = 0; i < mixer::maxInsertsPerChannel; ++i)
+    for (int i = 0; i < owner.insertRows; ++i)
     {
         const auto area = insertArea (i);
 
@@ -162,7 +178,7 @@ void MixerComponent::Strip::paint (juce::Graphics& g)
     if (! isMaster())
     {
         // Sends: the bus's name, with a bar showing the level.
-        label ("SENDS", sendsLabelTop);
+        label ("SENDS", Layout (owner.insertRows).sendsLabelTop);
         const auto sends = mixer::sendsOf (proj, channelId);
 
         for (int i = 0; i < maxVisibleSends; ++i)
@@ -219,7 +235,7 @@ void MixerComponent::Strip::paint (juce::Graphics& g)
         // The pan value next to the knob.
         g.setColour (colours.textDim);
         g.setFont (juce::FontOptions (11.0f));
-        g.drawText (mixer::formatPan (track.getPan()), getWidth() / 2 + 2, panTop, getWidth() / 2 - 6, panHeight,
+        g.drawText (mixer::formatPan (track.getPan()), getWidth() / 2 + 2, Layout (owner.insertRows).panTop, getWidth() / 2 - 6, panHeight,
                     juce::Justification::centredLeft);
     }
 
@@ -238,7 +254,7 @@ MixerComponent::Strip::Hit MixerComponent::Strip::hitTestAreas (juce::Point<int>
         return { Area::name, -1 };
 
     const auto inserts = (int) mixer::insertsOf (proj, channelId).size();
-    for (int i = 0; i < mixer::maxInsertsPerChannel; ++i)
+    for (int i = 0; i < owner.insertRows; ++i)
         if (insertArea (i).contains (p))
             return i < inserts ? Hit { Area::insert, i } : i == inserts ? Hit { Area::addInsert, i } : Hit {};
 
@@ -264,8 +280,9 @@ void MixerComponent::Strip::mouseMove (const juce::MouseEvent& e)
     switch (hit.area)
     {
         case Area::name:      tip = "Click to select (Ctrl+click: several, Shift+click: a range). Right-click for more."; break;
-        case Area::insert:    tip = "Click to change the effect's settings. Click the light to switch it on or off. Right-click for more."; break;
-        case Area::addInsert: tip = "Add an effect. With several tracks selected (Ctrl+click their names), it's added to all of them."; break;
+        case Area::insert:    tip = "Click to open the effect's window. Click the light to switch it on or off. Right-click for more."; break;
+        case Area::addInsert: tip = "Add an effect, or a ready-made chain of them. With several tracks selected (Ctrl+click their names), "
+                                    "they're added to all of them."; break;
         case Area::send:      tip = "Send level: drag left/right (double-click for 0 dB). Right-click for more."; break;
         case Area::addSend:   tip = "Send some of this channel's sound to a bus too (e.g. one with a reverb)"; break;
         case Area::output:    tip = "Where this channel's sound goes: the master, or a bus"; break;
@@ -312,7 +329,7 @@ void MixerComponent::Strip::mouseDown (const juce::MouseEvent& e)
             else if (e.x < insertArea (hit.index).getX() + powerWidth)
                 edit::setInsertBypassed (proj, insertId, ! (bool) insert[ids::bypass]);
             else
-                EffectEditor::show (owner.theme, proj, insertId, localAreaToGlobal (insertArea (hit.index)));
+                owner.openEffect (insertId, localAreaToGlobal (insertArea (hit.index)));
             break;
         }
 
@@ -394,9 +411,9 @@ void MixerComponent::Strip::showInsertMenu (const juce::String& insertId)
     const auto bypassed = (bool) insert[ids::bypass];
 
     juce::PopupMenu menu;
-    menu.addItem ("Settings...", whileStripExists (this, [this, insertId, index]
+    menu.addItem ("Open...", whileStripExists (this, [this, insertId, index]
     {
-        EffectEditor::show (owner.theme, owner.project, insertId, localAreaToGlobal (insertArea (index)));
+        owner.openEffect (insertId, localAreaToGlobal (insertArea (index)));
     }));
     menu.addItem (bypassed ? "Switch on" : "Switch off",
                   whileStripExists (this, [&proj, insertId, bypassed] { edit::setInsertBypassed (proj, insertId, ! bypassed); }));
@@ -413,12 +430,12 @@ void MixerComponent::Strip::showAddEffectMenu()
     auto& proj = owner.project;
     juce::PopupMenu menu;
 
-    // With several tracks selected (this one among them), the effect goes on all of them.
+    // With several tracks selected (this one among them), the effects go on all of them.
     auto channels = group();
     if (channels.isEmpty())
         channels.add (channelId);
 
-    menu.addSectionHeader (channels.size() > 1 ? "Add an effect to the " + juce::String (channels.size()) + " selected tracks"
+    menu.addSectionHeader (channels.size() > 1 ? "Add to the " + juce::String (channels.size()) + " selected tracks"
                                                : juce::String ("Add an effect"));
 
     for (const auto& type : dsp::effectTypes())
@@ -435,13 +452,47 @@ void MixerComponent::Strip::showAddEffectMenu()
 
             // Opens this strip's new effect (the others have the same settings to start with).
             if (! added.isEmpty() && index >= 0 && added.contains (inserts[(size_t) index][ids::id].toString()))
-                EffectEditor::show (owner.theme, proj, inserts[(size_t) index][ids::id].toString(),
-                                    localAreaToGlobal (insertArea (index)));
+                owner.openEffect (inserts[(size_t) index][ids::id].toString(), localAreaToGlobal (insertArea (index)));
         }));
     }
 
+    // Ready-made chains, by what they're for (the whole-song ones first on the master).
     menu.addSeparator();
-    menu.addItem ("These are simple temporary effects. The full set comes in milestone 13.", false, false, [] {});
+    menu.addSectionHeader ("Ready-made chains (several effects)");
+    const auto freeSlots = mixer::maxInsertsPerChannel - (int) mixer::insertsOf (proj, channelId).size();
+
+    auto addCategory = [&] (const juce::String& category, const juce::String& title)
+    {
+        juce::PopupMenu sub;
+
+        for (const auto& chain : dsp::effectChains())
+        {
+            if (chain.category != category)
+                continue;
+
+            juce::StringArray names;
+            for (const auto& step : chain.steps)
+                if (const auto* type = dsp::findEffectType (step.typeId))
+                    names.add (type->name);
+
+            const auto fits = (int) chain.steps.size() <= freeSlots;
+            const auto chainName = chain.name;
+            sub.addItem (chain.name + "   (" + names.joinIntoString (", ") + ")" + (fits ? juce::String() : juce::String ("  - not enough room")),
+                         fits, false, whileStripExists (this, [&proj, chainName, channels] { edit::addEffectChain (proj, channels, chainName); }));
+        }
+
+        menu.addSubMenu (title, sub);
+    };
+
+    if (isMaster())
+        addCategory ("Master", "For the whole song");
+
+    addCategory ("Vocals", "Vocals");
+    addCategory ("Instruments", "Instruments");
+
+    if (! isMaster())
+        addCategory ("Master", "For the whole song (best on the Master)");
+
     menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (this));
 }
 
@@ -555,6 +606,7 @@ MixerComponent::Strip* MixerComponent::findStrip (const juce::String& channelId)
 void MixerComponent::rebuild()
 {
     strips.clear();
+    updateInsertRows();
 
     for (int i = 0; i < project.getNumTracks(); ++i)
     {
@@ -568,9 +620,50 @@ void MixerComponent::rebuild()
 void MixerComponent::treeChildrenChanged (const juce::ValueTree& parent)
 {
     if (parent == project.getTracksNode())
+    {
         rebuild();
+    }
     else
+    {
+        updateInsertRows();
         repaintStrips();   // effects or sends added, removed or moved
+    }
+}
+
+int MixerComponent::getMinimumHeight() const noexcept
+{
+    return Layout (insertRows).faderTop + minimumFaderHeight + readoutHeight;
+}
+
+void MixerComponent::openEffect (const juce::String& insertId, juce::Rectangle<int> screenArea)
+{
+    if (onOpenEffect != nullptr)
+        onOpenEffect (insertId);
+    else
+        EffectEditor::show (theme, project, insertId, screenArea);
+}
+
+void MixerComponent::updateInsertRows()
+{
+    // Enough rows for the channel with the most effects, plus its "+ Effect" (4 at least).
+    auto most = (int) mixer::insertsOf (project, mixer::masterId).size();
+    for (int i = 0; i < project.getNumTracks(); ++i)
+        most = std::max (most, (int) mixer::insertsOf (project, project.getTrack (i).getId()).size());
+
+    const auto rows = juce::jlimit (minimumInsertRows, mixer::maxInsertsPerChannel, most + 1);
+
+    if (rows == insertRows)
+        return;
+
+    insertRows = rows;
+
+    for (auto& strip : strips)
+        strip->resized();
+
+    masterStrip->resized();
+
+    if (onMinimumHeightChanged != nullptr)
+        onMinimumHeightChanged();
 }
 
 void MixerComponent::repaintStrips()

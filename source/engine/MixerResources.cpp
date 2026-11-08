@@ -112,4 +112,10 @@ std::pair<float, float> MixerResources::takePeaks (const juce::String& channelId
     return { it->second.object->takePeak (0), it->second.object->takePeak (1) };
 }
 
+float MixerResources::effectMeter (const juce::String& insertId) const
+{
+    const auto it = effects.find (insertId);
+    return it != effects.end() && it->second.object != nullptr ? it->second.object->getMeter() : 0.0f;
+}
+
 } // namespace aether

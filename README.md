@@ -14,8 +14,10 @@ with deep customisation underneath.
 > recordings or SFZ instruments in a sampler, with 808 slides; write
 > and edit notes in a piano roll (with quantize, swing, humanize and scale highlighting);
 > import, arrange, copy and paste audio and MIDI clips on a snap grid; import MIDI files; mix
-> with volume, pan, mute, solo, buses, sends and two simple effects; and export the mix and stems
-> to WAV, FLAC or MP3. Next: effects (M13). See
+> with volume, pan, mute, solo, buses, sends and ten effects (EQ, compressor, limiter, gate,
+> de-esser, saturation, filter, chorus, delay, reverb), each in its own window with a live
+> picture, presets and ready-made chains for vocals, instruments and the whole song; and export
+> the mix and stems to WAV, FLAC or MP3. Next: automation (M14). See
 > [docs/STATUS.md](docs/STATUS.md) for exactly what works, and
 > [docs/ROADMAP.md](docs/ROADMAP.md) for what's coming.
 
@@ -182,7 +184,7 @@ xvfb-run -a build/linux-debug/source/AetherApp_artefacts/Debug/Aether --screensh
 | `source/io/` | Saving and loading, the file format, autosave, crash recovery, recent projects |
 | `source/devices/` | Sound card setup and latency |
 | `source/engine/` | The audio engine (everything that runs on the audio thread), including the mixer |
-| `source/dsp/` | Built-in effects and instruments (the temporary Reverb and Delay, the Synth, the drum kit and its sounds, the sampler, and the starter synth from 0.7) |
+| `source/dsp/` | Built-in effects (EQ, compressor, limiter, gate, de-esser, saturation, filter, chorus, delay, reverb, their presets and chains) and instruments (the Synth, the drum kit and its sounds, the sampler, and the starter synth from 0.7) |
 | `tools/sounds/` | The builder of the recorded instrument pack |
 | `source/engine/rt/` | Real-time tools: lock-free queues, audio-thread annotations |
 | `source/ui/` | Interface pieces: timeline, track list, mixer, meters, look and feel |

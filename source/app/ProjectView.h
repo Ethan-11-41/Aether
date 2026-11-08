@@ -13,6 +13,7 @@
 #include "ui/MixerComponent.h"
 #include "ui/PianoRoll.h"
 #include "ui/DrumEditor.h"
+#include "ui/EffectView.h"
 #include "ui/SamplerEditor.h"
 #include "ui/SynthEditor.h"
 #include "ui/TimelineComponent.h"
@@ -70,6 +71,11 @@ public:
     /** Opens (or brings forward) the sampler's window for a MIDI track. */
     void showSampler (const juce::String& trackId);
     ui::SamplerEditor* getSamplerEditor() noexcept    { return samplerEditor; }
+
+    /** Opens (or brings forward) an effect's window. Several can be open at once, one per effect;
+        each closes by itself if its effect is removed. */
+    void showEffect (const juce::String& insertId);
+    ui::EffectView* findEffectView (const juce::String& insertId) const;
 
     /** Adds a track playing a sound in the sampler (and shows it). */
     void addSamplerTrack (const samplersound::Reference& sound, const juce::String& name, int rootKey, bool slide = false);
@@ -170,6 +176,13 @@ private:
     void importSamplerFiles (const juce::String& trackId, const juce::Array<juce::File>& files);
     void showAddMidiMenu();
     void movePadToOwnTrack (int pad);   // the drum editor's "Play it as notes..."
+    struct EffectWindow
+    {
+        std::unique_ptr<juce::DocumentWindow> window;
+        ui::EffectView* view = nullptr;
+    };
+    std::vector<EffectWindow> effectWindows;                 // effects' windows (close with the project)
+    void closeEffectWindow (const juce::String& insertId);
     std::unique_ptr<juce::DocumentWindow> drumWindow;        // the drum editor (closes with the project)
     ui::DrumEditor* drumEditor = nullptr;                    // inside drumWindow
     void openDrumWindow();

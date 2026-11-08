@@ -13,6 +13,7 @@ add_executable(aether_tests
     unit/DrumPatternTests.cpp
     unit/DrumSoundTests.cpp
     unit/DiagnosticsTests.cpp
+    unit/EffectSoundTests.cpp
     unit/ExportTests.cpp
     unit/GridTests.cpp
     unit/KeyboardPanelTests.cpp
@@ -22,6 +23,7 @@ add_executable(aether_tests
     unit/MixerEngineTests.cpp
     unit/MixerModelTests.cpp
     unit/MixerUiTests.cpp
+    unit/EffectViewTests.cpp
     unit/NoteEditTests.cpp
     unit/PerformanceTests.cpp
     unit/PianoRollTests.cpp
