@@ -246,8 +246,9 @@ dsp::SampleMap buildMap (const std::vector<sfz::Region>& regions, const std::vec
 
         if (r.loop && r.loopStart >= 0 && r.loopEnd > r.loopStart)
         {
+            // (Converting the rate can round the end a sample past the recording's end.)
             z.loopStart = toEngine (r.loopStart);
-            z.loopEnd = toEngine (r.loopEnd);
+            z.loopEnd = std::min<std::int64_t> (toEngine (r.loopEnd), data->samples.getNumSamples());
         }
 
         map.zones.push_back (z);

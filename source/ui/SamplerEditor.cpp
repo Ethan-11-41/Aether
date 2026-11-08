@@ -306,8 +306,8 @@ SamplerEditor::SamplerEditor (const Theme& t, Project& p, const juce::String& tr
         if (playNote && m.isNoteOnOrOff())
             playNote (m.getNoteNumber(), m.isNoteOn() ? (int) m.getVelocity() : 0, m.isNoteOn());
     });
-    keyboard->setHintTexts ("Play this instrument here while you change it: click the keys, or click the keyboard and use your "
-                            "computer keys (A W S E D F T G Y H U J K).",
+    keyboard->setHintTexts ("Play it here while you change it: click near the top of a key to play softly, near the bottom to "
+                            "play hard. Or click the keyboard and use your computer keys (A W S E D F T G Y H U J K).",
                             "Your computer keys play this instrument (octave from C{octave}), even while you turn the knobs.");
     addAndMakeVisible (*keyboard);
 

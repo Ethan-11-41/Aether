@@ -753,6 +753,57 @@ void ProjectView::showAddMidiMenu()
     menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&addMidiButton));
 }
 
+void ProjectView::movePadToOwnTrack (int pad)
+{
+    // The pad's sound in a sampler, at its own pitch on its own key, sliding between notes.
+    const auto drumTrack = drumEditor->getTrackId();
+    const auto reference = midi::instrumentOf (project, drumTrack)[dsp::drumkit::soundProperty (pad)].toString();
+    const auto name = dsp::drumkit::describeSound (reference);
+    samplersound::Reference sound;
+    int key = -1;
+
+    if (dsp::drumkit::isBuiltIn (reference))
+    {
+        sound = samplersound::drum (dsp::drumkit::builtInId (reference));
+        key = findDrumRootKey (sound.path);
+    }
+    else if (reference.isNotEmpty())
+    {
+        sound = samplersound::recording (reference);
+        key = findRootKey (ctx.audioFiles.getFormats(), ctx.session.getLocation().getFolder().getChildFile (reference));
+    }
+    else
+    {
+        return;
+    }
+
+    key = key >= 0 ? key : 36;
+    auto settings = samplerlibrary::suggestedSettings (sound, ctx.session.getLocation().getFolder());
+    settings["voiceMode"] = (float) dsp::sampler::slide;
+
+    const auto drumClip = drumEditor->getClipId();
+    const auto moved = edit::movePadToOwnTrack (project, drumTrack, pad, sound, name, key, settings, drumClip);
+
+    if (! moved.track.isValid())
+        return;
+
+    trackList.selectTrack (moved.track.getId());
+
+    // Straight to its notes, in the piano roll, around its own key.
+    const auto it = moved.clipFor.find (drumClip);
+    const auto clipId = it != moved.clipFor.end() ? it->second : (moved.clipFor.empty() ? juce::String() : moved.clipFor.begin()->second);
+
+    if (clipId.isEmpty())
+    {
+        showSampler (moved.track.getId());
+        return;
+    }
+
+    showPianoRoll (clipId);
+    if (pianoRoll != nullptr)
+        pianoRoll->scrollToPitch (key + 6);
+}
+
 void ProjectView::editNotes (const juce::String& clipId)
 {
     if (drumpattern::isDrumClip (project, clips::findClip (project, clipId)))
@@ -816,25 +867,8 @@ void ProjectView::openDrumWindow()
     };
     drumEditor->onPlayPadAsNotes = [safeThis] (int pad)
     {
-        if (safeThis == nullptr || safeThis->drumEditor == nullptr)
-            return;
-
-        // The pad's sound in a sampler, on its own track, at its own pitch on its own key.
-        const auto reference = midi::instrumentOf (safeThis->project, safeThis->drumEditor->getTrackId())[dsp::drumkit::soundProperty (pad)].toString();
-        const auto name = dsp::drumkit::describeSound (reference);
-
-        if (dsp::drumkit::isBuiltIn (reference))
-        {
-            const auto id = dsp::drumkit::builtInId (reference);
-            const auto key = findDrumRootKey (id);
-            safeThis->addSamplerTrack (samplersound::drum (id), name, key >= 0 ? key : 36, true);
-        }
-        else if (reference.isNotEmpty())
-        {
-            const auto file = safeThis->ctx.session.getLocation().getFolder().getChildFile (reference);
-            const auto key = findRootKey (safeThis->ctx.audioFiles.getFormats(), file);
-            safeThis->addSamplerTrack (samplersound::recording (reference), name, key >= 0 ? key : 36, true);
-        }
+        if (safeThis != nullptr && safeThis->drumEditor != nullptr)
+            safeThis->movePadToOwnTrack (pad);
     };
     drumEditor->onChooseSoundFile = [safeThis] (int pad)
     {

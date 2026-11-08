@@ -35,13 +35,27 @@ namespace
     constexpr int controlInterval = 16;     // pitch and glide are worked out every 16 samples
     constexpr int scratchSize = 1024;
 
-    /** 4-point Hermite interpolation between d[i] and d[i + 1] (indexes kept within the sound). */
-    inline float hermite (const float* d, std::int64_t i, float t, std::int64_t last) noexcept
+    /** Where to read sample `i`: past a loop's end it carries on from the loop's start (so the
+        interpolation is smooth across the loop point); otherwise kept within the sound. */
+    struct Reader
     {
-        const auto xm1 = d[std::max<std::int64_t> (i - 1, 0)];
-        const auto x0 = d[i];
-        const auto x1 = d[std::min (i + 1, last)];
-        const auto x2 = d[std::min (i + 2, last)];
+        std::int64_t last = 0, loopStart = -1, loopEnd = -1;
+
+        std::int64_t at (std::int64_t i) const noexcept
+        {
+            if (loopEnd > loopStart && loopStart >= 0 && i >= loopEnd)
+                i -= loopEnd - loopStart;
+            return std::clamp<std::int64_t> (i, 0, last);
+        }
+    };
+
+    /** 4-point Hermite interpolation between d[i] and the next sample. */
+    inline float hermite (const float* d, std::int64_t i, float t, const Reader& reader) noexcept
+    {
+        const auto xm1 = d[reader.at (i - 1)];
+        const auto x0 = d[reader.at (i)];
+        const auto x1 = d[reader.at (i + 1)];
+        const auto x2 = d[reader.at (i + 2)];
         const auto c = (x1 - xm1) * 0.5f;
         const auto v = x0 - x1;
         const auto w = c + v;
@@ -450,6 +464,7 @@ namespace
             const auto last = zone.lastSample() - 1;
             const auto loops = zone.loops();
             const auto loopLength = (double) (zone.loopEnd - zone.loopStart);
+            const Reader reader { last, loops ? zone.loopStart : -1, loops ? zone.loopEnd : -1 };
             const auto& s = settings;
 
             for (int i = 0; i < numSamples; ++i)
@@ -473,16 +488,21 @@ namespace
                     else       { v.letGo(); }
                 }
 
+                // A loop (held notes): back to its start when it reaches its end, which may be the
+                // very end of the recording. Without one, the note ends with the recording.
+                while (loops && v.position >= (double) zone.loopEnd)
+                    v.position -= loopLength;
+
                 const auto index = (std::int64_t) v.position;
-                if (index >= last)
+                if (! loops && index >= last)
                 {
                     v.active = false;
                     return;
                 }
 
                 const auto t = (float) (v.position - (double) index);
-                auto sl = hermite (l, index, t, last);
-                auto sr = stereo ? hermite (r, index, t, last) : sl;
+                auto sl = hermite (l, index, t, reader);
+                auto sr = stereo ? hermite (r, index, t, reader) : sl;
 
                 const auto env = (float) v.amp.next (s.attackStep, s.decayCoefficient, s.sustainLevel, s.releaseCoefficient) * v.fade;
 
@@ -496,8 +516,6 @@ namespace
                 scratchRight[(size_t) i] += sr * v.gainRight * env;
 
                 v.position += v.step;
-                if (loops && v.position >= (double) zone.loopEnd)
-                    v.position -= loopLength;
 
                 if (v.fadeStep > 0.0f)
                     v.fade -= v.fadeStep;

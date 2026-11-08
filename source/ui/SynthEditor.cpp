@@ -551,7 +551,8 @@ SynthEditor::SynthEditor (const Theme& t, Project& projectToEdit, const juce::St
         if (playNote && m.isNoteOnOrOff())
             playNote (m.getNoteNumber(), m.isNoteOn() ? (int) m.getVelocity() : 0, m.isNoteOn());
     });
-    keyboard->setHintTexts ("Play this sound here while you change it: click the keys, or click the keyboard and use your "
+    keyboard->setHintTexts ("Play this sound here while you change it: click the keys (near the top: softly, near the bottom: "
+                            "hard), or click the keyboard and use your "
                             "computer keys (A W S E D F T G Y H U J K).",
                             "Your computer keys play this sound (octave from C{octave}), even while you turn the knobs.");
     addAndMakeVisible (*keyboard);

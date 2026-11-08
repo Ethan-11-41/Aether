@@ -138,8 +138,8 @@ void KeyboardPanel::resized()
                 : ! focused && hintWithoutFocus.isNotEmpty() ? hintWithoutFocus
                 : focused ? "Your computer keyboard plays notes now (octave from C" + juce::String (octave)
                                 + "). Click anywhere else to use shortcuts again."
-                          : juce::String ("Notes go to the selected MIDI track. Click the keyboard to play it with your computer keys "
-                                          "(A W S E D F T G Y H U J K)."),
+                          : juce::String ("Notes go to the selected MIDI track. Click near the top of a key to play softly, near the "
+                                          "bottom to play hard. Click the keyboard to play it with your computer keys (A W S E D F T G Y H U J K)."),
                   juce::dontSendNotification);
     hint.setBounds (top);
 

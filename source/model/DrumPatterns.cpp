@@ -6,6 +6,7 @@
 #include "ClipEdits.h"
 #include "EditCommands.h"
 #include "NoteEdits.h"
+#include "SamplerSounds.h"
 #include "dsp/DrumKit.h"
 
 namespace aether
@@ -207,6 +208,74 @@ bool edit::setSwing (Project& project, const juce::String& clipId, double swing,
 
     clip.getState().setProperty (ids::swing, swing, &undo);
     return true;
+}
+
+edit::MovedPad edit::movePadToOwnTrack (Project& project, const juce::String& drumTrackId, int pad, const samplersound::Reference& sound,
+                                        const juce::String& name, int rootKey, const std::map<juce::String, float>& settings,
+                                        const juce::String& alsoForClip)
+{
+    MovedPad result;
+    const auto drumTrack = project.findTrack (drumTrackId);
+
+    if (drumTrack.getKind() != TrackKind::midi || ! juce::isPositiveAndBelow (pad, dsp::drums::numPads))
+        return result;
+
+    auto& undo = project.getUndoManager();
+    const auto displayName = name.isNotEmpty() ? name : samplersound::defaultName (sound);
+    undo.beginNewTransaction ("Move " + displayName + " to its own track");
+
+    result.track = edit::addTrack (project, TrackKind::midi, project.indexOfTrack (drumTrackId) + 1, false, displayName);
+    edit::setSamplerSound (project, result.track.getId(), sound, displayName, rootKey, settings, false);
+
+    const auto pitch = dsp::drums::noteForPad (pad);
+
+    for (const auto& clip : clips::clipsOnTrack (drumTrack.getState()))
+    {
+        if (! clip.isMidi())
+            continue;
+
+        // The pad's hits, in time order.
+        std::vector<juce::ValueTree> hits;
+        for (const auto& note : clip.getState())
+            if (note.hasType (ids::Note) && (int) note[ids::pitch] == pitch)
+                hits.push_back (note);
+
+        if (hits.empty() && clip.getId() != alsoForClip)
+            continue;
+
+        std::sort (hits.begin(), hits.end(), [] (const juce::ValueTree& a, const juce::ValueTree& b)
+        {
+            return (juce::int64) a[ids::tick] < (juce::int64) b[ids::tick];
+        });
+
+        // Each hit lasts until the next (the last until the pattern or the clip ends).
+        const auto end = clip.isLooping() ? clip.getPatternLength() : clip.getContentStart() + clip.getLengthTicks();
+        std::vector<NoteData> notes;
+
+        for (size_t i = 0; i < hits.size(); ++i)
+        {
+            const auto start = (Tick) (juce::int64) hits[i][ids::tick];
+            const auto until = i + 1 < hits.size() ? (Tick) (juce::int64) hits[i + 1][ids::tick] : end;
+            notes.push_back ({ juce::jlimit (0, 127, rootKey), (int) hits[i][ids::velocity], start, std::max<Tick> (1, until - start) });
+        }
+
+        const auto id = edit::addMidiClip (project, result.track.getId(), displayName, clip.getStart(), clip.getLengthTicks(), notes, false);
+        auto copy = clips::findClip (project, id).getState();
+
+        // In the same place, repeating the same way.
+        for (const auto& property : { ids::contentStart, ids::loop, ids::patternLength })
+            if (clip.getState().hasProperty (property))
+                copy.setProperty (property, clip.getState()[property], &undo);
+
+        // The hits leave the drum pattern.
+        auto state = clip.getState();
+        for (const auto& hit : hits)
+            state.removeChild (hit, &undo);
+
+        result.clipFor[clip.getId()] = id;
+    }
+
+    return result;
 }
 
 } // namespace aether

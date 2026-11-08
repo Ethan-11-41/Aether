@@ -4,7 +4,7 @@ An honest list of what works. Updated at the end of every milestone.
 
 **Legend:** ✅ Working · 🟡 Partial · 🧪 Stub/placeholder · ⬜ Not started
 
-Current version: **0.13.0** (Milestone 12: the sampler and recorded instruments)
+Current version: **0.13.1** (Milestone 12: the sampler and recorded instruments, with fixes from testing)
 
 ## Milestone 0: skeleton and build pipeline
 
@@ -202,7 +202,8 @@ Current version: **0.13.0** (Milestone 12: the sampler and recorded instruments)
 | 28 recorded instruments in the installer (pianos, strings, woodwinds, brass, mallets, harp, organ) | ✅ | Public-domain (CC0) recordings by Versilian Studios. A grand or upright piano takes about 130-145 MB of memory while a track uses it; most others 10-80 MB. Not there: guitars, bass guitar, electric pianos and choirs, which aren't in the public-domain libraries Aether uses (your own recordings or SFZ instruments can fill the gap). |
 | Held notes on strings, winds, brass and organ last as long as the key is held | ✅ | Loops made by the pack builder; a faint repeat may be audible on some notes every two seconds. Tell me which. |
 | Your own sounds: one recording (pitch found automatically), several or a folder (laid out by note names), SFZ instruments | ✅ | SFZ: the common opcodes (keys, velocities, round robin, tuning, volume, pan, loops, envelope). Release samples, crossfades and filters in SFZ files are left out. |
-| 808 bass lines from drum pads, with Slide | ✅ | |
+| 808 bass lines from drum pads, with Slide | ✅ | Since 0.13.1 "Play it as notes..." moves the pad's hits onto the new track and opens the piano roll. |
+| Recordings played higher or lower are faster or slower (and shorter or longer) | ✅ (by design) | That's how samplers (and 808s) work. Changing pitch without changing speed is time-stretching, planned for M19. |
 | Recordings let go when no track uses them | ✅ | After 20 seconds. |
 | Editing zones by hand (dragging key ranges) | ⬜ | Recordings are laid out by their names or the SFZ file. Tell me if you need it. |
 | Streaming long recordings from disk | ⬜ | Everything is held in memory (see above). |
