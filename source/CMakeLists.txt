@@ -9,6 +9,8 @@ add_library(aether_core STATIC
     devices/LatencyInfo.h
     dsp/DrumKit.cpp
     dsp/DrumKit.h
+    dsp/PitchDetect.cpp
+    dsp/PitchDetect.h
     dsp/Sampler.cpp
     dsp/Sampler.h
     dsp/SampleMap.h
@@ -57,6 +59,10 @@ add_library(aether_core STATIC
     io/AppFolders.h
     io/AppLog.cpp
     io/AppLog.h
+    io/SampleMapping.cpp
+    io/SampleMapping.h
+    io/SfzReader.cpp
+    io/SfzReader.h
     io/AudioImport.cpp
     io/AudioImport.h
     io/Autosaver.cpp
