@@ -151,10 +151,10 @@ TEST_CASE ("The effect editor has a control for every setting", "[ui][mixer][eff
     const auto echo = edit::addInsert (f.project, f.ids[0], "delay");
 
     ui::EffectEditor reverbEditor (f.theme, f.project, reverb);
-    CHECK (reverbEditor.getNumKnobs() == 4);
+    CHECK (reverbEditor.getNumKnobs() == 6);   // size, damping, width, mix, pre-delay, low cut
 
     ui::EffectEditor delayEditor (f.theme, f.project, echo);
-    CHECK (delayEditor.getNumKnobs() == 3);   // plus two choice boxes: Time and Ping-pong
+    CHECK (delayEditor.getNumKnobs() == 4);   // plus two choice boxes: Time and Ping-pong
     CHECK (delayEditor.getWidth() > 0);
 
     // The editor follows undo without trouble, and survives its effect being removed.

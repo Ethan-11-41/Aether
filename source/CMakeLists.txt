@@ -9,6 +9,15 @@ add_library(aether_core STATIC
     devices/LatencyInfo.h
     dsp/DrumKit.cpp
     dsp/DrumKit.h
+    dsp/Biquad.h
+    dsp/ColourEffects.cpp
+    dsp/ColourEffects.h
+    dsp/Dynamics.cpp
+    dsp/Dynamics.h
+    dsp/Eq.cpp
+    dsp/Eq.h
+    dsp/Presets.h
+    dsp/SpaceEffects.h
     dsp/PitchDetect.cpp
     dsp/PitchDetect.h
     dsp/Sampler.cpp

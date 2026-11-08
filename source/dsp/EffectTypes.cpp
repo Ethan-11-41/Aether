@@ -1,6 +1,10 @@
 // Aether - Copyright (C) 2026 The Aether authors. Licensed under the GNU AGPLv3 or later.
 #include "EffectTypes.h"
 
+#include "ColourEffects.h"
+#include "Dynamics.h"
+#include "Eq.h"
+#include "SpaceEffects.h"
 #include "DrumKit.h"
 #include "Sampler.h"
 #include "Synth.h"
@@ -66,31 +70,37 @@ const std::vector<EffectType>& effectTypes()
     {
         std::vector<EffectType> list;
 
-        EffectType reverb;
-        reverb.id = "reverb";
-        reverb.name = "Reverb";
-        reverb.description = "Adds the sound of a room. Temporary simple version: a full reverb comes in M13.";
-        reverb.parameters = {
-            { "size",    "Size",    0.0f, 100.0f, 50.0f,  "%", {}, false },
-            { "damping", "Damping", 0.0f, 100.0f, 50.0f,  "%", {}, false },
-            { "width",   "Width",   0.0f, 100.0f, 100.0f, "%", {}, false },
-            { "mix",     "Mix",     0.0f, 100.0f, 30.0f,  "%", {}, false },
+        // The effects (Milestone 13), in the order a chain usually has them.
+        auto effect = [&list] (const juce::String& id, const juce::String& name, const juce::String& description,
+                               std::vector<EffectParameter> parameters, std::vector<EffectPreset> presets)
+        {
+            EffectType t;
+            t.id = id;
+            t.name = name;
+            t.description = description;
+            t.parameters = std::move (parameters);
+            t.presets = std::move (presets);
+            list.push_back (std::move (t));
         };
-        list.push_back (reverb);
 
-        EffectType echo;
-        echo.id = "delay";
-        echo.name = "Delay";
-        echo.description = "Echoes in time with the tempo. Temporary simple version: a full delay comes in M13.";
-        echo.parameters = {
-            { "time",     "Time",      0.0f, 10.0f, 5.0f, {},
-              { "1/32", "1/16 T", "1/16", "1/8 T", "1/16 D", "1/8", "1/4 T", "1/8 D", "1/4", "1/4 D", "1/2" }, false },
-            { "feedback", "Feedback",  0.0f, 90.0f, 35.0f,     "%",  {}, false },
-            { "tone",     "Tone",      500.0f, 20000.0f, 8000.0f, "Hz", {}, true },
-            { "pingPong", "Ping-pong", 0.0f, 1.0f, 0.0f, {}, { "Off", "On" }, false },
-            { "mix",      "Mix",       0.0f, 100.0f, 25.0f,    "%",  {}, false },
-        };
-        list.push_back (echo);
+        effect (eq::typeId, "EQ", "Turns frequency ranges up or down: less mud, more clarity, more or less bass and treble.",
+                eq::parameters(), eq::presets());
+        effect (compressor::typeId, "Compressor", "Turns the loud parts down so it sits evenly in the mix, then brings it all back up.",
+                compressor::parameters(), compressor::presets());
+        effect (deesser::typeId, "De-esser", "Tames harsh \"s\" and \"t\" sounds in a voice.",
+                deesser::parameters(), deesser::presets());
+        effect (gate::typeId, "Gate", "Silences what's quieter than the threshold: room noise and breaths between phrases.",
+                gate::parameters(), gate::presets());
+        effect (saturation::typeId, "Saturation", "Warmth and grit, from a gentle tape glow to fuzz.",
+                saturation::parameters(), saturation::presets());
+        effect (filter::typeId, "Filter", "Makes it darker or thinner, or sweeps by itself for movement.",
+                filter::parameters(), filter::presets());
+        effect (chorus::typeId, "Chorus", "A wavering copy mixed in: wider, fuller, shimmering.",
+                chorus::parameters(), chorus::presets());
+        effect (echo::typeId, "Delay", "Echoes in time with the tempo.", echo::parameters(), echo::presets());
+        effect (reverb::typeId, "Reverb", "The sound of a room, from a small room to a big hall.", reverb::parameters(), reverb::presets());
+        effect (limiter::typeId, "Limiter", "A ceiling nothing goes above: makes the whole song louder without clipping. Last in the master.",
+                limiter::parameters(), limiter::presets());
 
         EffectType synth;
         synth.id = "synth";

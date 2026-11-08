@@ -36,6 +36,11 @@ public:
     /** Processes a stereo signal in place. */
     virtual void process (float* left, float* right, int numSamples,
                           const EffectParameterValues& parameters, const EffectContext& context) noexcept AETHER_NONBLOCKING = 0;
+
+    /** What the effect is doing right now, for its window (safe to call from the UI thread):
+        for the compressor, limiter and de-esser, how much it's turning down (dB, 0 or more);
+        for the gate, how open it is (0 to 1). Others return 0. */
+    virtual float getMeter() const noexcept   { return 0.0f; }
 };
 
 /** Makes an effect of a type from effectTypes() (e.g. "reverb"), or null for an unknown type.

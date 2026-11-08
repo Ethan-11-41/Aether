@@ -13,6 +13,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "dsp/DrumKit.h"
+#include "dsp/Effect.h"
 #include "dsp/Sampler.h"
 #include "dsp/Synth.h"
 #include "engine/AudioEngine.h"
@@ -462,6 +463,52 @@ TEST_CASE ("The sampler is real-time safe in every voice mode", "[realtime]")
                                  block % 37 == 0 ? &none : &sounds);
         }
 
+        CHECK (std::all_of (left.begin(), left.end(), [] (float x) { return std::isfinite (x); }));
+    }
+}
+
+TEST_CASE ("Every effect is real-time safe with every preset, while its settings move", "[realtime]")
+{
+    using namespace aether::dsp;
+
+    for (const auto& type : effectTypes())
+    {
+        if (type.isInstrument)
+            continue;
+
+        auto effect = createEffect (type.id);
+        REQUIRE (effect != nullptr);
+        effect->prepare (48000.0, 2048);
+
+        std::vector<float> left (2048), right (2048);
+        EffectContext context;
+        context.sampleRate = 48000.0;
+
+        for (size_t p = 0; p < type.presets.size(); ++p)
+        {
+            EffectParameterValues values {};
+            for (size_t i = 0; i < type.presets[p].values.size(); ++i)
+                values[i] = type.presets[p].values[i];
+
+            for (int block = 0; block < 40; ++block)
+            {
+                // Something to work on, loud and quiet; settings moving between blocks.
+                for (size_t i = 0; i < left.size(); ++i)
+                {
+                    left[i] = (float) std::sin (0.01 * (double) (i + (size_t) block * 7)) * (block % 3 == 0 ? 1.5f : 0.05f);
+                    right[i] = -left[i];
+                }
+
+                const auto& parameter = type.parameters[(size_t) block % type.parameters.size()];
+                values[(size_t) block % type.parameters.size()] = parameter.clamp (parameter.minimum + (parameter.maximum - parameter.minimum)
+                                                                                                       * (float) ((block * 37) % 100) / 100.0f);
+                context.bpm = 60.0 + block * 3.0;
+                effect->process (left.data(), right.data(), 1 + (block * 131) % 2048, values, context);
+                juce::ignoreUnused (effect->getMeter());
+            }
+        }
+
+        INFO (type.name);
         CHECK (std::all_of (left.begin(), left.end(), [] (float x) { return std::isfinite (x); }));
     }
 }
