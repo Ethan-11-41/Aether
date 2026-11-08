@@ -169,6 +169,7 @@ private:
     void chooseSamplerFiles (const juce::String& trackId);
     void importSamplerFiles (const juce::String& trackId, const juce::Array<juce::File>& files);
     void showAddMidiMenu();
+    void movePadToOwnTrack (int pad);   // the drum editor's "Play it as notes..."
     std::unique_ptr<juce::DocumentWindow> drumWindow;        // the drum editor (closes with the project)
     ui::DrumEditor* drumEditor = nullptr;                    // inside drumWindow
     void openDrumWindow();

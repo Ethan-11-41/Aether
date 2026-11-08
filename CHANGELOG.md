@@ -6,6 +6,26 @@ follow [Semantic Versioning](https://semver.org/) (0.x while Aether is in early 
 
 ## [Unreleased]
 
+## [0.13.1] - 2026-11-08
+
+From your M12 testing.
+
+### Fixed
+- **Held notes crackled and stopped after a moment** on strings, woodwinds, brass and organ (any
+  instrument that holds a note): the sampler ended the note when it reached the end of its
+  recording, a moment before it should have jumped back to repeat the loop. Held notes now last as
+  long as you hold the key. A new test plays held chords on the real instruments for 8 seconds.
+
+### Changed
+- **Play it as notes...** (drum editor) now **moves** the pad onto its own track: the hits leave the
+  drum pattern and become notes on the new track (in a pattern that repeats the same way, each note
+  lasting until the next), and the **piano roll opens** on them at the 808's octave. Drag notes up
+  and down to make the bass line; make a note overlap the next one to slide. One Ctrl+Z puts
+  everything back.
+- The on-screen keyboards now say what they could already do: click near the top of a key to play
+  softly, near the bottom to play hard (so you can hear the instruments' soft and loud recordings
+  without a MIDI keyboard).
+
 ## [0.13.0] - 2026-11-08 - Milestone 12: the sampler and recorded instruments
 
 ### Added

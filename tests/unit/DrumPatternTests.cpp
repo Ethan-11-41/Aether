@@ -11,6 +11,7 @@
 #include "model/DrumPatterns.h"
 #include "model/EditCommands.h"
 #include "model/NoteEdits.h"
+#include "model/SamplerSounds.h"
 
 using namespace aether;
 
@@ -197,4 +198,51 @@ TEST_CASE ("An audio file can be put on a drum pad", "[drums][io]")
     text.replaceWithText ("hello");
     CHECK (importPadSound (f.project, location, formats, text, f.track, 1).isNotEmpty());
     CHECK (midi::instrumentOf (f.project, f.track)[dsp::drumkit::soundProperty (1)].toString().startsWith ("builtin:"));
+}
+
+TEST_CASE ("A drum pad moves to a track of its own, as notes (an 808 bass line)", "[drums][model]")
+{
+    Fixture f;   // a one-bar pattern at bar 2 on a drum track
+    edit::setStep (f.project, f.clip, kick, 0, 110);
+    edit::setStep (f.project, f.clip, kick, 6, 90);
+    edit::setStep (f.project, f.clip, kick, 10, 100);
+    edit::setStep (f.project, f.clip, snare, 4, 100);
+    edit::trimClipEnd (f.project, f.clip, 20 * q);   // repeated over four bars
+    const auto empty = edit::addPattern (f.project, f.track, 24 * q, 4 * q);   // a pattern without kicks
+    f.project.getUndoManager().clearUndoHistory();
+    const auto before = f.project.getState().toXmlString();
+
+    const auto moved = edit::movePadToOwnTrack (f.project, f.track, kick, samplersound::drum ("kick-808"), "808", 31,
+                                                { { "voiceMode", 2.0f } });
+    REQUIRE (moved.track.isValid());
+    CHECK (f.project.getUndoManager().getUndoDescription() == "Move 808 to its own track");
+    CHECK (f.project.indexOfTrack (moved.track.getId()) == f.project.indexOfTrack (f.track) + 1);
+    CHECK (samplersound::of (f.project, moved.track.getId()) == samplersound::drum ("kick-808"));
+
+    // The hits are notes on the 808's own key, each until the next, in a clip that repeats the same way.
+    REQUIRE (moved.clipFor.count (f.clip) == 1);
+    CHECK (moved.clipFor.count (empty) == 0);
+    const auto clip = clips::findClip (f.project, moved.clipFor.at (f.clip));
+    CHECK (clip.getStart() == f.c().getStart());
+    CHECK (clip.getLengthTicks() == f.c().getLengthTicks());
+    CHECK (clip.isLooping());
+    CHECK (clip.getPatternLength() == 4 * q);
+
+    const auto notes = midi::notesOf (clip);
+    REQUIRE (notes.size() == 3);
+    CHECK (notes[0] == NoteData { 31, 110, 0, 6 * sixteenth });
+    CHECK (notes[1] == NoteData { 31, 90, 6 * sixteenth, 4 * sixteenth });
+    CHECK (notes[2] == NoteData { 31, 100, 10 * sixteenth, 6 * sixteenth });
+    CHECK (midi::audibleNotes (clip).size() == 12);   // four bars of it
+
+    // The kicks have left the drum pattern; the snare stays.
+    CHECK (drumpattern::stepVelocity (f.c(), kick, 0) == 0);
+    CHECK (drumpattern::stepVelocity (f.c(), snare, 4) == 100);
+
+    // Asked for the empty pattern too: an empty clip there, to draw in.
+    f.project.getUndoManager().undo();
+    CHECK (f.project.getState().toXmlString() == before);
+    const auto withEmpty = edit::movePadToOwnTrack (f.project, f.track, kick, samplersound::drum ("kick-808"), "808", 31, {}, empty);
+    REQUIRE (withEmpty.clipFor.count (empty) == 1);
+    CHECK (midi::notesOf (clips::findClip (f.project, withEmpty.clipFor.at (empty))).empty());
 }

@@ -1,6 +1,6 @@
 # Milestone 12: what to test
 
-About 30 minutes. Install **Aether-Setup-0.13.0.exe** from the newest green run on the
+About 30 minutes. Install **Aether-Setup-0.13.1.exe** (0.13.1 fixes held notes stopping, and makes "Play it as notes..." move the 808 onto its own track) from the newest green run on the
 [Actions page](https://github.com/Ethan-11-41/aether/actions) (under **Artifacts**). It's bigger
 than before (about 63 MB) because it now includes the recorded instruments. As before, if Windows
 blocks the download, check Windows Security > Protection history (see 0.12.0).
@@ -14,9 +14,9 @@ Headphones or your monitor speakers, at a comfortable volume.
 2. Choose **Pianos > Grand piano**. **You should see** a new track called "Grand piano" and the
    **Sampler** window. The status line says "Loading: ... of 66 recordings" for a second or two,
    then "66 recordings, ready to play".
-3. Play the keyboard at the bottom of the window (or your computer keys, or the Kawai). Play
-   softly and hard: the piano changes tone, not just volume. Hold the sustain pedal (Kawai) for
-   long chords.
+3. Play the keyboard at the bottom of the window (or your computer keys, or the Kawai). **Click
+   near the top of a key to play softly, near the bottom to play hard**: the piano changes tone,
+   not just volume. (The computer keys always play at the same strength.)
 4. Use **>** and **<** next to the instrument's name to go through all 28. Listen especially to:
    **Upright piano**, **String ensemble**, **Violins**, **Pizzicato strings**, **Flute**,
    **Brass section**, **French horn**, **Marimba**, **Vibraphone**, **Harp**, **Kalimba**,
@@ -35,15 +35,17 @@ Headphones or your monitor speakers, at a comfortable volume.
 
 ## 3. 808 bass lines
 
-1. Open a drum pattern (double-click it), click the **Kick 808** pad, then **Play it as notes...**
-   (under its sound). **You should see** a new track "Kick 808" and its sampler window, with
-   **Voices: Slide** and "At its own pitch on G1".
-2. Play a few low notes (C1 to C2): it's an 808 bass. Hold one note and play another before
-   letting go: **the pitch glides** to the new note without a new hit. Play notes separately: each
-   is a fresh hit.
-3. In the piano roll, draw a bass line where some notes overlap the next one: the overlapping ones
-   slide. **Glide** sets how long a slide takes.
-4. Export the song (Ctrl+E): the 808s are in it at a steady level.
+1. Open a drum pattern with some 808 kicks (double-click it), click the **Kick 808** pad, then
+   **Play it as notes...** (under its sound). **You should see**:
+   - a new track "Kick 808" under the drum track, with the kicks' rhythm as notes (the drum pattern
+     no longer has them, so they aren't heard twice), repeating like the drum pattern;
+   - the **piano roll** open on those notes, around G1.
+2. Play the song: it sounds as before. Now drag some notes up or down: **that's your bass line**.
+3. **Slides:** make a note longer so it overlaps the next one: the pitch glides into the next note
+   instead of hitting again. **Glide** (in the track's sampler window: click its MIDI badge) sets how
+   long a slide takes.
+4. **Ctrl+Z** once puts everything back the way it was.
+5. Export the song (Ctrl+E): the 808s are in it at a steady level.
 
 ## 4. Your own sounds
 

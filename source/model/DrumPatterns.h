@@ -1,7 +1,10 @@
 // Aether - Copyright (C) 2026 The Aether authors. Licensed under the GNU AGPLv3 or later.
 #pragma once
 
+#include <map>
+
 #include "MidiClips.h"
+#include "SamplerSounds.h"
 
 /** Drum patterns (Milestone 11): a MIDI clip on a drum track, edited as a grid of steps.
 
@@ -59,6 +62,21 @@ namespace edit
 
     /** Swing (0 to 1): moves the notes on every second step. */
     bool setSwing (Project& project, const juce::String& clipId, double swing, bool newUndoStep = true);
+
+    struct MovedPad
+    {
+        Track track;                                      // the new track
+        std::map<juce::String, juce::String> clipFor;     // drum clip id -> the new clip with its hits
+    };
+
+    /** Moves a drum pad onto a track of its own, as notes (how an 808 becomes a bass line), in one
+        undo step: a sampler track playing `sound` (with `settings`) goes below the drum track; for
+        every drum clip with hits on that pad (and for `alsoForClip`, even without), a clip in the
+        same place, repeating the same way, gets those hits as notes on `rootKey` (each lasting
+        until the next, so it sounds as it did); and the hits leave the drum clips. */
+    MovedPad movePadToOwnTrack (Project& project, const juce::String& drumTrackId, int pad, const samplersound::Reference& sound,
+                                const juce::String& name, int rootKey, const std::map<juce::String, float>& settings,
+                                const juce::String& alsoForClip = {});
 }
 
 } // namespace aether

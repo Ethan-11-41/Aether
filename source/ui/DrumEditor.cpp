@@ -513,8 +513,9 @@ DrumEditor::DrumEditor (const Theme& t, Project& p, AudioEngine& e)
                             "(you can also drop a file on the pad).");
     soundButton.onClick = [this] { showSoundMenu (selectedPad); };
     addAndMakeVisible (soundButton);
-    asNotesButton.setTooltip ("Make a new track that plays this pad's sound as notes across the keyboard: an 808 bass line, "
-                              "a melody from a tom... It slides between notes that overlap.");
+    asNotesButton.setTooltip ("Moves this pad onto a track of its own, where each hit is a note you can move up and down in "
+                              "the piano roll: an 808 bass line, a melody from a tom... Notes that overlap slide into each other. "
+                              "The beat sounds the same until you change it; Ctrl+Z puts everything back.");
     asNotesButton.onClick = [this] { if (onPlayPadAsNotes) onPlayPadAsNotes (selectedPad); };
     addAndMakeVisible (asNotesButton);
 

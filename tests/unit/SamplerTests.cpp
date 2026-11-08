@@ -318,3 +318,31 @@ TEST_CASE ("The tone control darkens the sound; another map stops the notes", "[
     h.run (512);
     CHECK (h.instrument->getNumSounding() == 0);
 }
+
+TEST_CASE ("A loop that runs to the very end of its recording holds the note smoothly", "[sampler]")
+{
+    // A 480 Hz sine (100 samples a cycle) whose loop is whole cycles up to its last sample, as
+    // Aether's recorded instruments are made: held for 3 seconds, it never stops or jumps.
+    const auto tone = sine (480.0, 0.5);
+    Fixture f;
+    auto& z = f.addZone (tone, 60);
+    z.loopStart = 4800;
+    z.loopEnd = tone.getNumSamples();   // the very end
+
+    const auto out = f.run (144000, { Fixture::on (60) });
+    CHECK (f.instrument->getNumSounding() == 1);
+    CHECK (*std::max_element (out.begin() + 140000, out.end()) > 0.45f);
+
+    float biggestStep = 0.0f;
+    for (size_t i = 1000; i < out.size(); ++i)
+        biggestStep = std::max (biggestStep, std::abs (out[i] - out[i - 1]));
+    CHECK (biggestStep < 0.033f);   // a 480 Hz sine at 0.5 moves up to 0.0314 per sample; a click would be far more
+
+    // Played higher (faster through the recording), the same.
+    Fixture g;
+    auto& y = g.addZone (tone, 60);
+    y.loopStart = 4800;
+    y.loopEnd = tone.getNumSamples();
+    const auto higher = g.run (144000, { Fixture::on (67) });
+    CHECK (*std::max_element (higher.begin() + 140000, higher.end()) > 0.45f);
+}

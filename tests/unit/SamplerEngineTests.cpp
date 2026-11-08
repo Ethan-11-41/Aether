@@ -373,3 +373,58 @@ TEST_CASE ("Recordings no track uses any more are let go after a while", "[sampl
     cache.waitUntilIdle();
     CHECK (cache.getNumEntries() == 2);
 }
+
+TEST_CASE ("Held notes on the recorded strings, woodwinds and organ keep sounding", "[sampler][pack]")
+{
+    const auto folder = samplerlibrary::builtInFolder();
+    if (! folder.getChildFile ("library.json").existsAsFile())
+        SKIP ("The sound pack isn't here (set AETHER_SOUNDS to its folder to check it).");
+
+    for (const auto engineRate : { 44100.0, 48000.0 })
+    {
+        for (const auto* name : { "Strings/String ensemble", "Woodwinds/Oboe", "Brass/Brass section", "Mallets harp organ/Pipe organ" })
+        {
+            INFO (name << " at " << engineRate);
+            Project project;
+            const auto track = edit::addTrack (project, TrackKind::midi).getId();
+            const auto sound = samplersound::builtIn (name);
+            edit::setSamplerSound (project, track, sound, {}, -1, samplerlibrary::suggestedSettings (sound, {}));
+            edit::addMidiClip (project, track, "Chord", 0, 40 * q, { { 60, 100, 0, 36 * q }, { 64, 100, 0, 36 * q }, { 67, 100, 0, 36 * q } });
+
+            AudioFileCache cache;
+            cache.setTargetSampleRate (engineRate);
+            const AudioResolver resolver = [&] (const juce::String& path) { return cache.getAudio (juce::File (path)); };
+            buildTimelineSnapshot (project, engineRate, resolver);   // starts the loading
+            cache.waitUntilIdle();
+
+            AudioEngine engine;
+            MixerResources resources;
+            engine.prepare (engineRate, 512);
+            engine.setTimeline (buildTimelineSnapshot (project, engineRate, resolver, &resources));
+            engine.play();
+
+            // Eight seconds of a held chord: the last second is about as loud as the second one.
+            std::vector<float> l, bl (512), br (512);
+            for (int done = 0; done < (int) (engineRate * 8.0); done += 512)
+            {
+                float* outputs[] = { bl.data(), br.data() };
+                engine.process (nullptr, 0, outputs, 2, 512);
+                l.insert (l.end(), bl.begin(), bl.end());
+            }
+            engine.collectGarbage();
+
+            auto rms = [&] (double from, double to)
+            {
+                double sum = 0.0;
+                const auto a = (size_t) (from * engineRate), b = (size_t) (to * engineRate);
+                for (auto i = a; i < b; ++i)
+                    sum += (double) l[i] * l[i];
+                return std::sqrt (sum / (double) (b - a));
+            };
+
+            const auto early = rms (1.0, 2.0), late = rms (7.0, 8.0);
+            CHECK (early > 0.005);
+            CHECK (late > early * 0.4);
+        }
+    }
+}
