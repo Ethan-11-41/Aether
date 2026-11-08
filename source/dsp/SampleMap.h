@@ -45,6 +45,14 @@ struct SampleZone
     }
 
     bool loops() const noexcept   { return loopStart >= 0 && loopEnd > loopStart + 16 && loopEnd <= lastSample(); }
+
+    bool operator== (const SampleZone& o) const noexcept
+    {
+        return sample == o.sample && lowKey == o.lowKey && highKey == o.highKey && lowVelocity == o.lowVelocity
+            && highVelocity == o.highVelocity && rootKey == o.rootKey && tune == o.tune && gain == o.gain && pan == o.pan
+            && sequenceLength == o.sequenceLength && sequencePosition == o.sequencePosition && start == o.start
+            && end == o.end && loopStart == o.loopStart && loopEnd == o.loopEnd && oneShot == o.oneShot;
+    }
 };
 
 struct SampleMap

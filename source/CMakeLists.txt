@@ -26,6 +26,8 @@ add_library(aether_core STATIC
     dsp/SynthPresets.cpp
     dsp/EffectTypes.cpp
     dsp/EffectTypes.h
+    engine/SamplerLibrary.cpp
+    engine/SamplerLibrary.h
     engine/AudioEngine.cpp
     engine/AudioFileCache.cpp
     engine/AudioFileCache.h
@@ -89,6 +91,8 @@ add_library(aether_core STATIC
     model/ClipEdits.h
     model/DrumPatterns.cpp
     model/DrumPatterns.h
+    model/SamplerSounds.cpp
+    model/SamplerSounds.h
     model/EditCommands.cpp
     model/EditCommands.h
     model/Ids.h

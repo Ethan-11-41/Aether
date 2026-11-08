@@ -6,6 +6,7 @@
 #include <set>
 
 #include "AudioEngine.h"
+#include "SamplerLibrary.h"
 #include "TimelineSync.h"
 #include "dsp/DrumKit.h"
 #include "io/AudioImport.h"
@@ -62,6 +63,10 @@ juce::Result renderProject (const Project& project, const ProjectLocation& locat
         if (! clip.isMidi())
             cache.getAudio (resolveClipFile (location, clip.getFile()));
 
+    // ...the samplers' recordings...
+    for (const auto& file : samplerlibrary::filesUsed (project, location.getFolder()))
+        cache.getAudio (file);
+
     // ...and the drum pads' sounds that come from files.
     for (int t = 0; t < project.getNumTracks(); ++t)
     {
@@ -81,7 +86,7 @@ juce::Result renderProject (const Project& project, const ProjectLocation& locat
     auto snapshot = buildTimelineSnapshot (project, sampleRate, [&cache, &location] (const juce::String& file)
     {
         return cache.getAudio (resolveClipFile (location, file));
-    }, &resources);
+    }, &resources, {}, {}, location.getFolder());
 
     snapshot->loopEnabled = false;   // play straight through
 

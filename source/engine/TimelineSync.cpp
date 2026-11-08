@@ -5,6 +5,8 @@
 #include <cmath>
 
 #include "DrumSoundCache.h"
+#include "dsp/Sampler.h"
+#include "SamplerLibrary.h"
 #include "MixerRouting.h"
 #include "dsp/DrumKit.h"
 #include "io/AudioImport.h"
@@ -89,7 +91,8 @@ namespace
 namespace
 {
     void addMidi (TrackPlayback& channel, const Project& project, const TimelineSnapshot& snapshot, const Track& track,
-                  double sampleRate, MixerResources& resources, const juce::String& focusedTrackId, const AudioResolver& resolver)
+                  double sampleRate, MixerResources& resources, const juce::String& focusedTrackId, const AudioResolver& resolver,
+                  const juce::File& projectFolder)
     {
         // The instrument, with its settings.
         const auto instrument = midi::instrumentOf (project, track.getId());
@@ -125,6 +128,29 @@ namespace
             }
         }
 
+        // A sampler's recordings: built-in drum sounds rendered at the engine's rate, files from the
+        // audio file cache (zones whose audio isn't loaded yet are left out until it is).
+        if (typeId == dsp::sampler::typeId)
+        {
+            const auto sound = samplersound::of (project, track.getId());
+            const auto regions = samplerlibrary::regionsOf (sound, samplersound::rootKeyOf (project, track.getId()), projectFolder);
+
+            for (const auto& r : regions)
+            {
+                std::shared_ptr<const AudioData> data;
+
+                if (r.sample.startsWith ("drum:"))
+                    data = builtInDrumSound (r.sample.substring (5), sampleRate);
+                else if (resolver)
+                    data = resolver (r.sample);
+
+                channel.sampleAudio.push_back (data);
+            }
+
+            channel.sampleMap = resources.sampleMap (instrument[ids::id].toString(), samplerlibrary::buildMap (regions, channel.sampleAudio));
+            channel.sounds.map = channel.sampleMap.get();
+        }
+
         // Every note, in samples (worked out through the tempo map, so notes follow tempo changes).
         auto toSample = [&snapshot, sampleRate] (Tick tick) { return (std::int64_t) std::llround (snapshot.tempo.ticksToSeconds (tick) * sampleRate); };
 
@@ -154,7 +180,7 @@ namespace
 
 std::unique_ptr<TimelineSnapshot> buildTimelineSnapshot (const Project& project, double sampleRate, const AudioResolver& resolver,
                                                          MixerResources* resources, const juce::String& focusedTrackId,
-                                                         const PartLoop& partLoop)
+                                                         const PartLoop& partLoop, const juce::File& projectFolder)
 {
     auto snapshot = std::make_unique<TimelineSnapshot>();
     snapshot->tempo = timeline::buildTempoMap (project);
@@ -268,7 +294,7 @@ std::unique_ptr<TimelineSnapshot> buildTimelineSnapshot (const Project& project,
             addClips (channel, *snapshot, track, sampleRate, resolver);
 
         if (track.getKind() == TrackKind::midi)
-            addMidi (channel, project, *snapshot, track, sampleRate, res, focusedTrackId, resolver);
+            addMidi (channel, project, *snapshot, track, sampleRate, res, focusedTrackId, resolver, projectFolder);
 
         snapshot->tracks.push_back (std::move (channel));
     }
@@ -332,7 +358,8 @@ void TimelineSync::update()
         return cache.getAudio (resolveClipFile (where, relativePath));
     };
 
-    auto snapshot = buildTimelineSnapshot (project, cache.getTargetSampleRate(), resolver, &mixerResources, focusedTrack, partLoop);
+    auto snapshot = buildTimelineSnapshot (project, cache.getTargetSampleRate(), resolver, &mixerResources, focusedTrack, partLoop,
+                                           where.getFolder());
     snapshot->recordRing = recordRing;
     engine.setTimeline (std::move (snapshot));
 }

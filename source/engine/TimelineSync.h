@@ -41,12 +41,14 @@ struct PartLoop
 
     `resources` keeps the mixer's working objects (effect tails, fades) from one build to the
     next; without it, everything starts afresh. With no sample rate, only the tempo and loop are
-    filled in. `partLoop`, if active, replaces the loop (and the solos), see PartLoop. */
+    filled in. `partLoop`, if active, replaces the loop (and the solos), see PartLoop.
+    `projectFolder` is where samplers' SFZ files with relative paths are found. */
 std::unique_ptr<TimelineSnapshot> buildTimelineSnapshot (const Project& project, double sampleRate = 0.0,
                                                          const AudioResolver& resolver = {},
                                                          MixerResources* resources = nullptr,
                                                          const juce::String& focusedTrackId = {},
-                                                         const PartLoop& partLoop = {});
+                                                         const PartLoop& partLoop = {},
+                                                         const juce::File& projectFolder = {});
 
 /** Keeps the audio engine up to date with a project: whenever the tempo, loop or clips change,
     or an audio file finishes loading, a new TimelineSnapshot is built and handed to the engine.
