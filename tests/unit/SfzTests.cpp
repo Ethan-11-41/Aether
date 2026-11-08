@@ -126,13 +126,13 @@ TEST_CASE ("Recordings are laid out over the keyboard by their names", "[sfz]")
     const auto instrument = samplemapping::mapByNames (files, folder);
     REQUIRE (instrument.regions.size() == 6);
 
-    auto find = [&] (const char* name) -> const sfz::Region&
+    auto find = [&] (const char* name) -> sfz::Region
     {
         for (const auto& r : instrument.regions)
             if (r.sample == name)
                 return r;
-        FAIL (name);
-        return instrument.regions.front();
+        FAIL_CHECK (name);   // (carries on, so the test reports every problem)
+        return {};
     };
 
     // C4 covers the keys up to half way to E4; G4 stretches to the top.
