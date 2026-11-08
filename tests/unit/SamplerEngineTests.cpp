@@ -334,3 +334,42 @@ TEST_CASE ("A sampler track can be added in one step", "[sampler][model]")
     project.getUndoManager().undo();
     CHECK (project.getNumTracks() == 1);
 }
+
+TEST_CASE ("Recordings no track uses any more are let go after a while", "[sampler][engine]")
+{
+    juce::ScopedJuceInitialiser_GUI juceInit;   // the sync listens for changes on the message thread
+    TempFolder temp;
+    ProjectLocation location;
+    REQUIRE (projectfiles::createProjectFolder (temp.folder, "Song", location).wasOk());
+    writeWav (location.getAudioFolder().getChildFile ("Keys/C4.wav"), 261.6, 0.5);
+    writeWav (location.getAudioFolder().getChildFile ("Keys/G4.wav"), 392.0, 0.5);
+    location.getAudioFolder().getChildFile ("Keys/Keys.sfz").replaceWithText ("<region> sample=C4.wav key=60\n<region> sample=G4.wav key=67\n");
+
+    Project project;
+    const auto track = edit::addTrack (project, TrackKind::midi).getId();
+    edit::setSamplerSound (project, track, samplersound::sfzFile ("Audio/Keys/Keys.sfz"));
+
+    AudioEngine engine;
+    AudioFileCache cache;
+    cache.setTargetSampleRate (rate);
+    TimelineSync sync (project, engine, cache, [location] { return location; });
+    sync.update();
+    cache.waitUntilIdle();
+    CHECK (cache.getNumEntries() == 2);
+    CHECK (samplerlibrary::loadingProgress (project, track, location.getFolder(), cache) == std::pair<int, int> (2, 2));
+
+    // Another sound: the old recordings stay a little while (in case you go back), then go.
+    edit::setSamplerSound (project, track, samplersound::drum ("kick-808"));
+    sync.update();
+    const auto now = juce::Time::getMillisecondCounterHiRes() * 0.001;
+    sync.releaseUnusedAudio (now + 1.0);
+    CHECK (cache.getNumEntries() == 2);
+    sync.releaseUnusedAudio (now + 30.0);
+    CHECK (cache.getNumEntries() == 0);
+
+    // Back again: they load again.
+    project.getUndoManager().undo();
+    sync.update();
+    cache.waitUntilIdle();
+    CHECK (cache.getNumEntries() == 2);
+}

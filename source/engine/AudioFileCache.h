@@ -5,6 +5,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <set>
 #include <utility>
 #include <vector>
 
@@ -89,6 +90,13 @@ public:
 
     /** Forgets everything (e.g. when a project closes). */
     void clear();
+
+    /** Forgets the audio of every file not in `inUse` (full paths), giving its memory back
+        (e.g. an instrument no track plays any more). Asked for again, it loads again. */
+    void keepOnly (const std::set<juce::String>& inUse);
+
+    /** How many files are loaded or loading (for the tests). */
+    int getNumEntries() const;
 
     /** Waits until all loading has finished (for tests). */
     void waitUntilIdle();

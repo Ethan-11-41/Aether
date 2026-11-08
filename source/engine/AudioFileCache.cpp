@@ -140,6 +140,25 @@ void AudioFileCache::clear()
     ++generation;
 }
 
+void AudioFileCache::keepOnly (const std::set<juce::String>& inUse)
+{
+    std::lock_guard<std::mutex> guard (lock);
+
+    for (auto it = entries.begin(); it != entries.end();)
+    {
+        if (inUse.count (it->first) == 0)
+            it = entries.erase (it);   // a load still running for it finishes into nothing
+        else
+            ++it;
+    }
+}
+
+int AudioFileCache::getNumEntries() const
+{
+    std::lock_guard<std::mutex> guard (lock);
+    return (int) entries.size();
+}
+
 void AudioFileCache::waitUntilIdle()
 {
     while (loader.getNumJobs() > 0)

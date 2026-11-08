@@ -346,6 +346,9 @@ void TimelineSync::timerCallback()
     }
 
     engine.collectGarbage();
+
+    if (++timerTicks % 50 == 0)   // every 5 seconds
+        releaseUnusedAudio (juce::Time::getMillisecondCounterHiRes() * 0.001);
 }
 
 void TimelineSync::update()
@@ -353,15 +356,45 @@ void TimelineSync::update()
     // Rebuilding is cheap (small lists, no audio is copied), so do it on every change: dragging
     // a clip or a tempo point then updates the sound immediately.
     const auto where = location();
-    AudioResolver resolver = [this, where] (const juce::String& relativePath)
+    std::set<juce::String> requested;
+    AudioResolver resolver = [this, where, &requested] (const juce::String& relativePath)
     {
-        return cache.getAudio (resolveClipFile (where, relativePath));
+        const auto file = resolveClipFile (where, relativePath);
+        requested.insert (file.getFullPathName());
+        return cache.getAudio (file);
     };
 
     auto snapshot = buildTimelineSnapshot (project, cache.getTargetSampleRate(), resolver, &mixerResources, focusedTrack, partLoop,
                                            where.getFolder());
     snapshot->recordRing = recordRing;
     engine.setTimeline (std::move (snapshot));
+
+    const auto now = juce::Time::getMillisecondCounterHiRes() * 0.001;
+    for (const auto& path : requested)
+        filesLastUsed[path] = now;
+    filesInUse = std::move (requested);
+}
+
+void TimelineSync::releaseUnusedAudio (double now, double graceSeconds)
+{
+    // Kept: what the engine uses now, and what it used a moment ago (so going back and forth
+    // between two instruments doesn't load them again each time).
+    std::set<juce::String> keep = filesInUse;
+
+    for (auto it = filesLastUsed.begin(); it != filesLastUsed.end();)
+    {
+        if (now - it->second < graceSeconds)
+        {
+            keep.insert (it->first);
+            ++it;
+        }
+        else
+        {
+            it = filesLastUsed.erase (it);
+        }
+    }
+
+    cache.keepOnly (keep);
 }
 
 } // namespace aether
