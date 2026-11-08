@@ -6,6 +6,7 @@
 #include "FastMath.h"
 #include "Instrument.h"
 #include "DrumKit.h"
+#include "Sampler.h"
 #include "Synth.h"
 
 #include <algorithm>
@@ -373,6 +374,9 @@ std::unique_ptr<Instrument> createInstrument (const juce::String& typeId)
 
     if (typeId == drumkit::typeId)
         return drumkit::create();
+
+    if (typeId == sampler::typeId)
+        return sampler::create();
 
     return nullptr;
 }

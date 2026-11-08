@@ -2,6 +2,7 @@
 #include "EffectTypes.h"
 
 #include "DrumKit.h"
+#include "Sampler.h"
 #include "Synth.h"
 
 #include <cmath>
@@ -141,6 +142,15 @@ const std::vector<EffectType>& effectTypes()
         kit.parameters = drumkit::parameters();
         kit.presets = drumkit::presets();
         list.push_back (kit);
+
+        EffectType sampler;
+        sampler.id = sampler::typeId;
+        sampler.name = "Sampler";
+        sampler.description = "Plays recorded instruments (pianos, strings, woodwinds, brass, mallets...) or your own "
+                              "sounds across the keyboard, with a volume envelope, tone, tuning and slides.";
+        sampler.isInstrument = true;
+        sampler.parameters = sampler::parameters();
+        list.push_back (sampler);
 
         return list;
     }();

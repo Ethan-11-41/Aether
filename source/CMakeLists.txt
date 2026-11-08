@@ -9,6 +9,9 @@ add_library(aether_core STATIC
     devices/LatencyInfo.h
     dsp/DrumKit.cpp
     dsp/DrumKit.h
+    dsp/Sampler.cpp
+    dsp/Sampler.h
+    dsp/SampleMap.h
     dsp/DrumSounds.cpp
     dsp/DrumSounds.h
     dsp/Effect.h

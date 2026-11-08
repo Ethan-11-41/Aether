@@ -13,6 +13,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "dsp/DrumKit.h"
+#include "dsp/Sampler.h"
 #include "dsp/Synth.h"
 #include "engine/AudioEngine.h"
 #include "engine/TimelineSync.h"
@@ -386,4 +387,81 @@ TEST_CASE ("The drum kit is real-time safe", "[realtime]")
     }
 
     CHECK (std::all_of (left.begin(), left.end(), [] (float x) { return std::isfinite (x); }));
+}
+
+TEST_CASE ("The sampler is real-time safe in every voice mode", "[realtime]")
+{
+    using namespace aether::dsp;
+
+    // Recordings made beforehand (as the engine's snapshot holds them): a few zones over the
+    // keyboard, two velocity layers, round robin, a loop and a one-shot.
+    std::vector<juce::AudioBuffer<float>> buffers;
+    for (int i = 0; i < 8; ++i)
+    {
+        juce::AudioBuffer<float> b (1 + i % 2, 4000 + i * 1000);
+        for (int c = 0; c < b.getNumChannels(); ++c)
+            for (int s = 0; s < b.getNumSamples(); ++s)
+                b.setSample (c, s, 0.3f * (float) std::sin (0.05 * s * (i + 1)));
+        buffers.push_back (std::move (b));
+    }
+
+    SampleMap map;
+    for (int i = 0; i < 8; ++i)
+    {
+        SampleZone z;
+        z.sample = &buffers[(size_t) i];
+        z.lowKey = 30 + (i / 2) * 20;
+        z.highKey = z.lowKey + 19;
+        z.rootKey = z.lowKey + 10;
+        z.lowVelocity = i % 2 == 0 ? 1 : 64;
+        z.highVelocity = i % 2 == 0 ? 63 : 127;
+        z.sequenceLength = i == 2 ? 2 : 1;
+        z.loopStart = i == 3 ? 500 : -1;
+        z.loopEnd = i == 3 ? 3000 : -1;
+        z.oneShot = i == 5;
+        map.zones.push_back (z);
+    }
+
+    InstrumentSounds sounds;
+    sounds.map = &map;
+    SampleMap empty;
+    InstrumentSounds none;
+    none.map = &empty;
+
+    for (const auto mode : { sampler::poly, sampler::mono, sampler::slide })
+    {
+        auto instrument = createInstrument (sampler::typeId);
+        instrument->prepare (48000.0, 2048);
+
+        EffectParameterValues values {};
+        const auto params = sampler::parameters();
+        for (size_t i = 0; i < params.size(); ++i)
+            values[i] = params[i].defaultValue;
+        values[(size_t) sampler::voiceMode] = (float) mode;
+        values[(size_t) sampler::tone] = 3000.0f;
+
+        std::vector<float> left (2048), right (2048);
+        for (int block = 0; block < 200; ++block)
+        {
+            std::array<NoteEvent, 8> events {};
+            for (int i = 0; i < 8; ++i)
+            {
+                auto& e = events[(size_t) i];
+                e.type = i % 3 == 2 ? NoteEvent::Type::noteOff : NoteEvent::Type::noteOn;
+                e.pitch = (std::uint8_t) (30 + (block * 7 + i * 11) % 80);
+                e.velocity = (std::uint8_t) (20 + i * 13);
+                e.offset = i * 61;
+                e.fromClip = i % 2 == 0;
+                e.length = 3000;
+            }
+            if (block % 50 == 49) events[7].type = NoteEvent::Type::allNotesOff;
+            if (block % 20 == 10) { events[6].type = NoteEvent::Type::sustain; events[6].value = (float) (block % 40 == 10); }
+            if (block % 30 == 15) { events[5].type = NoteEvent::Type::pitchBend; events[5].value = 0.5f; }
+
+            instrument->process (left.data(), right.data(), 1 + (block * 131) % 2048, values, events.data(), 8,
+                                 block % 37 == 0 ? &none : &sounds);
+        }
+
+        CHECK (std::all_of (left.begin(), left.end(), [] (float x) { return std::isfinite (x); }));
+    }
 }

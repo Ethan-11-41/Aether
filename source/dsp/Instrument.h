@@ -8,6 +8,7 @@
 #include <juce_audio_basics/juce_audio_basics.h>
 
 #include "EffectTypes.h"
+#include "SampleMap.h"
 #include "engine/rt/RealtimeAnnotations.h"
 
 namespace aether::dsp
@@ -35,13 +36,14 @@ struct NoteEvent
     float value = 0.0f;
 };
 
-/** Recorded sounds an instrument plays (a drum kit's pads), held by the engine's snapshot so they
-    stay alive while the audio thread uses them. Each is at the engine's sample rate, mono or
-    stereo; null means none. */
+/** Recorded sounds an instrument plays, held by the engine's snapshot so they stay alive while
+    the audio thread uses them: a drum kit's pads (each at the engine's sample rate, mono or
+    stereo; null means none), or a sampler's map of zones. */
 struct InstrumentSounds
 {
     static constexpr int maxSounds = 16;
     std::array<const juce::AudioBuffer<float>*, maxSounds> sounds {};
+    const SampleMap* map = nullptr;
 };
 
 /** An instrument: turns notes into sound. Like an Effect (see Effect.h), prepare() runs on the UI
