@@ -44,6 +44,9 @@ public:
     /** A channel's highest level (linear, left and right) since the last call. */
     std::pair<float, float> takePeaks (const juce::String& channelId);
 
+    /** What an insert's effect is doing now (dsp::Effect::getMeter), or 0 if it isn't running. */
+    float effectMeter (const juce::String& insertId) const;
+
 private:
     template <typename T>
     struct Entry

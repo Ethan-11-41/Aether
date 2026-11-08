@@ -280,8 +280,9 @@ void MixerComponent::Strip::mouseMove (const juce::MouseEvent& e)
     switch (hit.area)
     {
         case Area::name:      tip = "Click to select (Ctrl+click: several, Shift+click: a range). Right-click for more."; break;
-        case Area::insert:    tip = "Click to change the effect's settings. Click the light to switch it on or off. Right-click for more."; break;
-        case Area::addInsert: tip = "Add an effect. With several tracks selected (Ctrl+click their names), it's added to all of them."; break;
+        case Area::insert:    tip = "Click to open the effect's window. Click the light to switch it on or off. Right-click for more."; break;
+        case Area::addInsert: tip = "Add an effect, or a ready-made chain of them. With several tracks selected (Ctrl+click their names), "
+                                    "they're added to all of them."; break;
         case Area::send:      tip = "Send level: drag left/right (double-click for 0 dB). Right-click for more."; break;
         case Area::addSend:   tip = "Send some of this channel's sound to a bus too (e.g. one with a reverb)"; break;
         case Area::output:    tip = "Where this channel's sound goes: the master, or a bus"; break;

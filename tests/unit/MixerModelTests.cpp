@@ -485,3 +485,15 @@ TEST_CASE ("A chain adds its effects with their presets, to several tracks, in o
     CHECK (mixer::insertsOf (project, mixer::masterId).back()[ids::type].toString() == "limiter");
     CHECK (edit::addEffectChain (project, { a }, "No such chain").isEmpty());
 }
+
+TEST_CASE ("No effect or instrument setting has a name the project file uses for something else", "[mixer][model][effects]")
+{
+    // (A setting called "type" would overwrite which effect it is.)
+    for (const auto& type : dsp::effectTypes())
+        for (const auto& parameter : type.parameters)
+        {
+            INFO (type.name + ": " + parameter.id.toString());
+            for (const auto& reserved : { ids::id, ids::type, ids::bypass, ids::preset, ids::name })
+                CHECK (parameter.id != reserved);
+        }
+}

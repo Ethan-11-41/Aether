@@ -147,7 +147,7 @@ std::vector<EffectParameter> parameters()
 {
     std::vector<EffectParameter> list {
         { "drive",  "Drive",  0.0f, 36.0f, 6.0f, "dB", {}, false },
-        { "type",   "Type",   0.0f, 3.0f, 0.0f, {}, { "Tape", "Tube", "Fuzz", "Hard clip" }, false },
+        { "character", "Type", 0.0f, 3.0f, 0.0f, {}, { "Tape", "Tube", "Fuzz", "Hard clip" }, false },
         { "tone",   "Tone",   1000.0f, 20000.0f, 20000.0f, "Hz", {}, true },
         { "mix",    "Mix",    0.0f, 100.0f, 100.0f, "%", {}, false },
         { "output", "Output", -24.0f, 6.0f, 0.0f, "dB", {}, false },
@@ -160,12 +160,12 @@ std::vector<EffectPreset> presets()
 {
     const auto p = parameters();
     return {
-        makePreset (p, "Warm tape (start here)", "General", { { "drive", 6 }, { "type", tape } }),
-        makePreset (p, "Vocal: warmth", "Vocals", { { "drive", 8 }, { "type", tube }, { "tone", 12000 }, { "mix", 40 } }),
-        makePreset (p, "Vocal: gritty", "Vocals", { { "drive", 18 }, { "type", tube }, { "tone", 9000 }, { "mix", 60 }, { "output", -4 } }),
-        makePreset (p, "Piano: tape", "Instruments", { { "drive", 9 }, { "type", tape }, { "tone", 14000 }, { "mix", 70 } }),
-        makePreset (p, "Synth: fuzz", "Instruments", { { "drive", 24 }, { "type", fuzz }, { "tone", 7000 }, { "output", -6 } }),
-        makePreset (p, "Master: glow", "Master", { { "drive", 4 }, { "type", tape }, { "mix", 50 } }),
+        makePreset (p, "Warm tape (start here)", "General", { { "drive", 6 }, { "character", tape } }),
+        makePreset (p, "Vocal: warmth", "Vocals", { { "drive", 8 }, { "character", tube }, { "tone", 12000 }, { "mix", 40 } }),
+        makePreset (p, "Vocal: gritty", "Vocals", { { "drive", 18 }, { "character", tube }, { "tone", 9000 }, { "mix", 60 }, { "output", -4 } }),
+        makePreset (p, "Piano: tape", "Instruments", { { "drive", 9 }, { "character", tape }, { "tone", 14000 }, { "mix", 70 } }),
+        makePreset (p, "Synth: fuzz", "Instruments", { { "drive", 24 }, { "character", fuzz }, { "tone", 7000 }, { "output", -6 } }),
+        makePreset (p, "Master: glow", "Master", { { "drive", 4 }, { "character", tape }, { "mix", 50 } }),
     };
 }
 
@@ -268,7 +268,7 @@ namespace filter
 std::vector<EffectParameter> parameters()
 {
     std::vector<EffectParameter> list {
-        { "type",      "Type",       0.0f, 3.0f, 0.0f, {}, { "Low-pass", "High-pass", "Band-pass", "Notch" }, false },
+        { "filterType", "Type",      0.0f, 3.0f, 0.0f, {}, { "Low-pass", "High-pass", "Band-pass", "Notch" }, false },
         { "cutoff",    "Cutoff",     20.0f, 20000.0f, 2000.0f, "Hz", {}, true },
         { "resonance", "Resonance",  0.0f, 100.0f, 20.0f, "%", {}, false },
         { "lfoRate",   "Sweep rate", 0.05f, 10.0f, 1.0f, "Hz", {}, true },
@@ -283,12 +283,12 @@ std::vector<EffectPreset> presets()
 {
     const auto p = parameters();
     return {
-        makePreset (p, "Darker (start here)", "General", { { "type", lowPass }, { "cutoff", 3000 }, { "resonance", 10 } }),
-        makePreset (p, "Thinner", "General", { { "type", highPass }, { "cutoff", 400 }, { "resonance", 10 } }),
-        makePreset (p, "Vocal: radio", "Vocals", { { "type", bandPass }, { "cutoff", 1500 }, { "resonance", 30 } }),
-        makePreset (p, "Slow sweep", "Instruments", { { "type", lowPass }, { "cutoff", 1200 }, { "resonance", 45 }, { "lfoRate", 0.15f },
+        makePreset (p, "Darker (start here)", "General", { { "filterType", lowPass }, { "cutoff", 3000 }, { "resonance", 10 } }),
+        makePreset (p, "Thinner", "General", { { "filterType", highPass }, { "cutoff", 400 }, { "resonance", 10 } }),
+        makePreset (p, "Vocal: radio", "Vocals", { { "filterType", bandPass }, { "cutoff", 1500 }, { "resonance", 30 } }),
+        makePreset (p, "Slow sweep", "Instruments", { { "filterType", lowPass }, { "cutoff", 1200 }, { "resonance", 45 }, { "lfoRate", 0.15f },
                                                       { "lfoDepth", 60 } }),
-        makePreset (p, "Wobble", "Instruments", { { "type", lowPass }, { "cutoff", 800 }, { "resonance", 55 }, { "lfoRate", 3 }, { "lfoDepth", 70 } }),
+        makePreset (p, "Wobble", "Instruments", { { "filterType", lowPass }, { "cutoff", 800 }, { "resonance", 55 }, { "lfoRate", 3 }, { "lfoDepth", 70 } }),
     };
 }
 

@@ -75,6 +75,9 @@ public:
         `channelId` is a track id or mixer::masterId. */
     std::pair<float, float> takeChannelPeaks (const juce::String& channelId)   { return mixerResources.takePeaks (channelId); }
 
+    /** What an effect is doing right now, for its window (see dsp::Effect::getMeter). */
+    float effectMeter (const juce::String& insertId) const   { return mixerResources.effectMeter (insertId); }
+
     /** The selected track: if it's a MIDI track, what's played on a MIDI keyboard plays through it. */
     void setFocusedTrack (const juce::String& trackId)   { if (focusedTrack != trackId) { focusedTrack = trackId; update(); } }
 

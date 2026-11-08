@@ -7,6 +7,7 @@
 
 #include "io/AudioImport.h"
 #include "model/MidiClips.h"
+#include "model/Mixer.h"
 #include "dsp/DrumKit.h"
 #include "dsp/Sampler.h"
 #include "io/SamplerImport.h"
@@ -164,6 +165,7 @@ ProjectView::ProjectView (AppContext& context, Project& projectToShow)
     // The mixer, below the timeline.
     mixer = std::make_unique<ui::MixerComponent> (ctx.theme, project, trackList);
     mixer->onMinimumHeightChanged = [this] { resized(); };   // more effects on a channel: taller strips
+    mixer->onOpenEffect = [this] (const juce::String& insertId) { showEffect (insertId); };
     addChildComponent (*mixer);
     divider.theme = &ctx.theme;
     divider.onDragStart = [this] { heightAtDragStart = mixerHeight; };
@@ -673,6 +675,78 @@ void ProjectView::showSampler (const juce::String& trackId)
     samplerEditor->focusKeyboard();
 }
 
+void ProjectView::showEffect (const juce::String& insertId)
+{
+    if (! aether::mixer::findInsert (project, insertId).isValid())
+        return;
+
+    if (auto* view = findEffectView (insertId))
+    {
+        view->getTopLevelComponent()->toFront (true);
+        return;
+    }
+
+    juce::Component::SafePointer<ProjectView> safeThis (this);
+    auto window = std::make_unique<PianoRollWindow> (ctx.theme.background, [safeThis, insertId]
+    {
+        juce::MessageManager::callAsync ([safeThis, insertId]
+        {
+            if (safeThis != nullptr)
+                safeThis->closeEffectWindow (insertId);
+        });
+    });
+
+    auto view = std::make_unique<ui::EffectView> (ctx.theme, project, insertId);
+    auto* raw = view.get();
+    raw->meter = [safeThis, insertId] { return safeThis != nullptr ? safeThis->timelineSync.effectMeter (insertId) : 0.0f; };
+    raw->onTitleChanged = [safeThis, insertId]
+    {
+        if (safeThis != nullptr)
+            if (auto* v = safeThis->findEffectView (insertId))
+                if (auto* w = v->findParentComponentOfClass<juce::DocumentWindow>())
+                    w->setName (v->getTitle());
+    };
+    raw->onEffectRemoved = [safeThis, insertId]
+    {
+        juce::MessageManager::callAsync ([safeThis, insertId]
+        {
+            if (safeThis != nullptr)
+                safeThis->closeEffectWindow (insertId);
+        });
+    };
+
+    window->setName (raw->getTitle());
+    window->setUsingNativeTitleBar (true);
+    window->setResizable (true, false);
+    window->setResizeLimits (640, 460, 4000, 3000);
+    window->setContentOwned (view.release(), true);
+    window->addKeyListener (ctx.commands.getKeyMappings());
+
+    // Each new one a little lower and to the right of the last, so they don't hide each other.
+    const auto offset = 28 * (int) (effectWindows.size() % 6);
+    window->centreAroundComponent (this, window->getWidth(), window->getHeight());
+    window->setTopLeftPosition (window->getPosition().translated (offset, offset));
+    window->setVisible (true);
+    window->toFront (true);
+    effectWindows.push_back ({ std::move (window), raw });
+}
+
+ui::EffectView* ProjectView::findEffectView (const juce::String& insertId) const
+{
+    for (const auto& w : effectWindows)
+        if (w.view != nullptr && w.view->getInsertId() == insertId)
+            return w.view;
+
+    return nullptr;
+}
+
+void ProjectView::closeEffectWindow (const juce::String& insertId)
+{
+    effectWindows.erase (std::remove_if (effectWindows.begin(), effectWindows.end(),
+                                         [&] (const EffectWindow& w) { return w.view == nullptr || w.view->getInsertId() == insertId; }),
+                         effectWindows.end());
+}
+
 void ProjectView::importSamplerFiles (const juce::String& trackId, const juce::Array<juce::File>& files)
 {
     const auto location = ctx.session.getLocation();
@@ -929,6 +1003,7 @@ ProjectView::~ProjectView()
 {
     stopTimer();
     stopPatternPlay();
+    effectWindows.clear();
     samplerEditor = nullptr;
     samplerWindow = nullptr;
     drumEditor = nullptr;

@@ -156,6 +156,10 @@ add_library(aether_ui STATIC
     ui/SamplerEditor.h
     ui/EffectEditor.cpp
     ui/EffectEditor.h
+    ui/EffectPictures.cpp
+    ui/EffectPictures.h
+    ui/EffectView.cpp
+    ui/EffectView.h
     ui/IconButton.cpp
     ui/KeyboardPanel.cpp
     ui/KeyboardPanel.h
