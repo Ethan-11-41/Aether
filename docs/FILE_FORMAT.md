@@ -133,7 +133,7 @@ A `Track`'s `kind` can now also be `"bus"`. Projects without a `Master` node get
 | | `level` | dB, as `volume`. |
 | | `preFader` | `true`: taken before the track's volume fader. |
 | `Inserts` | | Inside a `Track` or the `Master`: its effects, in the order they process the sound. |
-| `Insert` | `id`, `type` | Unique id; the effect: `"reverb"` or `"delay"`. |
+| `Insert` | `id`, `type` | Unique id; the effect: `"reverb"` or `"delay"` (more since 0.14.0, below). |
 | | `bypass` | `true` when the effect is switched off. |
 | | (settings) | One property per setting, named as in `source/dsp/EffectTypes.cpp`: reverb `size`, `damping`, `width`, `mix` (percent); delay `time` (index into 1/32, 1/16 T, 1/16, 1/8 T, 1/16 D, 1/8, 1/4 T, 1/8 D, 1/4, 1/4 D, 1/2), `feedback` (%), `tone` (Hz), `pingPong` (0/1), `mix` (%). |
 | `Master` | `volume` | The master volume in dB. |
@@ -216,6 +216,29 @@ The timeline's snap setting (in the settings file, not the project) can also be 
 Your own recordings are copied into the project's `Audio` folder (several at once go into a folder
 inside it, with an SFZ file Aether writes); SFZ instruments chosen elsewhere are referred to where
 they are, so Save As doesn't copy them.
+
+### Added in Aether 0.14.0 (still format version 1)
+
+An `Insert`'s `type` can now be any of these effects. Each setting is a property with the name
+shown (see `source/dsp/Eq.cpp`, `Dynamics.cpp`, `ColourEffects.cpp` and `Effects.cpp` for the
+ranges); a setting that isn't there takes its default, so older files open unchanged.
+
+| `type` | Settings |
+|---|---|
+| `"eq"` | `lowCutOn` (0/1), `lowCut` (Hz), `lowShelfFreq` (Hz), `lowShelfGain` (dB), `band1Freq`, `band1Gain`, `band1Q`, `band2Freq`, `band2Gain`, `band2Q`, `band3Freq`, `band3Gain`, `band3Q`, `highShelfFreq`, `highShelfGain`, `highCutOn` (0/1), `highCut` (Hz), `output` (dB) |
+| `"compressor"` | `threshold` (dB), `ratio`, `attack` (ms), `release` (ms), `knee` (dB), `makeup` (dB), `mix` (%) |
+| `"limiter"` | `gain` (dB), `ceiling` (dB), `release` (ms) |
+| `"gate"` | `threshold` (dB), `range` (dB), `attack`, `hold`, `release` (ms) |
+| `"deesser"` | `frequency` (Hz), `threshold` (dB), `amount` (dB) |
+| `"saturation"` | `drive` (dB), `character` (0 Tape, 1 Tube, 2 Fuzz, 3 Hard clip), `tone` (Hz), `mix` (%), `output` (dB) |
+| `"filter"` | `filterType` (0 low-pass, 1 high-pass, 2 band-pass, 3 notch), `cutoff` (Hz), `resonance` (%), `lfoRate` (Hz), `lfoDepth` (%), `mix` (%) |
+| `"chorus"` | `rate` (Hz), `depth` (%), `delay` (ms), `width` (%), `mix` (%) |
+| `"delay"` | as before, plus `lowCut` (Hz, default 20: no change to older files) |
+| `"reverb"` | as before (`size`, `damping`, `width`, `mix`), plus `predelay` (ms, default 10) and `lowCut` (Hz, default 120). The reverb itself is new, so older files' reverbs sound a little different. |
+
+| Node | Property | Meaning |
+|---|---|---|
+| `Insert` | `preset` | The name of the preset last chosen (shown while the settings still match it). |
 
 ## Rules for changing the format
 
