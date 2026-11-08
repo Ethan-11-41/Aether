@@ -145,8 +145,8 @@ public:
     explicit StepArea (DrumEditor& o) : owner (o)
     {
         setTooltip ("Click a step to turn it on or off (keep the button down and drag for several). Shift+click: "
-                    "an accent (hit harder). Right-click: clear. Below: how hard each step of the selected pad is "
-                    "hit; drag the bars up or down.");
+                    "an accent (hit harder); Shift+click it again for a normal hit. Right-click: remove the hit. "
+                    "Below: how hard each step of the selected pad is hit; drag the bars up or down.");
     }
 
     int rowHeight = 28, cellWidth = 32;
@@ -248,7 +248,7 @@ public:
                 g.setColour (colour.withMultipliedBrightness (0.45f + 0.55f * (float) velocity / 127.0f));
                 g.fillRoundedRectangle (r, 3.0f);
 
-                if (velocity >= drumpattern::accentVelocity - 7)
+                if (isAccent (velocity))
                 {
                     g.setColour (t.text);
                     g.drawRoundedRectangle (r.reduced (0.5f), 3.0f, 1.5f);
@@ -325,14 +325,16 @@ public:
         const auto existing = drumpattern::stepVelocity (clip, pad, step);
         owner.selectPad (pad);
 
+        // Shift+click turns the accent on, or (on an accented step) back off.
         if (e.mods.isPopupMenu())
             mode = Mode::clear;
         else if (e.mods.isShiftDown())
-            mode = Mode::accent;
+            mode = isAccent (existing) ? Mode::unaccent : Mode::accent;
         else
             mode = existing > 0 ? Mode::clear : Mode::add;
 
-        undo.beginNewTransaction (mode == Mode::clear ? "Clear steps" : "Add steps");
+        undo.beginNewTransaction (mode == Mode::clear ? "Clear steps" : mode == Mode::accent ? "Accent steps"
+                                : mode == Mode::unaccent ? "Remove accents" : "Add steps");
         apply (pad, step);
 
         if (mode != Mode::clear)
@@ -361,17 +363,21 @@ public:
     DrumEditor& owner;
 
 private:
-    enum class Mode { none, add, accent, clear, velocity };
+    enum class Mode { none, add, accent, unaccent, clear, velocity };
+
+    static bool isAccent (int velocity) noexcept   { return velocity >= drumpattern::accentVelocity - 7; }
 
     void apply (int pad, int step)
     {
         if (! visited.insert ({ pad, step }).second)
             return;
 
+        const auto existing = drumpattern::stepVelocity (owner.clip(), pad, step);
         const auto velocity = mode == Mode::clear ? 0 : mode == Mode::accent ? drumpattern::accentVelocity : drumpattern::defaultVelocity;
 
-        // Painting "on" over a step that's already on leaves it as it is.
-        if (mode == Mode::add && drumpattern::stepVelocity (owner.clip(), pad, step) > 0)
+        // Painting "on" over a step that's already on leaves it as it is; removing accents only
+        // changes accented steps.
+        if ((mode == Mode::add && existing > 0) || (mode == Mode::unaccent && ! isAccent (existing)))
             return;
 
         edit::setStep (owner.project, owner.clipId, pad, step, velocity, false);
@@ -397,6 +403,7 @@ DrumEditor::DrumEditor (const Theme& t, Project& p, AudioEngine& e)
     };
 
     titleLabel.setFont (juce::FontOptions (17.0f, juce::Font::bold));
+    titleLabel.setMinimumHorizontalScale (0.6f);
     titleLabel.setColour (juce::Label::textColourId, theme.text);
     addAndMakeVisible (titleLabel);
 
@@ -448,6 +455,22 @@ DrumEditor::DrumEditor (const Theme& t, Project& p, AudioEngine& e)
     };
     swingSlider.setDoubleClickReturnValue (true, 0.0);
     addAndMakeVisible (swingSlider);
+
+    playButton.setTooltip ("Play this pattern over and over (Space), to hear it while you change it. Space again "
+                           "stops. In the main window, Space plays the whole song as usual.");
+    playButton.onClick = [this] { togglePatternPlay(); };
+    addAndMakeVisible (playButton);
+
+    withSongButton.setClickingTogglesState (true);
+    withSongButton.setTooltip ("Off: you hear only this pattern. On: you hear the rest of the song along with it, "
+                               "over the same bars.");
+    withSongButton.onClick = [this]
+    {
+        // Already playing: carry on, with or without the song.
+        if (patternPlaying && onPlayPattern)
+            onPlayPattern (true);
+    };
+    addAndMakeVisible (withSongButton);
 
     pianoRollButton.setTooltip ("Open this pattern in the piano roll (to move hits off the steps, or edit them as notes).");
     pianoRollButton.onClick = [this]
@@ -775,7 +798,7 @@ void DrumEditor::refresh()
             swingSlider.setValue (drumpattern::swingOf (c) * 100.0, juce::dontSendNotification);
     }
 
-    for (auto* control : std::initializer_list<juce::Component*> { &lengthBox, &stepBox, &swingSlider, &pianoRollButton })
+    for (auto* control : std::initializer_list<juce::Component*> { &lengthBox, &stepBox, &swingSlider, &pianoRollButton, &playButton, &withSongButton })
         control->setEnabled (c.isValid() && drums);
     kitBox.setEnabled (drums);
 
@@ -817,6 +840,41 @@ void DrumEditor::refresh()
 
     if (onTitleChanged)
         onTitleChanged();
+}
+
+juce::Range<Tick> DrumEditor::getPatternRange() const
+{
+    const auto c = clip();
+    if (! c.isValid() || ! isDrumTrack())
+        return {};
+
+    const auto pattern = c.isLooping() ? c.getPatternLength() : c.getLengthTicks();
+    return { c.getStart(), c.getStart() + std::min (pattern, c.getLengthTicks()) };
+}
+
+void DrumEditor::togglePatternPlay()
+{
+    if (onPlayPattern && (patternPlaying || ! getPatternRange().isEmpty()))
+        onPlayPattern (! patternPlaying);
+}
+
+void DrumEditor::setPatternPlaying (bool isPlaying)
+{
+    patternPlaying = isPlaying;
+    playButton.setButtonText (isPlaying ? "Stop" : "Play");
+    playButton.setToggleState (isPlaying, juce::dontSendNotification);
+}
+
+bool DrumEditor::keyPressed (const juce::KeyPress& key)
+{
+    // Space plays this pattern (the main window's Space plays the song).
+    if (key == juce::KeyPress::spaceKey)
+    {
+        togglePatternPlay();
+        return true;
+    }
+
+    return false;
 }
 
 void DrumEditor::timerCallback()
@@ -913,6 +971,10 @@ void DrumEditor::resized()
     lengthBox.setBounds (header.removeFromRight (90));
     header.removeFromRight (8);
     kitBox.setBounds (header.removeFromRight (130));
+    header.removeFromRight (16);
+    withSongButton.setBounds (header.removeFromRight (90));
+    header.removeFromRight (4);
+    playButton.setBounds (header.removeFromRight (70));
     header.removeFromRight (8);
     titleLabel.setBounds (header);
 

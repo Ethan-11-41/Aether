@@ -1,6 +1,7 @@
 # Milestone 11: what to test
 
-About 25 minutes. Install **Aether-Setup-0.12.0.exe** from the newest green run on the
+About 25 minutes. Install **Aether-Setup-0.12.1.exe** (0.12.1 has the fixes from your first
+look: Space plays just the pattern, accents toggle, and 808s no longer pile up) from the newest green run on the
 [Actions page](https://github.com/Ethan-11-41/aether/actions) (under **Artifacts**). Headphones
 or your monitor speakers at a comfortable volume.
 
@@ -29,9 +30,12 @@ In the drum editor:
    step. **Each step lights up** in its pad's colour and you hear the pad as you add it.
 2. Hold the mouse button down and drag along the hi-hat row: several steps in one go. **Ctrl+Z**
    undoes the whole drag at once.
-3. Press **Space**: the pattern plays, and **the playing step lights up** in the ruler.
+3. Press **Space**: **just this pattern** plays, over and over, and **the playing step lights
+   up** in the ruler. Space again stops it, and the playhead goes back to where it was. Turn on
+   **With song** and press Space: now you hear the rest of the song along with it, over the same
+   bars. In the main window, Space plays the whole song as usual.
 4. **Shift+click** a snare step: it gets a white edge (an accent) and sounds harder.
-   **Right-click** a step to clear it.
+   **Shift+click** it again: back to a normal hit. **Right-click** a step to remove the hit.
 5. Click the hi-hat pad on the left. Under the steps, **"How hard"** shows a bar per hi-hat hit:
    drag some bars down. The quieter hats sound softer and look dimmer.
 6. **Swing:** drag it to about 50%. The beat gets a shuffle. Back to 0%: straight again.
@@ -63,10 +67,15 @@ In the drum editor:
 3. Right-click > **Edit notes (piano roll)...** shows the same hits as notes (C2 = kick...).
 4. Any MIDI clip can repeat too: right-click a chord clip > **Repeat pattern**, then drag its
    edge.
-5. Export the song (Ctrl+E): the drums, including your own pad sounds, are in the file.
+5. Export the song (Ctrl+E): the drums, including your own pad sounds, are in the file. An 808
+   on every 1/8 note stays at the same level all the way through (no build-up or distortion),
+   without normalizing.
 
 ## Not there yet (so don't worry about these)
 
+- Playing a drum sound at different pitches, like an 808 bass line: on a drum track, each note
+  is a different drum (like a drum machine). This comes with the sampler (M12): any drum sound
+  played across the keyboard, with glide. Meanwhile, a pad's **Tune** changes it for every hit.
 - Recorded (sampled) acoustic drum kits: they come with the sampler and sound library (M12, M17).
   Aether's own sounds are electronic-style for now.
 - Saving a kit you've built to reuse in other projects (sound library, M17). A changed kit is

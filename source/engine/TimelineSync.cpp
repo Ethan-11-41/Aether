@@ -153,16 +153,22 @@ namespace
 }
 
 std::unique_ptr<TimelineSnapshot> buildTimelineSnapshot (const Project& project, double sampleRate, const AudioResolver& resolver,
-                                                         MixerResources* resources, const juce::String& focusedTrackId)
+                                                         MixerResources* resources, const juce::String& focusedTrackId,
+                                                         const PartLoop& partLoop)
 {
     auto snapshot = std::make_unique<TimelineSnapshot>();
     snapshot->tempo = timeline::buildTempoMap (project);
 
     const auto loop = timeline::getLoop (project);
-    snapshot->loopEnabled = loop.enabled;
-    snapshot->loopStart = loop.start;
-    snapshot->loopEnd = loop.end;
+    const auto looping = partLoop.isActive() && project.findTrack (partLoop.trackId).isValid();
+    snapshot->loopEnabled = looping || loop.enabled;
+    snapshot->loopStart = looping ? partLoop.start : loop.start;
+    snapshot->loopEnd = looping ? partLoop.end : loop.end;
     snapshot->sampleRate = sampleRate;
+
+    // Playing one part on its own: that track is heard as if it were the only one soloed, the
+    // others not. (The part being played is heard even if its track is muted.)
+    const auto alone = looping && partLoop.onlyThisTrack;
 
     if (sampleRate <= 0.0)
         return snapshot;
@@ -189,7 +195,7 @@ std::unique_ptr<TimelineSnapshot> buildTimelineSnapshot (const Project& project,
     for (int t = 0; t < n; ++t)
     {
         const auto track = project.getTrack (t);
-        soloed[(size_t) t] = track.isSoloed();
+        soloed[(size_t) t] = alone ? track.getId() == partLoop.trackId : track.isSoloed();
 
         const auto output = busIndex (track.getOutput(), t);
         outputConnection[(size_t) t] = connections.size();
@@ -224,7 +230,7 @@ std::unique_ptr<TimelineSnapshot> buildTimelineSnapshot (const Project& project,
         const auto [left, right] = panGains (track.getPan());
         channel.leftGain = volume * left;
         channel.rightGain = volume * right;
-        channel.muteGain = track.isMuted() ? 0.0f : 1.0f;
+        channel.muteGain = track.isMuted() && ! (looping && track.getId() == partLoop.trackId) ? 0.0f : 1.0f;
 
         const auto out = outputConnection[(size_t) t];
         const auto to = connections[out].to;
@@ -326,7 +332,7 @@ void TimelineSync::update()
         return cache.getAudio (resolveClipFile (where, relativePath));
     };
 
-    auto snapshot = buildTimelineSnapshot (project, cache.getTargetSampleRate(), resolver, &mixerResources, focusedTrack);
+    auto snapshot = buildTimelineSnapshot (project, cache.getTargetSampleRate(), resolver, &mixerResources, focusedTrack, partLoop);
     snapshot->recordRing = recordRing;
     engine.setTimeline (std::move (snapshot));
 }

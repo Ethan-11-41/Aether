@@ -21,7 +21,8 @@ namespace aether::ui
     - Left: the 16 pads (kick, snares, hi-hats...). Click one to hear it and edit it on the right;
       drop an audio file on one to use that sound.
     - Middle: the steps. Click a step to turn it on or off (keep the button down and drag to do
-      several), Shift+click for an accent (hit harder), right-click to clear. Below: how hard each
+      several), Shift+click for an accent (hit harder; again to undo it), right-click to remove a
+      hit. Below: how hard each
       step of the selected pad is hit; drag the bars up or down.
     - Top: the kit, the pattern's length, the step size and swing.
     - Right: the selected pad's sound (built-in or from a file), tune, volume, pan, attack,
@@ -60,6 +61,18 @@ public:
     /** Open the pattern in the piano roll. */
     std::function<void (const juce::String& clipId)> onOpenPianoRoll;
 
+    /** Play the pattern over and over (true), or stop (false). The app does the playing (on its
+        own, or with the song if "With song" is on) and calls setPatternPlaying() to say so.
+        Space in the drum editor does the same as the Play button. */
+    std::function<void (bool play)> onPlayPattern;
+    void togglePatternPlay();
+    void setPatternPlaying (bool isPlaying);
+    bool isPatternPlaying() const noexcept   { return patternPlaying; }
+    bool playsWithSong() const noexcept      { return withSongButton.getToggleState(); }
+
+    /** Where the pattern plays on the timeline: one time through it (empty if there's none). */
+    juce::Range<Tick> getPatternRange() const;
+
     // Editing (the mouse does these; the tests too) -------------------------------------------
     void selectPad (int pad);
     int getSelectedPad() const noexcept   { return selectedPad; }
@@ -83,11 +96,14 @@ public:
     juce::ComboBox& getChokeBox() noexcept    { return chokeBox; }
     juce::Slider& getSwingSlider() noexcept   { return swingSlider; }
     juce::TextButton& getAddPatternButton() noexcept   { return actionButton; }
+    juce::TextButton& getPlayButton() noexcept         { return playButton; }
+    juce::TextButton& getWithSongButton() noexcept     { return withSongButton; }
     juce::String getPadName (int pad) const;
     bool isShowingSteps() const;
 
     void paint (juce::Graphics&) override;
     void resized() override;
+    bool keyPressed (const juce::KeyPress& key) override;
 
     bool isInterestedInFileDrag (const juce::StringArray& files) override;
     void filesDropped (const juce::StringArray& files, int x, int y) override;
@@ -121,12 +137,13 @@ private:
     juce::ValueTree projectState;
     juce::String clipId, trackId;
     int selectedPad = 0, playingStep = -1;
-    bool swingDragging = false, refreshing = false;
+    bool swingDragging = false, refreshing = false, patternPlaying = false;
 
     juce::Label titleLabel, messageLabel, padTitle, soundLabel;
     juce::ComboBox kitBox, lengthBox, stepBox, chokeBox;
     juce::Slider swingSlider;
     juce::TextButton pianoRollButton { "Piano roll" }, actionButton, soundButton { "Choose sound..." }, hearButton { "Hear" };
+    juce::TextButton playButton { "Play" }, withSongButton { "With song" };
 
     std::unique_ptr<PadList> padList;
     std::unique_ptr<StepArea> stepArea;

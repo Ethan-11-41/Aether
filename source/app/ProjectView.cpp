@@ -244,8 +244,93 @@ void ProjectView::setMixerVisible (bool shouldBeVisible)
     ctx.commands.commandStatusChanged();
 }
 
+void ProjectView::startPatternPlay()
+{
+    if (drumEditor == nullptr)
+        return;
+
+    const auto range = drumEditor->getPatternRange();
+    if (range.isEmpty())
+        return;
+
+    const auto status = ctx.engine.getTransportStatus();
+
+    if (! patternPlaying)
+    {
+        // Afterwards, the playhead goes back to where it was.
+        positionBeforePattern = status.position;
+
+        if (status.playing)
+            ctx.engine.stop();
+    }
+
+    const PartLoop loop { drumEditor->getTrackId(), range.getStart(), range.getEnd(), ! drumEditor->playsWithSong() };
+    const auto changed = ! (timelineSync.getPartLoop() == loop);
+    timelineSync.setPartLoop (loop);
+
+    if (! patternPlaying || changed)
+    {
+        // From the start of the pattern (or, if only "With song" changed, carrying on).
+        if (! patternPlaying || status.position < range.getStart() || status.position >= range.getEnd())
+            ctx.engine.locate (range.getStart());
+
+        ctx.engine.play();
+    }
+
+    if (! patternPlaying)
+    {
+        patternPlaying = true;
+        patternSeenPlaying = false;
+        patternStartTime = juce::Time::getMillisecondCounterHiRes();
+    }
+
+    drumEditor->setPatternPlaying (true);
+}
+
+void ProjectView::stopPatternPlay()
+{
+    if (! patternPlaying)
+        return;
+
+    patternPlaying = false;
+    ctx.engine.stop();
+    timelineSync.setPartLoop ({});
+    ctx.engine.locate (positionBeforePattern);
+
+    if (drumEditor != nullptr)
+        drumEditor->setPatternPlaying (false);
+}
+
+void ProjectView::followPatternPlay()
+{
+    if (! patternPlaying)
+        return;
+
+    // Stopped from elsewhere (Space in the main window, the transport's Stop): back to normal.
+    const auto status = ctx.engine.getTransportStatus();
+    const auto running = status.playing || status.countingIn;
+    patternSeenPlaying = patternSeenPlaying || running;
+
+    if (drumEditor == nullptr
+        || (! running && (patternSeenPlaying || juce::Time::getMillisecondCounterHiRes() - patternStartTime > 1500.0)))
+    {
+        stopPatternPlay();
+        return;
+    }
+
+    // The pattern changed length, or another one is shown: follow it.
+    const auto range = drumEditor->getPatternRange();
+
+    if (range.isEmpty())
+        stopPatternPlay();
+    else
+        timelineSync.setPartLoop ({ drumEditor->getTrackId(), range.getStart(), range.getEnd(), ! drumEditor->playsWithSong() });
+}
+
 void ProjectView::timerCallback()
 {
+    followPatternPlay();
+
     const auto now = juce::Time::getMillisecondCounterHiRes();
     const auto elapsed = lastMeterTime > 0.0 ? (float) ((now - lastMeterTime) / 1000.0) : 0.0f;
     lastMeterTime = now;
@@ -525,6 +610,7 @@ void ProjectView::openDrumWindow()
         {
             if (safeThis != nullptr)
             {
+                safeThis->stopPatternPlay();
                 safeThis->drumEditor = nullptr;
                 safeThis->drumWindow = nullptr;
             }
@@ -533,6 +619,16 @@ void ProjectView::openDrumWindow()
 
     auto editor = std::make_unique<ui::DrumEditor> (ctx.theme, project, ctx.engine);
     drumEditor = editor.get();
+    drumEditor->onPlayPattern = [safeThis] (bool play)
+    {
+        if (safeThis == nullptr)
+            return;
+
+        if (play)
+            safeThis->startPatternPlay();
+        else
+            safeThis->stopPatternPlay();
+    };
     drumEditor->onTitleChanged = [safeThis]
     {
         if (safeThis != nullptr && safeThis->drumWindow != nullptr && safeThis->drumEditor != nullptr)
@@ -612,6 +708,7 @@ void ProjectView::showDrumKit (const juce::String& trackId)
 ProjectView::~ProjectView()
 {
     stopTimer();
+    stopPatternPlay();
     drumEditor = nullptr;
     drumWindow = nullptr;
     pianoRoll = nullptr;

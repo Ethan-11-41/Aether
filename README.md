@@ -72,7 +72,8 @@ See [docs/FILE_FORMAT.md](docs/FILE_FORMAT.md).
 | Piano roll: add / delete a note | click an empty place / right-click the note |
 | Piano roll: transpose / quantize / duplicate | Up, Down (Shift: octave) / Q / Ctrl+D |
 | Add a drum track / edit a drum pattern | Ctrl+Shift+D / double-click the pattern |
-| Drum editor: step on or off / accent / clear | click (drag for several) / Shift+click / right-click |
+| Drum editor: step on or off / accent (again: normal) / remove a hit | click (drag for several) / Shift+click / right-click |
+| Drum editor: play just the pattern / stop | Space |
 | Nudge selected clips one grid step / 10 ms | Left, Right / Shift+Left, Shift+Right |
 | Snap to grid on/off | G |
 | Audio settings | Ctrl+, |

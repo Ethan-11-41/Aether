@@ -12,7 +12,9 @@
     note arrives (General MIDI drum notes 36 to 51, see DrumSounds.h).
 
     Each pad has a tune, volume, pan, attack, decay (how much of the sound plays) and choke group
-    (pads in the same group cut each other off, like a closed hi-hat stopping an open one). The
+    (pads in the same group cut each other off, like a closed hi-hat stopping an open one). A pad
+    hit again cuts off its own previous hit (with a 1 ms fade, covered by the new hit), as a real
+    drum would; choke groups cut with a 5 ms fade. The
     sounds themselves aren't settings: the Instrument node stores each pad's sound as a property
     ("pad1Sound" ... "pad16Sound"), either a built-in sound ("builtin:kick-808") or a file in the
     project ("Audio/My kick.wav"), and the engine hands the decoded sounds to process(). */

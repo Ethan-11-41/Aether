@@ -105,8 +105,14 @@ TEST_CASE ("Clicking steps turns them on and off; dragging does several in one u
     CHECK (midi::notesOf (f.c()).empty());
     f.project.getUndoManager().redo();
 
-    // Shift+click: an accent. Right-click: clear.
-    f.click (area, f.editor.stepPosition (snare, 4), Mods (Mods::leftButtonModifier | Mods::shiftModifier));
+    // Shift+click: an accent; again: back to a normal hit. Right-click: clear.
+    const Mods shiftClick (Mods::leftButtonModifier | Mods::shiftModifier);
+    f.click (area, f.editor.stepPosition (snare, 4), shiftClick);
+    CHECK (f.velocity (snare, 4) == drumpattern::accentVelocity);
+    f.click (area, f.editor.stepPosition (snare, 4), shiftClick);
+    CHECK (f.velocity (snare, 4) == drumpattern::defaultVelocity);
+    CHECK (f.project.getUndoManager().getUndoDescription() == "Remove accents");
+    f.click (area, f.editor.stepPosition (snare, 4), shiftClick);
     CHECK (f.velocity (snare, 4) == drumpattern::accentVelocity);
     f.click (area, f.editor.stepPosition (closedHat, 3), Mods::rightButtonModifier);
     CHECK (f.velocity (closedHat, 3) == 0);
@@ -218,4 +224,42 @@ TEST_CASE ("The drum editor offers a pattern, or the drum kit, when there's noth
     edit::deleteTracks (f.project, { keys });
     CHECK_FALSE (f.editor.isShowingSteps());
     CHECK_FALSE (f.editor.getAddPatternButton().isVisible());
+}
+
+TEST_CASE ("Space in the drum editor plays the pattern, and again stops it", "[drums][ui]")
+{
+    Fixture f;
+    std::vector<bool> asked;
+    f.editor.onPlayPattern = [&] (bool play) { asked.push_back (play); f.editor.setPatternPlaying (play); };
+
+    // One time through the pattern, even when the clip repeats it.
+    edit::trimClipEnd (f.project, f.clip, 16 * q);
+    CHECK (f.editor.getPatternRange() == juce::Range<Tick> (0, 4 * q));
+
+    CHECK (f.editor.keyPressed (juce::KeyPress (juce::KeyPress::spaceKey)));
+    REQUIRE (asked.size() == 1);
+    CHECK (asked[0]);
+    CHECK (f.editor.getPlayButton().getButtonText() == "Stop");
+    CHECK_FALSE (f.editor.playsWithSong());
+
+    // "With song" while playing: carries on, now with the song.
+    f.editor.getWithSongButton().setToggleState (true, juce::dontSendNotification);
+    f.editor.getWithSongButton().onClick();
+    REQUIRE (asked.size() == 2);
+    CHECK (asked[1]);
+    CHECK (f.editor.playsWithSong());
+
+    f.editor.keyPressed (juce::KeyPress (juce::KeyPress::spaceKey));
+    REQUIRE (asked.size() == 3);
+    CHECK_FALSE (asked[2]);
+    CHECK (f.editor.getPlayButton().getButtonText() == "Play");
+
+    // Other keys go on to Aether's shortcuts.
+    CHECK_FALSE (f.editor.keyPressed (juce::KeyPress ('z', juce::ModifierKeys::ctrlModifier, 0)));
+
+    // Nothing to play without a pattern.
+    f.editor.setTrack (edit::addDrumTrack (f.project).getId());
+    CHECK (f.editor.getPatternRange().isEmpty());
+    f.editor.keyPressed (juce::KeyPress (juce::KeyPress::spaceKey));
+    CHECK (asked.size() == 3);
 }

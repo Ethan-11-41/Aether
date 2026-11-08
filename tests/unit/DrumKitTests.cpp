@@ -157,6 +157,57 @@ TEST_CASE ("A closed hi-hat cuts off an open one (choke group)", "[drums][engine
     CHECK (l[6000] > 0.9f);
 }
 
+TEST_CASE ("A pad hit again cuts off its previous hit, so long sounds don't pile up", "[drums][engine]")
+{
+    // Every pad here is a steady 0.5 for a second. Two hits 0.1 s apart on the same pad: one sound
+    // at a time (like a real drum), not two on top of each other.
+    KitFixture f;
+    auto [l, r] = f.run (24000, { KitFixture::hit (36), KitFixture::hit (36, 4800) });
+    CHECK (std::abs (l[4000] - 0.5f) < 1.0e-4f);
+    CHECK (std::abs (l[10000] - 0.5f) < 1.0e-4f);   // not 1.0
+    CHECK (*std::max_element (l.begin() + 4800 + 48, l.end()) <= 0.5f + 1.0e-4f);   // after a 1 ms crossfade
+
+    // Different pads still play together.
+    KitFixture g;
+    std::tie (l, r) = g.run (24000, { KitFixture::hit (36), KitFixture::hit (38, 4800) });
+    CHECK (std::abs (l[10000] - 1.0f) < 1.0e-4f);
+}
+
+TEST_CASE ("A fast 808 pattern doesn't get louder and louder", "[drums][engine]")
+{
+    Project project;
+    const auto track = edit::addTrack (project, TrackKind::midi).getId();
+    edit::setInstrumentType (project, track, kit::typeId, "808");
+
+    std::vector<NoteData> notes;   // the 808 on every 1/8 note for four bars
+    for (int i = 0; i < 32; ++i)
+        notes.push_back ({ 36, 127, i * (q / 2), q / 4 });
+    edit::addMidiClip (project, track, "808s", 0, 16 * q, notes);
+
+    AudioEngine engine;
+    MixerResources resources;
+    engine.prepare (rate, 512);
+    engine.setTimeline (buildTimelineSnapshot (project, rate, {}, &resources));
+    engine.play();
+
+    const auto kick = builtInDrumSound ("kick-808", rate);
+    REQUIRE (kick != nullptr);
+    const auto onePeak = kick->samples.getMagnitude (0, 0, kick->samples.getNumSamples());
+
+    float peak = 0.0f;
+    std::vector<float> bl (512), br (512);
+    for (int done = 0; done < 8 * 24000; done += 512)
+    {
+        float* outputs[] = { bl.data(), br.data() };
+        engine.process (nullptr, 0, outputs, 2, 512);
+        for (auto x : bl)
+            peak = std::max (peak, std::abs (x));
+    }
+    engine.collectGarbage();
+
+    CHECK (peak <= onePeak * 1.05f);   // no louder than a single hit
+}
+
 TEST_CASE ("A drum track plays its pattern through the engine, with built-in and imported sounds", "[drums][engine]")
 {
     Project project;
@@ -199,4 +250,56 @@ TEST_CASE ("A drum track plays its pattern through the engine, with built-in and
     // long past).
     CHECK (std::abs (l[24000 + 100] - (0.3f + kick->samples.getSample (0, 24100))) < 1.0e-3f);
     CHECK (std::abs (r[24000 + 100] - kick->samples.getSample (0, 24100)) < 1.0e-3f);
+}
+
+TEST_CASE ("A part can loop on its own (the drum editor's Space) without changing the project", "[drums][engine]")
+{
+    Project project;
+    const auto drums = edit::addTrack (project, TrackKind::midi).getId();
+    const auto other = edit::addTrack (project, TrackKind::midi).getId();
+    edit::setInstrumentType (project, drums, kit::typeId, "808");
+    edit::setInstrumentType (project, other, kit::typeId, "808");
+    edit::addMidiClip (project, drums, "Kick", 4 * q, 4 * q, { { 36, 127, 0, q / 4 } });
+    edit::addMidiClip (project, other, "Snare", 4 * q, 4 * q, { { 38, 127, 0, q / 4 } });
+    edit::setMuted (project, { drums }, true);   // even a muted track is heard while you edit it
+    const auto before = project.getState().toXmlString();
+
+    auto render = [&] (const PartLoop& loop, int samples)
+    {
+        AudioEngine engine;
+        MixerResources resources;
+        engine.prepare (rate, 512);
+        auto snapshot = buildTimelineSnapshot (project, rate, {}, &resources, {}, loop);
+        CHECK (snapshot->loopEnabled);
+        CHECK (snapshot->loopStart == loop.start);
+        CHECK (snapshot->loopEnd == loop.end);
+        engine.setTimeline (std::move (snapshot));
+        engine.locate (loop.start);
+        engine.play();
+
+        std::vector<float> l, bl (512), br (512);
+        for (int done = 0; done < samples; done += 512)
+        {
+            float* outputs[] = { bl.data(), br.data() };
+            engine.process (nullptr, 0, outputs, 2, 512);
+            l.insert (l.end(), bl.begin(), bl.end());
+        }
+        engine.collectGarbage();
+        return l;
+    };
+
+    const auto kick = builtInDrumSound ("kick-808", rate);
+    const auto snare = builtInDrumSound ("snare-808", rate);
+    REQUIRE ((kick != nullptr && snare != nullptr));
+
+    // Alone: only the kick, and the bar repeats (4 beats = 96000 samples at 120 BPM).
+    auto l = render ({ drums, 4 * q, 8 * q, true }, 100000);
+    CHECK (std::abs (l[300] - kick->samples.getSample (0, 300)) < 1.0e-3f);
+    CHECK (std::abs (l[96000 + 300] - kick->samples.getSample (0, 300)) < 1.0e-3f);   // again, from the loop
+
+    // With the song: the other track too.
+    l = render ({ drums, 4 * q, 8 * q, false }, 2048);
+    CHECK (std::abs (l[300] - (kick->samples.getSample (0, 300) + snare->samples.getSample (0, 300))) < 1.0e-3f);
+
+    CHECK (project.getState().toXmlString() == before);
 }
