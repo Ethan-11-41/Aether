@@ -163,13 +163,14 @@ ProjectView::ProjectView (AppContext& context, Project& projectToShow)
 
     // The mixer, below the timeline.
     mixer = std::make_unique<ui::MixerComponent> (ctx.theme, project, trackList);
+    mixer->onMinimumHeightChanged = [this] { resized(); };   // more effects on a channel: taller strips
     addChildComponent (*mixer);
     divider.theme = &ctx.theme;
     divider.onDragStart = [this] { heightAtDragStart = mixerHeight; };
     divider.onDrag = [this] (int distance)
     {
-        mixerHeight = juce::jlimit (ui::MixerComponent::minimumHeight, std::max (ui::MixerComponent::minimumHeight, getHeight() - 300),
-                                    heightAtDragStart + distance);
+        const auto minimum = mixer->getMinimumHeight();
+        mixerHeight = juce::jlimit (minimum, std::max (minimum, getHeight() - 300), heightAtDragStart + distance);
         ctx.settings.get().setValue (mixerHeightKey, mixerHeight);
         resized();
     };
@@ -1003,8 +1004,8 @@ void ProjectView::resized()
 
     if (mixerVisible)
     {
-        const auto height = juce::jlimit (ui::MixerComponent::minimumHeight,
-                                          std::max (ui::MixerComponent::minimumHeight, area.getHeight() - 220), mixerHeight);
+        const auto minimum = mixer->getMinimumHeight();
+        const auto height = juce::jlimit (minimum, std::max (minimum, area.getHeight() - 220), mixerHeight);
         mixer->setBounds (area.removeFromBottom (height));
         divider.setBounds (area.removeFromBottom (6));
     }

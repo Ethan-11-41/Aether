@@ -177,4 +177,103 @@ const EffectType* findEffectType (const juce::String& id)
     return nullptr;
 }
 
+int findPresetIndex (const EffectType& type, const juce::String& presetName)
+{
+    for (size_t i = 0; i < type.presets.size(); ++i)
+        if (type.presets[i].name == presetName)
+            return (int) i;
+
+    return -1;
+}
+
+const std::vector<EffectChain>& effectChains()
+{
+    static const std::vector<EffectChain> chains = []
+    {
+        using S = EffectChain::Step;
+        return std::vector<EffectChain>
+        {
+            // Vocals.
+            { "Vocal: clear and up front", "Vocals",
+              "Cleaner low end, softer \"s\" sounds, even and present, with a short shiny reverb.",
+              { S { eq::typeId, "Vocal: clarity" }, S { deesser::typeId, "Gentle" },
+                S { compressor::typeId, "Vocal: up front" }, S { reverb::typeId, "Vocal: plate" } } },
+            { "Vocal: warm and smooth", "Vocals",
+              "A fuller, softer voice with a little tape warmth and a gentle hall.",
+              { S { eq::typeId, "Vocal: warm" }, S { compressor::typeId, "Vocal: smooth (parallel)" },
+                S { saturation::typeId, "Vocal: warmth" }, S { reverb::typeId, "Vocal: hall" } } },
+            { "Vocal: rap / spoken", "Vocals",
+              "Tight and loud: room noise gated, boxiness gone, strongly compressed, with a quick slap echo.",
+              { S { gate::typeId, "Vocal: quiet room" }, S { eq::typeId, "Vocal: remove boxiness" },
+                S { deesser::typeId, "Gentle" }, S { compressor::typeId, "Vocal: rap / spoken" },
+                S { echo::typeId, "Vocal: slap" } } },
+            { "Vocal: dreamy", "Vocals",
+              "Doubled and wide, with dotted echoes and a long, soft reverb.",
+              { S { eq::typeId, "Vocal: clarity" }, S { compressor::typeId, "Vocal: even" },
+                S { chorus::typeId, "Vocal: doubled" }, S { echo::typeId, "Vocal: dotted eighth" },
+                S { reverb::typeId, "Vocal: dreamy" } } },
+            { "Vocal: recorded in a noisy room", "Vocals",
+              "Quiets the room between phrases and removes the boxy sound of a small room.",
+              { S { gate::typeId, "Vocal: noisy room" }, S { eq::typeId, "Vocal: remove boxiness" },
+                S { compressor::typeId, "Vocal: even" }, S { deesser::typeId, "Gentle" },
+                S { reverb::typeId, "Vocal: small room" } } },
+            { "Vocal: telephone / radio", "Vocals",
+              "A thin, gritty, old-radio voice (for an intro or a special moment).",
+              { S { eq::typeId, "Vocal: telephone" }, S { saturation::typeId, "Vocal: gritty" },
+                S { compressor::typeId, "Vocal: up front" } } },
+
+            // Instruments.
+            { "Piano: bright and clear", "Instruments",
+              "A clearer, more even piano in a concert hall.",
+              { S { eq::typeId, "Piano: bright" }, S { compressor::typeId, "Piano: even" }, S { reverb::typeId, "Piano: hall" } } },
+            { "Piano: warm and soft", "Instruments",
+              "A darker, warmer piano with a little tape, in a room.",
+              { S { eq::typeId, "Piano: warm" }, S { saturation::typeId, "Piano: tape" },
+                S { compressor::typeId, "Piano: even" }, S { reverb::typeId, "Instrument: room" } } },
+            { "Strings: lush", "Instruments",
+              "Smooth, airy strings in a big hall.",
+              { S { eq::typeId, "Strings: air" }, S { compressor::typeId, "Strings: smooth" }, S { reverb::typeId, "Strings: big hall" } } },
+            { "Synth pad: wide", "Instruments",
+              "A wide, shimmering pad with echoes bouncing left and right.",
+              { S { chorus::typeId, "Pad: wide" }, S { echo::typeId, "Ping-pong" }, S { reverb::typeId, "Strings: big hall" } } },
+            { "Acoustic: natural room", "Instruments",
+              "Guitars, woodwinds, mallets: even, a little out of the singer's way, in a natural room.",
+              { S { eq::typeId, "Make room in the mix" }, S { compressor::typeId, "Acoustic: natural" },
+                S { reverb::typeId, "Instrument: room" } } },
+
+            // The whole song (on the master).
+            { "Master: polished and louder", "Master",
+              "A little clearer, glued together and louder, without clipping. A good place to start.",
+              { S { eq::typeId, "Master: gentle polish" }, S { compressor::typeId, "Master: glue" },
+                S { limiter::typeId, "Master: louder" } } },
+            { "Master: gentle", "Master",
+              "Just a touch of glue, and a safety limiter so nothing clips.",
+              { S { compressor::typeId, "Master: glue" }, S { limiter::typeId, "Master: a little louder" } } },
+            { "Master: bright and punchy", "Master",
+              "Brighter, with punchier drums, and loud.",
+              { S { eq::typeId, "Master: brighter" }, S { compressor::typeId, "Master: punchy" },
+                S { limiter::typeId, "Master: louder" } } },
+            { "Master: warm", "Master",
+              "A soft tape glow over the whole song, then glue and a limiter.",
+              { S { saturation::typeId, "Master: glow" }, S { eq::typeId, "Master: gentle polish" },
+                S { compressor::typeId, "Master: glue" }, S { limiter::typeId, "Master: a little louder" } } },
+            { "Master: as loud as possible", "Master",
+              "As loud as streaming songs (louder can sound squashed: compare with it switched off).",
+              { S { eq::typeId, "Master: gentle polish" }, S { compressor::typeId, "Master: punchy" },
+                S { limiter::typeId, "Master: maximum" } } },
+        };
+    }();
+
+    return chains;
+}
+
+const EffectChain* findEffectChain (const juce::String& name)
+{
+    for (const auto& chain : effectChains())
+        if (chain.name == name)
+            return &chain;
+
+    return nullptr;
+}
+
 } // namespace aether::dsp

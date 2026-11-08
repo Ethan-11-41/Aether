@@ -19,7 +19,7 @@ inline const juce::String masterId { "master" };
 constexpr double silentDb = -100.0;     // the fader's lowest position: no sound at all
 constexpr double maxVolumeDb = 6.0;
 constexpr double defaultSendDb = -6.0;
-constexpr int maxInsertsPerChannel = 4;
+constexpr int maxInsertsPerChannel = 8;
 
 /** dB to a linear gain (silentDb or below gives exactly 0). */
 float dbToGain (double decibels) noexcept;
@@ -63,6 +63,11 @@ juce::ValueTree findInsert (const Project& project, const juce::String& insertId
 /** An insert's parameter value (its default if it hasn't been set). */
 float getInsertParameter (const juce::ValueTree& insert, const juce::Identifier& parameterId);
 
+/** The preset an insert's (or instrument's) settings are on, as an index into its type's presets:
+    the one last chosen while nothing has been changed since, otherwise the first preset that
+    matches the settings exactly. -1 if the settings are the user's own. */
+int currentPresetIndex (const juce::ValueTree& insert);
+
 } // namespace aether::mixer
 
 namespace aether::edit
@@ -96,6 +101,17 @@ juce::String addInsert (Project& project, const juce::String& channelId, const j
     maxInsertsPerChannel are skipped). Returns the new inserts' ids, in the channels' order. */
 juce::StringArray addInsertToChannels (Project& project, const juce::StringArray& channelIds, const juce::String& effectType);
 bool removeInsert (Project& project, const juce::String& insertId);
+
+/** Sets all of an effect's settings to one of its presets (one undo step). */
+bool setInsertPreset (Project& project, const juce::String& insertId, const juce::String& presetName);
+
+/** Adds a ready-made chain of effects (see dsp::effectChains) to the end of each channel's
+    effects, in one undo step. Channels without room for the whole chain are skipped. Returns the
+    new effects' ids (channel by channel, in the chain's order). */
+juce::StringArray addEffectChain (Project& project, const juce::StringArray& channelIds, const juce::String& chainName);
+
+/** True if a channel has room for this many more effects. */
+bool hasRoomForEffects (const Project& project, const juce::String& channelId, int count);
 bool moveInsert (Project& project, const juce::String& insertId, int newIndex);
 bool setInsertBypassed (Project& project, const juce::String& insertId, bool bypassed);
 bool setInsertParameter (Project& project, const juce::String& insertId, const juce::Identifier& parameterId,

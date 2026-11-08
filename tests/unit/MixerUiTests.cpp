@@ -126,6 +126,36 @@ TEST_CASE ("The mixer has a strip for every track, plus the master", "[ui][mixer
     CHECK (f.mixer.findStrip (f.ids[2]) == strip);
 }
 
+TEST_CASE ("Mixer strips make room when a channel has more than three effects", "[ui][mixer][effects]")
+{
+    Fixture f;
+    f.mixer.setSize (800, 500);
+    int heightChanges = 0;
+    f.mixer.onMinimumHeightChanged = [&] { ++heightChanges; };
+
+    CHECK (f.mixer.getNumInsertRows() == ui::MixerComponent::minimumInsertRows);
+    const auto smallest = f.mixer.getMinimumHeight();
+    auto* strip = f.mixer.findStrip (f.ids[0]);
+    const auto faderTop = strip->getFader().getY();
+
+    // A five-effect chain on one track: six rows (five, and "+ Effect").
+    REQUIRE (edit::addEffectChain (f.project, { f.ids[0] }, "Vocal: dreamy").size() == 5);
+    CHECK (f.mixer.getNumInsertRows() == 6);
+    CHECK (heightChanges > 0);
+    CHECK (f.mixer.getMinimumHeight() > smallest);
+    CHECK (f.mixer.findStrip (f.ids[1])->getFader().getY() > faderTop);   // every strip lines up
+
+    // Full: eight rows, no more.
+    edit::addEffectChain (f.project, { f.ids[0] }, "Master: polished and louder");
+    CHECK (mixer::insertsOf (f.project, f.ids[0]).size() == 8);
+    CHECK (f.mixer.getNumInsertRows() == mixer::maxInsertsPerChannel);
+
+    f.project.getUndoManager().undo();
+    f.project.getUndoManager().undo();
+    CHECK (f.mixer.getNumInsertRows() == ui::MixerComponent::minimumInsertRows);
+    CHECK (f.mixer.getMinimumHeight() == smallest);
+}
+
 TEST_CASE ("Meters on the track headers and the mixer show the levels they are given", "[ui][mixer][meters]")
 {
     Fixture f;
