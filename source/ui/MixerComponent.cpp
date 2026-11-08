@@ -459,7 +459,7 @@ void MixerComponent::Strip::showAddEffectMenu()
     // Ready-made chains, by what they're for (the whole-song ones first on the master).
     menu.addSeparator();
     menu.addSectionHeader ("Ready-made chains (several effects)");
-    const auto free = mixer::maxInsertsPerChannel - (int) mixer::insertsOf (proj, channelId).size();
+    const auto freeSlots = mixer::maxInsertsPerChannel - (int) mixer::insertsOf (proj, channelId).size();
 
     auto addCategory = [&] (const juce::String& category, const juce::String& title)
     {
@@ -475,7 +475,7 @@ void MixerComponent::Strip::showAddEffectMenu()
                 if (const auto* type = dsp::findEffectType (step.typeId))
                     names.add (type->name);
 
-            const auto fits = (int) chain.steps.size() <= free;
+            const auto fits = (int) chain.steps.size() <= freeSlots;
             const auto chainName = chain.name;
             sub.addItem (chain.name + "   (" + names.joinIntoString (", ") + ")" + (fits ? juce::String() : juce::String ("  - not enough room")),
                          fits, false, whileStripExists (this, [&proj, chainName, channels] { edit::addEffectChain (proj, channels, chainName); }));
