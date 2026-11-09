@@ -6,6 +6,24 @@ follow [Semantic Versioning](https://semver.org/) (0.x while Aether is in early 
 
 ## [Unreleased]
 
+## [0.15.1] - 2026-11-09
+
+From your M14 testing.
+
+### Changed
+- A lane's **x** now **removes** the lane and its points (Ctrl+Z brings them back), so you can
+  start a take again without the old moves fighting you. Hiding a lane (its points keep
+  working) is in the lane's **▾** menu, which also has **Clear all points** to draw or record it
+  again.
+- Recording automation while holding a control still now stretches one point instead of adding
+  one every moment: a flat stretch is just two points.
+
+### Added
+- **Copy these points** / **Paste copied points onto the selected tracks** in a lane's **▾**
+  menu: the same automation on several tracks at once (an effect's setting goes to the same kind
+  of effect on each track). For one change to many tracks, you can also automate a bus they all
+  play into.
+
 ## [0.15.0] - 2026-11-09 - Milestone 14: automation
 
 ### Added

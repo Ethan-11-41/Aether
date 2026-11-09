@@ -174,6 +174,12 @@ bool clearAutomationLane (Project& project, const juce::String& laneId);
 juce::String writeAutomation (Project& project, const juce::String& trackId, const automation::Target& target,
                               Tick from, Tick tick, float value);
 
+/** Puts a copy of a lane's points on the same setting of other tracks (replacing what's there;
+    an effect's setting goes to the first effect of the same type), in one undo step. Sends
+    aren't copied (each goes to its own bus). Returns how many tracks got them. */
+int pasteAutomation (Project& project, const juce::String& fromTrackId, const automation::Target& target,
+                     const std::vector<automation::Point>& points, const juce::StringArray& trackIds);
+
 /** Removes the lanes for an effect or a send (when it's removed), joining the current undo step. */
 void removeAutomationFor (Project& project, const juce::String& objectId);
 

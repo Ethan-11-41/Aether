@@ -333,7 +333,7 @@ public:
 
         if (hideArea().contains (e.getPosition()))
         {
-            edit::hideAutomationLane (owner.project, laneId);
+            edit::removeAutomationLane (owner.project, laneId);   // (Ctrl+Z brings it back)
             return;
         }
 
@@ -345,8 +345,8 @@ public:
     {
         setMouseCursor (hideArea().contains (e.getPosition()) || menuArea().contains (e.getPosition())
                             ? juce::MouseCursor::PointingHandCursor : juce::MouseCursor::NormalCursor);
-        setTooltip (hideArea().contains (e.getPosition()) ? "Hide this lane (its points keep working)"
-                  : menuArea().contains (e.getPosition()) ? "More: clear the points, remove the lane"
+        setTooltip (hideArea().contains (e.getPosition()) ? "Remove this lane and its points (Ctrl+Z brings them back)"
+                  : menuArea().contains (e.getPosition()) ? "More: hide the lane, clear its points, copy them to other tracks"
                   : "An automation lane: the line is the setting's value as the song plays. Click in the lane (on the "
                     "right) to add points, drag them to change it.");
     }
@@ -360,13 +360,45 @@ private:
         juce::Component::SafePointer<TrackListComponent> list (&owner);
 
         menu.addItem ("Hide this lane (its points keep working)", [&proj, id] { edit::hideAutomationLane (proj, id); });
-        menu.addItem ("Clear all points", [&proj, id] { edit::clearAutomationLane (proj, id); });
-        menu.addSeparator();
+        menu.addItem ("Clear all points (to draw or record it again)", [&proj, id] { edit::clearAutomationLane (proj, id); });
         menu.addItem ("Remove the lane and its points", [&proj, id] { edit::removeAutomationLane (proj, id); });
+        menu.addSeparator();
+
+        // Copy and paste onto other tracks (the selected ones).
+        const auto lane = automation::findLane (proj, id);
+        const auto target = automation::Target::fromString (lane[ids::setting].toString());
+        const auto points = automation::pointsOf (lane);
+        const auto from = trackId;
+        menu.addItem ("Copy these points", ! points.empty(), false, [from, target, points]
+        {
+            clipboard() = { from, target, points };
+        });
+
+        const auto& copied = clipboard();
+        const auto targets = owner.tracksToEdit (trackId);
+        menu.addItem ("Paste copied points onto " + (targets.size() > 1 ? "the " + juce::String (targets.size()) + " selected tracks"
+                                                                         : juce::String ("this track")),
+                      ! copied.points.empty(), false, [&proj, copied, targets]
+        {
+            edit::pasteAutomation (proj, copied.trackId, copied.target, copied.points, targets);
+        });
         menu.addSeparator();
         const auto track = trackId;
         menu.addItem ("Show another setting...", [list, track] { if (list != nullptr) list->showAutomationMenu (track); });
         menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (this));
+    }
+
+    struct Copied
+    {
+        juce::String trackId;
+        automation::Target target;
+        std::vector<automation::Point> points;
+    };
+
+    static Copied& clipboard()
+    {
+        static Copied copied;
+        return copied;
     }
 
     TrackListComponent& owner;

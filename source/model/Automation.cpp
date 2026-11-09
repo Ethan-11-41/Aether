@@ -762,8 +762,68 @@ juce::String writeAutomation (Project& project, const juce::String& trackId, con
             lane.removeChild (i, &undo);
     }
 
-    lane.addChild (makePoint (tick, clampToRange (project, lane, value), 0.0f), insertIndexFor (lane, tick), &undo);
+    // Held still (the same value as the last two points): stretch the last point instead of
+    // adding another, so a flat stretch is just two points.
+    value = clampToRange (project, lane, value);
+    const auto at = insertIndexFor (lane, tick);
+
+    if (at >= 2)
+    {
+        auto previous = lane.getChild (at - 1);
+        const auto before = lane.getChild (at - 2);
+
+        if (std::abs ((float) previous[ids::value] - value) < 1.0e-6f && std::abs ((float) before[ids::value] - value) < 1.0e-6f)
+        {
+            previous.setProperty (ids::tick, (juce::int64) tick, &undo);
+            return laneId;
+        }
+    }
+
+    lane.addChild (makePoint (tick, value, 0.0f), at, &undo);
     return laneId;
+}
+
+int pasteAutomation (Project& project, const juce::String& fromTrackId, const Target& target,
+                     const std::vector<Point>& points, const juce::StringArray& trackIds)
+{
+    // The same setting on another track: the same kind, or the first effect of the same type.
+    auto matching = [&] (const juce::String& trackId) -> Target
+    {
+        if (target.kind != Target::Kind::effect && target.kind != Target::Kind::effectOn)
+            return target.kind == Target::Kind::send ? Target() : target;
+
+        const auto type = mixer::findInsert (project, target.objectId)[ids::type].toString();
+        for (const auto& insert : mixer::insertsOf (project, trackId))
+            if (insert[ids::type].toString() == type)
+                return target.kind == Target::Kind::effectOn ? Target::effectOn (insert[ids::id].toString())
+                                                             : Target::effect (insert[ids::id].toString(), target.parameterId);
+        return {};
+    };
+
+    auto& undo = project.getUndoManager();
+    undo.beginNewTransaction ("Paste automation");
+    int pasted = 0;
+
+    for (const auto& trackId : trackIds)
+    {
+        if (trackId == fromTrackId && ! trackIds.isEmpty() && trackIds.size() > 1)
+            continue;
+
+        const auto to = matching (trackId);
+        if (! to.isValid() || ! rangeOf (project, trackId, to))
+            continue;
+
+        auto lane = findLane (project, showAutomationLane (project, trackId, to));
+        for (int i = lane.getNumChildren(); --i >= 0;)
+            lane.removeChild (i, &undo);
+
+        for (const auto& p : points)
+            lane.appendChild (makePoint (p.tick, clampToRange (project, lane, p.value), p.bend), &undo);
+
+        ++pasted;
+    }
+
+    return pasted;
 }
 
 void removeAutomationFor (Project& project, const juce::String& objectId)
