@@ -220,6 +220,10 @@ private:
     void renderClips (const TimelineSnapshot& timeline, std::int64_t fromSample, std::int64_t toSample,
                       int blockOffset) noexcept AETHER_NONBLOCKING;
     void mixChannels (const TimelineSnapshot& timeline, float* const* outputs, int numOutputs, int numSamples) noexcept AETHER_NONBLOCKING;
+    /** Runs one effect on a channel's sound (with these settings: automation may have changed
+        them), fading in or out when it's switched on or off. */
+    static void runInsert (const InsertPlayback& insert, const dsp::EffectParameterValues& parameters, bool bypassed,
+                           float* left, float* right, int numSamples, const dsp::EffectContext& context) noexcept AETHER_NONBLOCKING;
     void processChannel (const TimelineSnapshot& timeline, const TrackPlayback& channel, int index,
                          const dsp::EffectContext& context, int numSamples) noexcept AETHER_NONBLOCKING;
     std::int64_t tickToSample (const TempoMap& tempo, Tick tick) const noexcept AETHER_NONBLOCKING;
@@ -272,6 +276,8 @@ private:
     int numLiveEvents = 0;
     std::array<dsp::NoteEvent, maxNoteEvents> noteEvents {};
     std::int64_t positionSamples = 0;   // the playhead, in samples from the start of the timeline
+    std::int64_t automationSample = 0;                              // where automation is read this chunk (the playhead at its start)
+    dsp::EffectParameterValues automatedInstrumentParameters {};   // an instrument's automated settings (kept here, not on the stack)
     double countInSamplesPerBeat = 0.0;
     int countInTotalBeats = 0, countInBeatsPerBar = 4;
     std::int64_t countInElapsed = 0;

@@ -67,6 +67,7 @@ namespace commands
         record              = 0x600A,
         togglePunch         = 0x600B,
         toggleKeyboard      = 0x600C,
+        writeAutomation     = 0x600D,
 
         // Settings & help
         audioSettings       = 0x4001,

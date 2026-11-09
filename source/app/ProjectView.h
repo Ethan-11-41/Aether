@@ -7,6 +7,7 @@
 
 #include "AppContext.h"
 #include "engine/Recorder.h"
+#include "engine/AutomationRecorder.h"
 #include "engine/TimelineSync.h"
 #include "model/Project.h"
 #include "ui/KeyboardPanel.h"
@@ -42,6 +43,10 @@ public:
     void toggleRecording();
     void stopRecording()                              { recorder->stop(); }
     bool isRecording() const noexcept                 { return recorder->isActive(); }
+
+    /** Write automation: moving controls as the song plays records the moves (Milestone 14). */
+    void setWritingAutomation (bool shouldWrite)      { automationRecorder.setEnabled (shouldWrite); }
+    bool isWritingAutomation() const noexcept         { return automationRecorder.isEnabled(); }
 
     /** If recording, stops and adds the recorded clips now (before the project is closed). */
     void finishRecording()                            { recorder->finishNow(); }
@@ -133,6 +138,8 @@ private:
     AppContext& ctx;
     Project& project;
     TimelineSync timelineSync;
+    AutomationRecorder automationRecorder;
+    Tick lastAutomationTick = -1;
     std::unique_ptr<Recorder> recorder;
 
     juce::TextButton undoButton, redoButton, addAudioButton, addMidiButton, addDrumsButton, addBusButton, mixerButton;
@@ -183,6 +190,7 @@ private:
     };
     std::vector<EffectWindow> effectWindows;                 // effects' windows (close with the project)
     void closeEffectWindow (const juce::String& insertId);
+    void followAutomation();
     std::unique_ptr<juce::DocumentWindow> drumWindow;        // the drum editor (closes with the project)
     ui::DrumEditor* drumEditor = nullptr;                    // inside drumWindow
     void openDrumWindow();

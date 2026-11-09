@@ -19,6 +19,7 @@
 #include "engine/AudioEngine.h"
 #include "engine/TimelineSync.h"
 #include "engine/rt/SpscQueue.h"
+#include "model/Automation.h"
 #include "model/ClipEdits.h"
 #include "model/EditCommands.h"
 #include "model/MidiClips.h"
@@ -176,6 +177,22 @@ TEST_CASE ("The mixer, buses, sends and effects are real-time safe", "[realtime]
     edit::addInsert (project, mixer::masterId, "delay");
     edit::setPan (project, a, -0.3);
 
+    // Automation on everything that can have it (Milestone 14).
+    {
+        using automation::Target;
+        const auto echo = mixer::insertsOf (project, a).front()[ids::id].toString();
+        const auto send = mixer::sendsOf (project, a).front()[ids::id].toString();
+
+        for (const auto& target : { Target::volume(), Target::pan(), Target::mute(), Target::send (send),
+                                    Target::effect (echo, "feedback"), Target::effectOn (echo) })
+        {
+            const auto lane = edit::showAutomationLane (project, a, target);
+            const auto range = *automation::rangeOf (project, a, target);
+            for (int i = 0; i < 8; ++i)
+                edit::addAutomationPoint (project, lane, i * ticksPerQuarter / 2, range.fromPosition ((float) (i % 3) / 2.0f));
+        }
+    }
+
     auto audio = std::make_shared<AudioData>();
     audio->sampleRate = 48000.0;
     audio->samples.setSize (2, 96000);
@@ -272,6 +289,23 @@ TEST_CASE ("MIDI playback, the synth, live MIDI and MIDI recording are real-time
     edit::addMidiClip (project, keys, "a", 0, 16 * ticksPerQuarter, notes);
     edit::addMidiClip (project, pad, "b", 0, 16 * ticksPerQuarter, notes);
     edit::setArmed (project, { keys }, true);
+
+    // The pad's instrument settings automated (Milestone 14).
+    {
+        const auto instrument = midi::instrumentOf (project, pad);
+        const auto* type = dsp::findEffectType (instrument[ids::type].toString());
+        REQUIRE (type != nullptr);
+
+        for (size_t p = 0; p < std::min<size_t> (6, type->parameters.size()); ++p)
+        {
+            const auto target = automation::Target::instrument (type->parameters[p].id.toString());
+            const auto lane = edit::showAutomationLane (project, pad, target);
+            const auto range = *automation::rangeOf (project, pad, target);
+            for (int i = 0; i < 4; ++i)
+                edit::addAutomationPoint (project, lane, i * ticksPerQuarter / 2, range.fromPosition ((float) (i % 2)));
+        }
+    }
+
     edit::setLoopRange (project, 0, 2 * ticksPerQuarter);
     edit::setLoopEnabled (project, true);
 

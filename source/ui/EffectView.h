@@ -87,6 +87,7 @@ private:
     static int heightOf (const std::vector<juce::Rectangle<int>>& bounds, int top);
 
     juce::ValueTree insert() const;
+    juce::String trackIdOf() const;
 
     const Theme& theme;
     Project& project;

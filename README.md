@@ -16,8 +16,9 @@ with deep customisation underneath.
 > import, arrange, copy and paste audio and MIDI clips on a snap grid; import MIDI files; mix
 > with volume, pan, mute, solo, buses, sends and ten effects (EQ, compressor, limiter, gate,
 > de-esser, saturation, filter, chorus, delay, reverb), each in its own window with a live
-> picture, presets and ready-made chains for vocals, instruments and the whole song; and export
-> the mix and stems to WAV, FLAC or MP3. Next: automation (M14). See
+> picture, presets and ready-made chains for vocals, instruments and the whole song; automate
+> any of it (draw lanes under the tracks, or record your knob moves); and export the mix and
+> stems to WAV, FLAC or MP3. Next: VST3 plug-ins (M15). See
 > [docs/STATUS.md](docs/STATUS.md) for exactly what works, and
 > [docs/ROADMAP.md](docs/ROADMAP.md) for what's coming.
 
@@ -66,6 +67,8 @@ See [docs/FILE_FORMAT.md](docs/FILE_FORMAT.md).
 | Zoom in / out | Ctrl+= / Ctrl+- (or Ctrl + mouse wheel) |
 | Scroll the timeline sideways | Shift + mouse wheel |
 | Place exactly, without snapping to beats | hold Alt while clicking or dragging |
+| Automation lanes | A button on a track; in a lane: click to add a point, drag to move, double-click to remove, Ctrl+drag a line to bend |
+| Record automation (move controls while playing) | Write automation button (after the metronome), or Transport menu |
 | Import audio or MIDI files | Ctrl+I (or drag files onto the window: onto a track, or anywhere for new tracks) |
 | Open a project | Ctrl+O (or drag a `.aether` file onto the window) |
 | Split clips at the playhead / duplicate / delete | S / Ctrl+D / Delete |

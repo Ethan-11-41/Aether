@@ -8,6 +8,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include "Theme.h"
+#include "TrackRows.h"
 #include "model/Project.h"
 
 namespace aether::ui
@@ -22,6 +23,8 @@ namespace aether::ui
       one of them changes them all (volume and pan move by the same amount).
     - Click the coloured strip, or right-click, to change the colour.
     - Drag a track up or down to reorder it.
+    - The A button shows the track's automation lanes (Milestone 14), each with its own header
+      under the track.
     All changes go through the undoable functions in model/EditCommands.h and model/Mixer.h.
 */
 class TrackListComponent final : public juce::Component,
@@ -29,7 +32,7 @@ class TrackListComponent final : public juce::Component,
                                  private juce::ValueTree::Listener
 {
 public:
-    static constexpr int rowHeight = 56;
+    static constexpr int rowHeight = TrackRows::trackHeight;
 
     TrackListComponent (const Theme& theme, Project& project);
     ~TrackListComponent() override;
@@ -64,6 +67,12 @@ public:
 
     /** Shows a track's right-click menu (rename, colour, mute, solo, output, delete...). */
     void showTrackMenu (const juce::String& trackId)   { showContextMenu (trackId); }
+
+    /** The automation menu (the A button): which settings' lanes are shown under the track. */
+    void showAutomationMenu (const juce::String& trackId);
+
+    /** The lane headers, for the tests. */
+    int getNumLaneHeaders() const noexcept   { return (int) laneHeaders.size(); }
 
     /** Opens a MIDI track's instrument settings: the Synth's window (through onOpenInstrument), or
         for the starter synth a pop-up pointing at `screenArea`. */
@@ -111,7 +120,9 @@ public:
 
 private:
     class Header;
+    class LaneHeader;
     friend class Header;
+    friend class LaneHeader;
 
     void rebuild();
     void selectionChanged();
@@ -119,17 +130,21 @@ private:
     void showContextMenu (const juce::String& trackId);
     int insertIndexForY (int y) const;
 
-    // Only tracks being added, removed or moved need new headers (not clips, sends or effects).
-    void valueTreeChildAdded (juce::ValueTree& parent, juce::ValueTree&) override        { if (parent == tracksNode) rebuild(); }
-    void valueTreeChildRemoved (juce::ValueTree& parent, juce::ValueTree&, int) override { if (parent == tracksNode) rebuild(); }
-    void valueTreeChildOrderChanged (juce::ValueTree& parent, int, int) override         { if (parent == tracksNode) rebuild(); }
-    void valueTreePropertyChanged (juce::ValueTree&, const juce::Identifier&) override  { repaintHeaders(); }
+    // Only tracks being added, removed or moved need new headers (not clips, sends or effects);
+    // lanes shown, hidden, added or removed need new lane headers.
+    void valueTreeChildAdded (juce::ValueTree& parent, juce::ValueTree&) override        { childrenChanged (parent); }
+    void valueTreeChildRemoved (juce::ValueTree& parent, juce::ValueTree&, int) override { childrenChanged (parent); }
+    void valueTreeChildOrderChanged (juce::ValueTree& parent, int, int) override         { childrenChanged (parent); }
+    void valueTreePropertyChanged (juce::ValueTree&, const juce::Identifier&) override;
+    void childrenChanged (const juce::ValueTree& parent);
+    void rebuildLanes();
     void repaintHeaders();
 
     const Theme& theme;
     Project& project;
     juce::ValueTree tracksNode;
     std::vector<std::unique_ptr<Header>> headers;
+    std::vector<std::unique_ptr<LaneHeader>> laneHeaders;
     juce::String selectedTrackId, anchorTrackId;
     juce::StringArray selectedIds;
 

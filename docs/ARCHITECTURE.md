@@ -82,8 +82,11 @@ Separate process:   plug-in scanner
 - Timeline positions are integers: **960,000 ticks per quarter note**, which is exact for
   triplets and every grid Aether offers.
 - A tempo map (tempo jumps and ramps, time-signature changes) converts ticks ↔ seconds ↔ samples.
-- MIDI events are placed at the exact sample inside each audio block. Built-in instruments and
-  effects receive sample-accurate automation.
+- MIDI events are placed at the exact sample inside each audio block. Automation (M14) is read
+  once per mixing chunk (at most 512 samples, about 10 ms at 48 kHz), where the playhead is at the
+  chunk's start; volume, pan, mute and sends are smoothed over 10 ms and the effects smooth their
+  own settings, so a lane moving quickly doesn't click. (Splitting chunks further for
+  sample-accurate automation can come later if it's ever needed.)
 - Third-party VST3 plug-ins only receive parameter changes once per block (a JUCE limitation), so
   Aether splits blocks to give them automation at a resolution of at most 32 samples
   (about 0.7 ms at 48 kHz). CLAP plug-ins get true sample accuracy.
@@ -185,6 +188,13 @@ Separate process:   plug-in scanner
   output. Solo is worked out when the snapshot is built, as a gain on each connection.
 - Plug-in delay compensation (from M15) will delay the shorter signal paths so everything stays
   in time. Aether's own effects add no delay, except the limiter's 1.5 ms look-ahead.
+- Automation lanes are turned into points in samples when the snapshot is built
+  (`AutomationPlayback`, values stored as heights on the lane 0..1 so the engine and the drawing
+  interpolate the same way). Recording automation (`AutomationRecorder`) happens on the UI
+  thread: it watches the project for changes to automatable settings while playing and writes
+  them into lanes, in the same undo step as the change.
+- Switching an effect on or off fades between the dry and processed sound over 20 ms; a
+  switched-off effect is still run (into a scratch buffer) so it's ready when it comes back.
 - Effect windows read what an effect is doing (how much a compressor is turning down) through
   `dsp::Effect::getMeter()`: one atomic value the effect writes on the audio thread and the
   window reads about 30 times a second, so neither ever waits for the other. The windows'

@@ -1,5 +1,6 @@
 // Aether - Copyright (C) 2026 The Aether authors. Licensed under the GNU AGPLv3 or later.
 #include "DrumEditor.h"
+#include "AutomationFollow.h"
 
 #include <set>
 
@@ -539,7 +540,11 @@ DrumEditor::DrumEditor (const Theme& t, Project& p, AudioEngine& e)
     const auto& volumeParameter = kitType().parameters[(size_t) kit::masterVolume];
     kitVolumeKnob = std::make_unique<ParameterKnob> (theme, volumeParameter);
     kitVolumeKnob->setTooltip ("Kit volume: how loud the whole kit is.");
-    kitVolumeKnob->getValue = [this, id = volumeParameter.id] { return (double) mixer::getInsertParameter (instrument(), id); };
+    kitVolumeKnob->getValue = [this, id = volumeParameter.id]
+    {
+        return (double) automationfollow::shown (project, trackId, automation::Target::instrument (id.toString()),
+                                                 mixer::getInsertParameter (instrument(), id));
+    };
     kitVolumeKnob->onGestureStart = [this] { project.getUndoManager().beginNewTransaction ("Change kit volume"); };
     kitVolumeKnob->onValueChange = [this, id = volumeParameter.id] (double v)
     {
@@ -748,7 +753,11 @@ void DrumEditor::rebuildKnobs()
         knob->setName (parameter.id.toString());
         knob->setTooltip (explainSetting (setting) + " Double-click to reset.");
         knob->resetValue = parameter.defaultValue;
-        knob->getValue = [this, id = parameter.id] { return (double) mixer::getInsertParameter (instrument(), id); };
+        knob->getValue = [this, id = parameter.id]
+        {
+            return (double) automationfollow::shown (project, trackId, automation::Target::instrument (id.toString()),
+                                                     mixer::getInsertParameter (instrument(), id));
+        };
         knob->onGestureStart = [this, name = parameter.name, pad = selectedPad]
         {
             project.getUndoManager().beginNewTransaction ("Change pad " + juce::String (pad + 1) + " " + name.toLowerCase());

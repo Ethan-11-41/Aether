@@ -37,6 +37,8 @@ add_library(aether_core STATIC
     dsp/EffectTypes.h
     engine/SamplerLibrary.cpp
     engine/SamplerLibrary.h
+    engine/AutomationRecorder.cpp
+    engine/AutomationRecorder.h
     engine/AudioEngine.cpp
     engine/AudioFileCache.cpp
     engine/AudioFileCache.h
@@ -98,6 +100,8 @@ add_library(aether_core STATIC
     io/RecentProjects.h
     model/Clip.cpp
     model/Clip.h
+    model/Automation.cpp
+    model/Automation.h
     model/ClipEdits.cpp
     model/ClipEdits.h
     model/DrumPatterns.cpp
@@ -147,6 +151,10 @@ juce_add_binary_data(aether_fonts
 add_library(aether_ui STATIC
     ui/AetherLookAndFeel.cpp
     ui/AetherLookAndFeel.h
+    ui/AutomationFollow.cpp
+    ui/AutomationFollow.h
+    ui/AutomationLanes.cpp
+    ui/AutomationLanes.h
     ui/DelayedTooltipWindow.h
     ui/DeviceSettingsPanel.cpp
     ui/DeviceSettingsPanel.h
@@ -187,6 +195,8 @@ add_library(aether_ui STATIC
     ui/TimelineComponent.h
     ui/TimelineView.h
     ui/TrackListComponent.cpp
+    ui/TrackRows.cpp
+    ui/TrackRows.h
     ui/TrackListComponent.h
     ui/TransportBar.cpp
     ui/TransportBar.h)

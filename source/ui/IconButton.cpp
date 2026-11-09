@@ -99,6 +99,21 @@ juce::Path IconButton::makeIcon (Icon icon, juce::Rectangle<float> r, bool alt)
             p.addEllipse (juce::Rectangle<float> (w * 0.4f, w * 0.4f).withCentre (r.getCentre()));
             break;
         }
+
+        case Icon::automation:
+        {
+            // Write automation: a line with points, rising and falling.
+            juce::Path line;
+            line.startNewSubPath (x, y + h * 0.75f);
+            line.lineTo (x + w * 0.3f, y + h * 0.75f);
+            line.lineTo (x + w * 0.6f, y + h * 0.2f);
+            line.lineTo (x + w, y + h * 0.45f);
+            juce::PathStrokeType (w * 0.1f).createStrokedPath (p, line);
+
+            for (const auto& point : { juce::Point<float> (x + w * 0.3f, y + h * 0.75f), juce::Point<float> (x + w * 0.6f, y + h * 0.2f) })
+                p.addEllipse (juce::Rectangle<float> (w * 0.26f, w * 0.26f).withCentre (point));
+            break;
+        }
     }
 
     return p;

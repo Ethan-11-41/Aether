@@ -10,6 +10,7 @@
 #include "RecordingRing.h"
 #include "dsp/Effect.h"
 #include "dsp/Instrument.h"
+#include "model/Automation.h"
 #include "model/Clip.h"
 #include "rt/RealtimeAnnotations.h"
 #include "time/TempoMap.h"
@@ -102,17 +103,82 @@ struct SendState
     GainRamp gain;
 };
 
+/** An insert's working state, kept from one snapshot to the next: how much of the effect is
+    heard. It fades (over 20 ms) when the effect is switched on or off, or added while playing, so
+    that never clicks. */
+struct InsertState
+{
+    float amount = 0.0f;                                  // 0: the dry sound, 1: through the effect
+    std::array<float, mixChunkSize> scratchLeft {}, scratchRight {};
+};
+
 struct InsertPlayback
 {
     std::shared_ptr<dsp::Effect> effect;     // prepared for the snapshot's sample rate
+    std::shared_ptr<InsertState> state = std::make_shared<InsertState>();
     dsp::EffectParameterValues parameters {};
     bool bypassed = false;
+};
+
+/** Pan as a balance control: the centre leaves the sound unchanged; turning it to one side
+    gradually turns the other side down (the side it points to stays at full level). */
+inline std::pair<float, float> panGains (double pan) noexcept
+{
+    auto turnDown = [] (double amount) { return amount >= 1.0 ? 0.0f : (float) std::cos (amount * juce::MathConstants<double>::halfPi); };
+    return { pan > 0.0 ? turnDown (pan) : 1.0f, pan < 0.0 ? turnDown (-pan) : 1.0f };
+}
+
+/** One automation lane, ready for the audio thread: its points in samples, and their values as
+    heights on the lane (0..1), turned back into values with `range`. */
+struct AutomationPlayback
+{
+    enum class Kind : std::uint8_t { volume, pan, mute, send, effect, effectOn, instrument };
+
+    struct Point
+    {
+        std::int64_t sample = 0;
+        float position = 0.0f;
+        float bend = 0.0f;
+    };
+
+    Kind kind = Kind::volume;
+    int index = -1;                          // which send or effect, in the channel's lists
+    int parameter = -1;                      // which setting of the effect or instrument
+    automation::Range range;
+    std::vector<Point> points;               // sorted by time; never empty
+
+    /** The setting's value at a sample (the same maths as automation::valueAt). */
+    float valueAt (std::int64_t sample) const noexcept AETHER_NONBLOCKING
+    {
+        if (sample <= points.front().sample)
+            return range.fromPosition (points.front().position);
+
+        if (sample >= points.back().sample)
+            return range.fromPosition (points.back().position);
+
+        size_t low = 0, high = points.size() - 1;   // points[low] <= sample < points[high]
+        while (high - low > 1)
+        {
+            const auto middle = (low + high) / 2;
+            (points[middle].sample <= sample ? low : high) = middle;
+        }
+
+        const auto& a = points[low];
+        const auto& b = points[high];
+
+        if (range.holds() || b.sample == a.sample)
+            return range.fromPosition (a.position);
+
+        const auto along = (float) ((double) (sample - a.sample) / (double) (b.sample - a.sample));
+        return range.fromPosition (automation::bendPosition (a.position, b.position, along, a.bend));
+    }
 };
 
 struct SendPlayback
 {
     int destination = -1;                    // index into TimelineSnapshot::tracks (always a bus after the sender)
     float gain = 1.0f;                       // level, and 0 if solo means it isn't heard
+    bool audible = true;                     // false if solo means it isn't heard (automation keeps it silent)
     bool preFader = false;
     std::shared_ptr<SendState> state = std::make_shared<SendState>();
 };
@@ -137,6 +203,11 @@ struct TrackPlayback
 
     float muteGain = 1.0f;                   // 0 when muted (after the effects)
     float leftGain = 1.0f, rightGain = 1.0f; // volume and pan
+
+    // Automation: the lanes with points, and what volume, pan and mute are without them.
+    std::vector<AutomationPlayback> automation;
+    float volumeDb = 0.0f, pan = 0.0f;
+    bool muteFixed = false;                  // played on its own (a part loop): mute automation doesn't apply
     float outputGain = 1.0f;                 // 0 when solo means the channel's output isn't heard
     int destination = -1;                    // index into TimelineSnapshot::tracks of the bus it
                                              // plays into (always later in the list); -1 = master

@@ -34,6 +34,10 @@ public:
         has changed (then a new one is made and prepared). Null for an unknown type. */
     std::shared_ptr<dsp::Effect> effect (const juce::String& insertId, const juce::String& type, double sampleRate);
 
+    /** An insert's fade state. A new one starts switched off (so a new effect fades in), except
+        in the first build, when the project has just been opened or is being exported. */
+    std::shared_ptr<InsertState> insertState (const juce::String& insertId, bool on);
+
     /** The same for a MIDI track's instrument (so held notes carry on through edits). */
     std::shared_ptr<dsp::Instrument> instrument (const juce::String& instrumentId, const juce::String& type, double sampleRate);
 
@@ -63,6 +67,8 @@ private:
     std::map<juce::String, Entry<ChannelState>> channels;
     std::map<juce::String, Entry<SendState>> sends;
     std::map<juce::String, Entry<dsp::Effect>> effects;
+    std::map<juce::String, Entry<InsertState>> insertStates;
+    bool builtOnce = false;
     std::map<juce::String, Entry<dsp::Instrument>> instruments;
     std::map<juce::String, Entry<const dsp::SampleMap>> sampleMaps;
 };
