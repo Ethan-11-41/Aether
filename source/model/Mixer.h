@@ -102,6 +102,16 @@ juce::String addInsert (Project& project, const juce::String& channelId, const j
 juce::StringArray addInsertToChannels (Project& project, const juce::StringArray& channelIds, const juce::String& effectType);
 bool removeInsert (Project& project, const juce::String& insertId);
 
+/** The other effects that came in with the same ready-made chain as this one, on the same
+    channel, still there (this one included, in order). Empty if it didn't come with a chain. */
+std::vector<juce::ValueTree> chainOf (const Project& project, const juce::String& insertId);
+
+/** Removes the effects that came in with the same chain as this one (one undo step). */
+bool removeEffectChain (Project& project, const juce::String& insertId);
+
+/** Removes every effect on these channels (one undo step). Returns how many were removed. */
+int removeAllInserts (Project& project, const juce::StringArray& channelIds);
+
 /** Sets all of an effect's settings to one of its presets (one undo step). */
 bool setInsertPreset (Project& project, const juce::String& insertId, const juce::String& presetName);
 

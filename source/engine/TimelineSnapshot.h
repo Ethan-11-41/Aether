@@ -102,9 +102,19 @@ struct SendState
     GainRamp gain;
 };
 
+/** An insert's working state, kept from one snapshot to the next: how much of the effect is
+    heard. It fades (over 20 ms) when the effect is switched on or off, or added while playing, so
+    that never clicks. */
+struct InsertState
+{
+    float amount = 0.0f;                                  // 0: the dry sound, 1: through the effect
+    std::array<float, mixChunkSize> scratchLeft {}, scratchRight {};
+};
+
 struct InsertPlayback
 {
     std::shared_ptr<dsp::Effect> effect;     // prepared for the snapshot's sample rate
+    std::shared_ptr<InsertState> state = std::make_shared<InsertState>();
     dsp::EffectParameterValues parameters {};
     bool bypassed = false;
 };

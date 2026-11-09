@@ -606,6 +606,9 @@ juce::StringArray addEffectChain (Project& project, const juce::StringArray& cha
         if (! hasRoomForEffects (project, channelId, (int) chain->steps.size()))
             continue;
 
+        // Remembered, so the whole chain can be removed at once.
+        const auto group = juce::Uuid().toString();
+
         for (const auto& step : chain->steps)
         {
             const auto* type = dsp::findEffectType (step.typeId);
@@ -622,6 +625,8 @@ juce::StringArray addEffectChain (Project& project, const juce::StringArray& cha
                 insert.setProperty (type->parameters[i].id, type->parameters[i].clamp (preset.values[i]), &undo);
 
             insert.setProperty (ids::preset, step.presetName, &undo);
+            insert.setProperty (ids::chain, chain->name, &undo);
+            insert.setProperty (ids::chainGroup, group, &undo);
             added.add (id);
         }
 
@@ -646,6 +651,64 @@ bool removeInsert (Project& project, const juce::String& insertId)
     undo.beginNewTransaction ("Remove " + (type != nullptr ? type->name : juce::String ("effect")));
     insert.getParent().removeChild (insert, &undo);
     return true;
+}
+
+std::vector<juce::ValueTree> chainOf (const Project& project, const juce::String& insertId)
+{
+    std::vector<juce::ValueTree> members;
+    const auto insert = mixer::findInsert (project, insertId);
+    const auto group = insert[ids::chainGroup].toString();
+
+    if (! insert.isValid() || group.isEmpty())
+        return members;
+
+    const auto list = insert.getParent();
+    for (int i = 0; i < list.getNumChildren(); ++i)
+        if (list.getChild (i)[ids::chainGroup].toString() == group)
+            members.push_back (list.getChild (i));
+
+    return members;
+}
+
+bool removeEffectChain (Project& project, const juce::String& insertId)
+{
+    const auto members = chainOf (project, insertId);
+
+    if (members.empty())
+        return false;
+
+    auto& undo = project.getUndoManager();
+    undo.beginNewTransaction ("Remove \"" + members.front()[ids::chain].toString() + "\"");
+
+    for (auto member : members)
+        member.getParent().removeChild (member, &undo);
+
+    return true;
+}
+
+int removeAllInserts (Project& project, const juce::StringArray& channelIds)
+{
+    auto& undo = project.getUndoManager();
+    bool started = false;
+    int removed = 0;
+
+    for (const auto& channelId : channelIds)
+    {
+        for (auto insert : mixer::insertsOf (project, channelId))
+        {
+            if (! started)
+            {
+                undo.beginNewTransaction (channelIds.size() > 1 ? "Remove all effects from " + juce::String (channelIds.size()) + " tracks"
+                                                                : juce::String ("Remove all effects"));
+                started = true;
+            }
+
+            insert.getParent().removeChild (insert, &undo);
+            ++removed;
+        }
+    }
+
+    return removed;
 }
 
 bool moveInsert (Project& project, const juce::String& insertId, int newIndex)

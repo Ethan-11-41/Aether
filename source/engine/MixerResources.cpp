@@ -9,6 +9,7 @@ void MixerResources::beginBuild()
     for (auto& [id, entry] : channels) entry.used = false;
     for (auto& [id, entry] : sends)    entry.used = false;
     for (auto& [id, entry] : effects)  entry.used = false;
+    for (auto& [id, entry] : insertStates) entry.used = false;
     for (auto& [id, entry] : instruments) entry.used = false;
     for (auto& [id, entry] : sampleMaps) entry.used = false;
 }
@@ -25,8 +26,24 @@ void MixerResources::endBuild()
     dropUnused (channels);
     dropUnused (sends);
     dropUnused (effects);
+    dropUnused (insertStates);
     dropUnused (instruments);
     dropUnused (sampleMaps);
+    builtOnce = true;
+}
+
+std::shared_ptr<InsertState> MixerResources::insertState (const juce::String& insertId, bool on)
+{
+    auto& entry = insertStates[insertId];
+
+    if (entry.object == nullptr)
+    {
+        entry.object = std::make_shared<InsertState>();
+        entry.object->amount = builtOnce || ! on ? 0.0f : 1.0f;
+    }
+
+    entry.used = true;
+    return entry.object;
 }
 
 std::shared_ptr<ChannelState> MixerResources::channel (const juce::String& channelId)

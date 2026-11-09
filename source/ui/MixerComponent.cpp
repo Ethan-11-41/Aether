@@ -422,6 +422,23 @@ void MixerComponent::Strip::showInsertMenu (const juce::String& insertId)
     menu.addItem ("Move down", index < count - 1, false, whileStripExists (this, [&proj, insertId, index] { edit::moveInsert (proj, insertId, index + 1); }));
     menu.addSeparator();
     menu.addItem ("Remove", whileStripExists (this, [&proj, insertId] { edit::removeInsert (proj, insertId); }));
+
+    // Effects that came in together with a ready-made chain go together too.
+    if (const auto chain = edit::chainOf (proj, insertId); chain.size() > 1)
+        menu.addItem ("Remove the whole chain (\"" + insert[ids::chain].toString() + "\", " + juce::String ((int) chain.size()) + " effects)",
+                      whileStripExists (this, [&proj, insertId] { edit::removeEffectChain (proj, insertId); }));
+
+    if (count > 1)
+    {
+        auto channels = group();
+        if (channels.isEmpty())
+            channels.add (channelId);
+
+        menu.addItem (channels.size() > 1 ? "Remove all effects from the " + juce::String (channels.size()) + " selected tracks"
+                                          : "Remove all " + juce::String (count) + " effects",
+                      whileStripExists (this, [&proj, channels] { edit::removeAllInserts (proj, channels); }));
+    }
+
     menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (this));
 }
 

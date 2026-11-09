@@ -142,41 +142,57 @@ namespace
             const auto widthAmount = std::clamp (v[width] / 100.0f, 0.0f, 1.0f);
             const auto mixTarget = std::clamp (v[mix] / 100.0f, 0.0f, 1.0f);
 
+            // Changes to the room's size and the pre-delay crossfade from the old lengths to the
+            // new ones (over 40 ms) instead of gliding, which would bend the pitch of the tail
+            // (a "laser" sound when switching presets as the song plays).
             if (! started)
             {
-                smoothedScale = scale;
+                currentScale = nextScale = scale;
+                currentPredelay = nextPredelay = predelaySamples;
+                fadeLeft = 0;
                 dry = dryGainForMix (mixTarget);
                 wet = wetGainForMix (mixTarget);
                 started = true;
             }
 
-            // The room's size glides (every 32 samples), so turning Size doesn't click.
-            std::array<double, lines> length {};
-            std::array<float, lines> feedbackGain {};
-            auto updateLengths = [&]
+            const auto fadeLength = std::max (1, (int) (0.04 * sampleRate));
+            std::array<double, lines> lengthNow {}, lengthNext {};
+            std::array<float, lines> gainNow {}, gainNext {};
+            auto computeLines = [&]
             {
-                smoothedScale += (scale - smoothedScale) * 0.08;
                 for (size_t i = 0; i < lines; ++i)
                 {
-                    length[i] = lineMs[i] * smoothedScale * 0.001 * sampleRate;
-                    feedbackGain[i] = (float) std::pow (10.0, -3.0 * length[i] / (seconds * sampleRate));
+                    lengthNow[i] = lineMs[i] * currentScale * 0.001 * sampleRate;
+                    lengthNext[i] = lineMs[i] * nextScale * 0.001 * sampleRate;
+                    gainNow[i] = (float) std::pow (10.0, -3.0 * lengthNow[i] / (seconds * sampleRate));
+                    gainNext[i] = (float) std::pow (10.0, -3.0 * lengthNext[i] / (seconds * sampleRate));
                 }
             };
-            updateLengths();
+            computeLines();
 
             const auto modulationDepth = modulationMs * 0.001 * sampleRate;
 
             for (int n = 0; n < numSamples; ++n)
             {
-                if (n > 0 && (n & 31) == 0)
-                    updateLengths();
+                if (fadeLeft == 0 && (std::abs (scale - currentScale) > 1.0e-4 || std::abs (predelaySamples - currentPredelay) > 0.5))
+                {
+                    nextScale = scale;
+                    nextPredelay = predelaySamples;
+                    fadeLeft = fadeLength;
+                    computeLines();
+                }
+
+                const auto fading = fadeLeft > 0;
+                const auto f = fading ? 1.0f - (float) fadeLeft / (float) fadeLength : 0.0f;
 
                 dry += (dryGainForMix (mixTarget) - dry) * 0.002f;
                 wet += (wetGainForMix (mixTarget) - wet) * 0.002f;
 
                 // Into the room: both sides together, after the pre-delay, without the lows.
                 predelayLine.push (0.5f * (left[n] + right[n]));
-                auto x = predelayLine.read (predelaySamples);
+                auto x = predelayLine.read (currentPredelay);
+                if (fading)
+                    x += f * (predelayLine.read (nextPredelay) - x);
                 x = lowCutState[0].process (lowCutFilter, x);
 
                 // Diffusion: four all-pass filters smear the sound before the lines.
@@ -193,15 +209,18 @@ namespace
                 float sum = 0.0f;
                 for (size_t i = 0; i < lines; ++i)
                 {
-                    auto delay = length[i] - 1.0;
+                    auto wobble = 0.0;
                     if (i < 4)
                     {
                         phases[i] += modulationRates[i] / sampleRate;
                         if (phases[i] >= 1.0) phases[i] -= 1.0;
-                        delay += modulationDepth * (1.0 + std::sin (juce::MathConstants<double>::twoPi * phases[i]));
+                        wobble = modulationDepth * (1.0 + std::sin (juce::MathConstants<double>::twoPi * phases[i]));
                     }
 
-                    out[i] = delays[i].read (delay);
+                    out[i] = delays[i].read (lengthNow[i] - 1.0 + wobble);
+                    if (fading)
+                        out[i] += f * (delays[i].read (lengthNext[i] - 1.0 + wobble) - out[i]);
+
                     sum += out[i];
                 }
 
@@ -212,7 +231,7 @@ namespace
                 {
                     const auto fed = out[i] - spread;
                     damp[i] = flush (fed + dampAmount * (damp[i] - fed));
-                    delays[i].push (damp[i] * feedbackGain[i] + x);
+                    delays[i].push (damp[i] * (fading ? gainNow[i] + f * (gainNext[i] - gainNow[i]) : gainNow[i]) + x);
                 }
 
                 // Out: different mixes of the lines for left and right, then the width.
@@ -228,6 +247,13 @@ namespace
                 const auto mid = 0.5f * (l + r), side = 0.5f * (l - r) * widthAmount;
                 left[n] = left[n] * dry + (mid + side) * wet;
                 right[n] = right[n] * dry + (mid - side) * wet;
+
+                if (fading && --fadeLeft == 0)
+                {
+                    currentScale = nextScale;
+                    currentPredelay = nextPredelay;
+                    computeLines();
+                }
             }
         }
 
@@ -240,7 +266,8 @@ namespace
         static constexpr std::array<float, lines> rightSigns { 1, 1, -1, -1, 1, 1, -1, -1 };
         static constexpr float outputGain = 0.35f;
 
-        double sampleRate = 48000.0, smoothedScale = 1.0;
+        double sampleRate = 48000.0, currentScale = 1.0, nextScale = 1.0, currentPredelay = 0.0, nextPredelay = 0.0;
+        int fadeLeft = 0;
         DelayLine predelayLine;
         std::array<DelayLine, 4> diffusers;
         std::array<DelayLine, lines> delays;
@@ -308,6 +335,7 @@ namespace
             bufferRight.assign ((size_t) size, 0.0f);
             writeIndex = 0;
             delaySamples = -1.0;
+            fadeLeft = 0;
             toneLeft = toneRight = 0.0f;
             lowLeft = lowRight = 0.0f;
             glide = 1.0 - std::exp (-1.0 / (0.08 * sampleRate));        // tempo changes glide over ~80 ms
@@ -336,19 +364,47 @@ namespace
 
             if (delaySamples < 0.0)
             {
-                delaySamples = target;   // first use: start at the right time, no glide
+                delaySamples = nextDelay = target;   // first use: start at the right time
+                fadeLeft = 0;
                 dry = dryTarget;
                 wet = wetTarget;
             }
 
+            const auto fadeLength = std::max (1, (int) (0.05 * sampleRate));
+
             for (int i = 0; i < numSamples; ++i)
             {
-                delaySamples += (target - delaySamples) * glide;
+                // A small change (the tempo drifting) glides. A bigger one (a new time) crossfades
+                // from the old echo time to the new one over 50 ms: gliding that far would bend the
+                // echoes' pitch (a "laser" sound).
+                if (fadeLeft == 0)
+                {
+                    if (std::abs (target - delaySamples) > 0.02 * delaySamples)
+                    {
+                        nextDelay = target;
+                        fadeLeft = fadeLength;
+                    }
+                    else
+                    {
+                        delaySamples += (target - delaySamples) * glide;
+                    }
+                }
+
                 dry += (dryTarget - dry) * mixSmoothing;
                 wet += (wetTarget - wet) * mixSmoothing;
 
                 auto echoLeft = read (bufferLeft, delaySamples);
                 auto echoRight = read (bufferRight, delaySamples);
+
+                if (fadeLeft > 0)
+                {
+                    const auto f = 1.0f - (float) fadeLeft / (float) fadeLength;
+                    echoLeft += f * (read (bufferLeft, nextDelay) - echoLeft);
+                    echoRight += f * (read (bufferRight, nextDelay) - echoRight);
+
+                    if (--fadeLeft == 0)
+                        delaySamples = nextDelay;
+                }
 
                 // Each repeat goes through the tone filter (and the low cut) before it is fed back.
                 toneLeft = flush (echoLeft + toneCoefficient * (toneLeft - echoLeft));
@@ -404,7 +460,8 @@ namespace
         double sampleRate = 48000.0;
         int size = 0, writeIndex = 0;
         std::vector<float> bufferLeft, bufferRight;
-        double delaySamples = -1.0, glide = 0.0;
+        double delaySamples = -1.0, nextDelay = 0.0, glide = 0.0;
+        int fadeLeft = 0;
         float toneLeft = 0.0f, toneRight = 0.0f, lowLeft = 0.0f, lowRight = 0.0f;
         float dry = 1.0f, wet = 0.0f, mixSmoothing = 0.0f;
     };

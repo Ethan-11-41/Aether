@@ -493,7 +493,44 @@ TEST_CASE ("No effect or instrument setting has a name the project file uses for
         for (const auto& parameter : type.parameters)
         {
             INFO (type.name + ": " + parameter.id.toString());
-            for (const auto& reserved : { ids::id, ids::type, ids::bypass, ids::preset, ids::name })
+            for (const auto& reserved : { ids::id, ids::type, ids::bypass, ids::preset, ids::name, ids::chain, ids::chainGroup })
                 CHECK (parameter.id != reserved);
         }
+}
+
+TEST_CASE ("A chain's effects can be removed together, and all of a channel's effects at once", "[mixer][model][effects]")
+{
+    Project project;
+    const auto a = edit::addTrack (project, TrackKind::audio).getId();
+    const auto b = edit::addTrack (project, TrackKind::audio).getId();
+
+    edit::addInsert (project, a, "gate");
+    edit::addEffectChain (project, { a, b }, "Piano: bright and clear");   // EQ, compressor, reverb
+    edit::addInsert (project, a, "chorus");
+    REQUIRE (mixer::insertsOf (project, a).size() == 5);
+
+    // The chain's middle effect knows the others (on its own track only).
+    const auto compressor = mixer::insertsOf (project, a)[2][ids::id].toString();
+    CHECK (edit::chainOf (project, compressor).size() == 3);
+    CHECK (edit::chainOf (project, mixer::insertsOf (project, a)[0][ids::id].toString()).empty());   // the gate: no chain
+
+    REQUIRE (edit::removeEffectChain (project, compressor));
+    CHECK (project.getUndoManager().getUndoDescription() == "Remove \"Piano: bright and clear\"");
+    auto left = mixer::insertsOf (project, a);
+    REQUIRE (left.size() == 2);
+    CHECK (left[0][ids::type].toString() == "gate");
+    CHECK (left[1][ids::type].toString() == "chorus");
+    CHECK (mixer::insertsOf (project, b).size() == 3);   // the other track's copy stays
+
+    project.getUndoManager().undo();
+    CHECK (mixer::insertsOf (project, a).size() == 5);
+
+    // Everything, on both tracks, in one step.
+    CHECK (edit::removeAllInserts (project, { a, b }) == 8);
+    CHECK (mixer::insertsOf (project, a).empty());
+    CHECK (mixer::insertsOf (project, b).empty());
+    project.getUndoManager().undo();
+    CHECK (mixer::insertsOf (project, a).size() == 5);
+    CHECK (mixer::insertsOf (project, b).size() == 3);
+    CHECK (edit::removeAllInserts (project, { mixer::masterId }) == 0);
 }

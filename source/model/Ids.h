@@ -78,6 +78,8 @@ namespace aether::ids
     inline const juce::Identifier preFader { "preFader" };   // a send taken before the volume fader
     inline const juce::Identifier type     { "type" };       // an insert's effect type, e.g. "reverb"
     inline const juce::Identifier bypass   { "bypass" };     // an insert that is switched off
+    inline const juce::Identifier chain    { "chain" };      // an insert added with a ready-made chain: the chain's name
+    inline const juce::Identifier chainGroup { "chainGroup" }; // ...and an id shared by that chain's effects on that channel
     // An insert's settings are stored as properties named after the effect's parameters
     // (see dsp/EffectTypes.cpp), e.g. "mix" or "feedback".
 

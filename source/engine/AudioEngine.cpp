@@ -441,6 +441,43 @@ namespace
     }
 }
 
+void AudioEngine::runInsert (const InsertPlayback& insert, float* left, float* right, int numSamples,
+                             const dsp::EffectContext& context) noexcept AETHER_NONBLOCKING
+{
+    if (insert.effect == nullptr || numSamples <= 0)
+        return;
+
+    auto& state = *insert.state;
+    const auto target = insert.bypassed ? 0.0f : 1.0f;
+    const auto count = std::min (numSamples, mixChunkSize);
+
+    if (state.amount == target && target == 1.0f)
+    {
+        insert.effect->process (left, right, count, insert.parameters, context);
+        return;
+    }
+
+    // Off, or fading: the effect still hears the sound (into the scratch buffers), so its echoes
+    // and its compressor are up to date when it's switched on again, without a click.
+    auto* wetLeft = state.scratchLeft.data();
+    auto* wetRight = state.scratchRight.data();
+    std::copy (left, left + count, wetLeft);
+    std::copy (right, right + count, wetRight);
+    insert.effect->process (wetLeft, wetRight, count, insert.parameters, context);
+
+    if (state.amount == target)
+        return;   // off: the dry sound goes on unchanged
+
+    const auto step = (float) (1.0 / std::max (1.0, 0.02 * context.sampleRate));
+
+    for (int i = 0; i < count; ++i)
+    {
+        state.amount = target > state.amount ? std::min (target, state.amount + step) : std::max (target, state.amount - step);
+        left[i] += state.amount * (wetLeft[i] - left[i]);
+        right[i] += state.amount * (wetRight[i] - right[i]);
+    }
+}
+
 void AudioEngine::processChannel (const TimelineSnapshot& timeline, const TrackPlayback& channel, int index,
                                   const dsp::EffectContext& context, int numSamples) noexcept AETHER_NONBLOCKING
 {
@@ -461,8 +498,7 @@ void AudioEngine::processChannel (const TimelineSnapshot& timeline, const TrackP
 
     // 1. Effects.
     for (const auto& insert : channel.inserts)
-        if (! insert.bypassed && insert.effect != nullptr)
-            insert.effect->process (left, right, numSamples, insert.parameters, context);
+        runInsert (insert, left, right, numSamples, context);
 
     // 2. Mute (after the effects, so a muted channel's echoes stop too).
     state.mute.setTarget (channel.muteGain, rampSamples);
@@ -521,8 +557,7 @@ void AudioEngine::mixChannels (const TimelineSnapshot& timeline, float* const* o
     auto* right = master.input.getWritePointer (1);
 
     for (const auto& insert : timeline.master.inserts)
-        if (! insert.bypassed && insert.effect != nullptr)
-            insert.effect->process (left, right, numSamples, insert.parameters, context);
+        runInsert (insert, left, right, numSamples, context);
 
     applyGain (master.left, timeline.master.leftGain, rampSamples, left, numSamples);
     applyGain (master.right, timeline.master.rightGain, rampSamples, right, numSamples);

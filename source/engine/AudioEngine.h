@@ -220,6 +220,9 @@ private:
     void renderClips (const TimelineSnapshot& timeline, std::int64_t fromSample, std::int64_t toSample,
                       int blockOffset) noexcept AETHER_NONBLOCKING;
     void mixChannels (const TimelineSnapshot& timeline, float* const* outputs, int numOutputs, int numSamples) noexcept AETHER_NONBLOCKING;
+    /** Runs one effect on a channel's sound, fading in or out when it's switched on or off. */
+    static void runInsert (const InsertPlayback& insert, float* left, float* right, int numSamples,
+                           const dsp::EffectContext& context) noexcept AETHER_NONBLOCKING;
     void processChannel (const TimelineSnapshot& timeline, const TrackPlayback& channel, int index,
                          const dsp::EffectContext& context, int numSamples) noexcept AETHER_NONBLOCKING;
     std::int64_t tickToSample (const TempoMap& tempo, Tick tick) const noexcept AETHER_NONBLOCKING;

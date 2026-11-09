@@ -9,6 +9,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
+#include "dsp/Effect.h"
 #include "engine/AudioEngine.h"
 #include "engine/MixerRouting.h"
 #include "engine/TimelineSync.h"
@@ -390,4 +391,115 @@ TEST_CASE ("The reverb adds a tail, and the master can have effects", "[engine][
     const auto wet = f.play (24000);
     CHECK (wet.maxAbs (2000, 24000) > 0.001f);   // still ringing long after the sound stopped
     CHECK (wet.maxAbs (2000, 24000, false) > 0.001f);
+}
+
+TEST_CASE ("Switching an effect on or off, or adding one while playing, fades instead of clicking", "[engine][mixer][effects]")
+{
+    Fixture f;
+    const auto track = f.addTrackWithSound ("a");   // a steady 0.5
+    const auto eq = edit::addInsert (f.project, track, "eq");
+    edit::setInsertParameter (f.project, eq, "output", 12.0f);   // about 4 times louder
+
+    auto largestStep = [] (const std::vector<float>& s)
+    {
+        float most = 0.0f;
+        for (size_t i = 1; i < s.size(); ++i)
+            most = std::max (most, std::abs (s[i] - s[i - 1]));
+        return most;
+    };
+
+    // Opened with the effect on: on straight away (no fade at the start of playback or an export).
+    const auto on = f.play (4800);
+    CHECK_THAT (on.left[100], WithinAbs (2.0, 0.05));
+
+    // Off: down to the dry sound over 20 ms (960 samples at 48 kHz), in small steps.
+    edit::setInsertBypassed (f.project, eq, true);
+    f.update();
+    const auto off = f.render (4800);
+    CHECK (off.left[0] > 1.9f);
+    CHECK (largestStep (off.left) < 0.01f);
+    CHECK_THAT (off.left[2000], WithinAbs (0.5, 0.001));
+
+    // On again.
+    edit::setInsertBypassed (f.project, eq, false);
+    f.update();
+    const auto back = f.render (4800);
+    CHECK (largestStep (back.left) < 0.01f);
+    CHECK_THAT (back.left[2000], WithinAbs (2.0, 0.05));
+
+    // A new effect added while playing fades in too.
+    const auto second = edit::addInsert (f.project, track, "eq");
+    edit::setInsertParameter (f.project, second, "output", -12.0f);
+    f.update();
+    const auto added = f.render (4800);
+    CHECK (largestStep (added.left) < 0.01f);
+    CHECK_THAT (added.left[2000], WithinAbs (0.5, 0.02));
+}
+
+TEST_CASE ("Changing the delay's time or the reverb's size doesn't bend the pitch", "[engine][effects]")
+{
+    // A steady sine through the effect, fully wet; the time changes half-way. Gliding the echo time
+    // would make the sound's zero crossings speed up or slow down (a "laser" sound); crossfading
+    // keeps them evenly spaced.
+    for (const auto* typeId : { "delay", "reverb" })
+    {
+        INFO (typeId);
+        const auto* type = dsp::findEffectType (typeId);
+        REQUIRE (type != nullptr);
+        auto effect = dsp::createEffect (typeId);
+        effect->prepare (48000.0, 512);
+
+        dsp::EffectParameterValues v {};
+        for (size_t i = 0; i < type->parameters.size(); ++i)
+            v[i] = type->parameters[i].defaultValue;
+
+        const auto mixIndex = (size_t) (std::find_if (type->parameters.begin(), type->parameters.end(),
+                                                      [] (const dsp::EffectParameter& p) { return p.id.toString() == "mix"; })
+                                        - type->parameters.begin());
+        v[mixIndex] = 100.0f;
+
+        dsp::EffectContext context;
+        context.sampleRate = 48000.0;
+        constexpr double hz = 1000.0;
+        std::vector<float> out;
+        std::vector<float> l (512), r (512);
+        int n = 0;
+
+        for (int block = 0; block < 400; ++block)
+        {
+            if (block == 200)
+            {
+                if (juce::String (typeId) == "delay")
+                    v[0] = 0.0f;       // time: 1/8 to 1/32
+                else
+                    v[0] = 100.0f;     // size: 50 % to 100 %
+            }
+
+            for (size_t i = 0; i < l.size(); ++i, ++n)
+                l[i] = r[i] = 0.5f * (float) std::sin (juce::MathConstants<double>::twoPi * hz * n / 48000.0);
+
+            effect->process (l.data(), r.data(), (int) l.size(), v, context);
+            out.insert (out.end(), l.begin(), l.end());
+        }
+
+        // Upward zero crossings after the change: a bent pitch would make some periods much
+        // shorter or longer than 48 samples.
+        std::vector<double> crossings;
+        for (size_t i = 200 * 512; i + 1 < 200 * 512 + 9600; ++i)
+            if (out[i] <= 0.0f && out[i + 1] > 0.0f)
+                crossings.push_back ((double) i + out[i] / (out[i] - out[i + 1]));
+
+        // (While crossfading, the old and new echoes of a pure tone can cancel for a moment;
+        // periods where it's nearly silent are skipped.)
+        REQUIRE (crossings.size() > 100);
+        for (size_t i = 1; i < crossings.size(); ++i)
+        {
+            float peak = 0.0f;
+            for (auto k = (size_t) crossings[i - 1]; k < (size_t) crossings[i]; ++k)
+                peak = std::max (peak, std::abs (out[k]));
+
+            if (peak > 0.05f)
+                CHECK (std::abs (crossings[i] - crossings[i - 1] - 48.0) < 3.0);
+        }
+    }
 }

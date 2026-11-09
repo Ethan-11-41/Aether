@@ -42,6 +42,7 @@ namespace
             InsertPlayback playback;
             playback.effect = resources.effect (insert[ids::id].toString(), typeId, sampleRate);
             playback.bypassed = (bool) insert[ids::bypass];
+            playback.state = resources.insertState (insert[ids::id].toString(), ! playback.bypassed);
 
             for (size_t i = 0; i < type->parameters.size() && i < playback.parameters.size(); ++i)
                 playback.parameters[i] = mixer::getInsertParameter (insert, type->parameters[i].id);
