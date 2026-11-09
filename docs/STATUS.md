@@ -4,7 +4,7 @@ An honest list of what works. Updated at the end of every milestone.
 
 **Legend:** ✅ Working · 🟡 Partial · 🧪 Stub/placeholder · ⬜ Not started
 
-Current version: **0.15.0** (Milestone 14: automation)
+Current version: **0.15.1** (Milestone 14: automation, with fixes from testing)
 
 ## Milestone 0: skeleton and build pipeline
 
@@ -235,7 +235,7 @@ Current version: **0.15.0** (Milestone 14: automation)
 | Faders and knobs follow their automation | ✅ | |
 | Included in exports | ✅ | |
 | The master channel's automation | ⬜ | The master has no lane row yet. Automate a bus that everything plays into, or ask for it. |
-| Selecting several points at once, copy and paste points | ⬜ | Not yet: one point at a time. |
+| Copying a lane's points onto other tracks | ✅ | Since 0.15.1 (lane menu). Selecting several points at once inside a lane: not yet. |
 | Automation moving with clips | ⬜ | Lanes belong to the track, not the clips: moving a clip leaves its automation where it was (as in most DAWs). |
 | How precisely changes land | 🟡 | The engine reads the lanes every 512 samples (about 10 ms) and smooths the changes; fine for fades and sweeps, not for changing something on an exact sample. |
 | Fixed from M13 testing: crackles when switching effects on, "laser" sound when changing delay or reverb presets | ✅ | |

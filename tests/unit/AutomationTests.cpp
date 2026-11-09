@@ -371,3 +371,38 @@ TEST_CASE ("Recording automation writes the moves of any control while playing",
     CHECK (isAutomated (f.project, f.track, Target::effectOn (eq)));
     CHECK (currentValue (f.project, f.track, Target::effectOn (eq), 4 * bar) == 0.0f);
 }
+
+TEST_CASE ("Holding a control still writes two points, not one per moment", "[automation][recording]")
+{
+    Fixture f;
+    f.project.getUndoManager().beginNewTransaction ("Record");
+    for (int i = 0; i <= 20; ++i)
+        edit::writeAutomation (f.project, f.track, Target::volume(), i == 0 ? 0 : (i - 1) * bar / 8, i * bar / 8, -6.0f);
+
+    const auto points = pointsOf (findLane (f.project, f.track, Target::volume()));
+    REQUIRE (points.size() == 2);
+    CHECK (points.front().tick == 0);
+    CHECK (points.back().tick == 20 * bar / 8);
+}
+
+TEST_CASE ("Automation can be copied onto other tracks", "[automation]")
+{
+    Fixture f;
+    const auto other = edit::addTrack (f.project, TrackKind::audio).getId();
+    const auto third = edit::addTrack (f.project, TrackKind::audio).getId();
+    const auto eqA = edit::addInsert (f.project, f.track, "eq");
+    const auto eqB = edit::addInsert (f.project, other, "eq");
+
+    const std::vector<Point> fade { { 0, 0.0f, 0.0f }, { bar, -30.0f, 0.5f } };
+    CHECK (edit::pasteAutomation (f.project, f.track, Target::volume(), fade, { f.track, other, third }) == 2);   // not onto itself
+    CHECK (pointsOf (findLane (f.project, other, Target::volume())).size() == 2);
+    CHECK (pointsOf (findLane (f.project, third, Target::volume()))[1].bend == 0.5f);
+    CHECK (f.project.getUndoManager().getUndoDescription() == "Paste automation");
+
+    // An effect's setting goes to the same kind of effect (the third track has none).
+    CHECK (edit::pasteAutomation (f.project, f.track, Target::effect (eqA, "output"), fade, { other, third }) == 1);
+    CHECK (isAutomated (f.project, other, Target::effect (eqB, "output")));
+
+    f.project.getUndoManager().undo();
+    CHECK_FALSE (isAutomated (f.project, other, Target::effect (eqB, "output")));
+}

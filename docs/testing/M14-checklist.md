@@ -44,8 +44,9 @@ on them from M13.
 4. **A > (an effect) > On/off**: an effect that only plays in one section.
 5. On a Synth track: **A > Synth > Cutoff** (or a filter setting): draw it rising over 4 bars for
    a build-up.
-6. A lane's **x** hides it (the points keep working; **A** shows the lanes that have points with
-   "(automated)"). Its **▾** menu clears or removes it.
+6. A lane's **x** removes it with its points (Ctrl+Z brings it back). Its **▾** menu hides it
+   (the points keep working; **A** shows lanes with points as "(automated)"), clears its points,
+   or copies them: **Copy these points**, then select other tracks and **Paste copied points**.
 
 ## 4. Recording your moves
 
