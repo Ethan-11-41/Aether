@@ -108,6 +108,14 @@ float Range::fromPosition (float position) const noexcept
     return minimum + p * (maximum - minimum);
 }
 
+float Range::clamp (float value) const noexcept
+{
+    const auto v = std::clamp (value, std::min (minimum, maximum), std::max (minimum, maximum));
+    return scale == Scale::toggle ? (v >= 0.5f ? 1.0f : 0.0f)
+         : scale == Scale::steps  ? std::round (v)
+                                  : v;
+}
+
 float bendPosition (float from, float to, float along, float bend) noexcept
 {
     auto t = std::clamp (along, 0.0f, 1.0f);
@@ -567,7 +575,7 @@ namespace
     float clampToRange (const Project& project, const juce::ValueTree& lane, float value)
     {
         const auto range = rangeOf (project, trackOfLane (lane), Target::fromString (lane[ids::setting].toString()));
-        return range ? range->fromPosition (range->toPosition (value)) : value;
+        return range ? range->clamp (value) : value;
     }
 }
 

@@ -70,6 +70,9 @@ struct Range
     float toPosition (float value) const noexcept;
     float fromPosition (float position) const noexcept;
 
+    /** A value kept within the range (whole numbers for steps, 0 or 1 for a switch). */
+    float clamp (float value) const noexcept;
+
     /** True when points jump from one value to the next instead of moving gradually. */
     bool holds() const noexcept   { return scale == Scale::steps || scale == Scale::toggle; }
 };
