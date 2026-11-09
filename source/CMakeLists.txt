@@ -149,6 +149,8 @@ juce_add_binary_data(aether_fonts
 add_library(aether_ui STATIC
     ui/AetherLookAndFeel.cpp
     ui/AetherLookAndFeel.h
+    ui/AutomationLanes.cpp
+    ui/AutomationLanes.h
     ui/DelayedTooltipWindow.h
     ui/DeviceSettingsPanel.cpp
     ui/DeviceSettingsPanel.h
@@ -189,6 +191,8 @@ add_library(aether_ui STATIC
     ui/TimelineComponent.h
     ui/TimelineView.h
     ui/TrackListComponent.cpp
+    ui/TrackRows.cpp
+    ui/TrackRows.h
     ui/TrackListComponent.h
     ui/TransportBar.cpp
     ui/TransportBar.h)

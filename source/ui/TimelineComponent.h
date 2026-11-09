@@ -6,6 +6,7 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 
+#include "AutomationLanes.h"
 #include "Theme.h"
 #include "TimelineView.h"
 #include "TrackListComponent.h"
@@ -25,7 +26,8 @@ namespace aether::ui
       bar numbers (click or drag to move the playhead),
     - the time signature lane (click a signature to change it, right-click to add one),
     - the tempo lane (double-click to add a tempo change, drag points, right-click for options),
-    - one lane per track, lined up with the track headers on the left, holding the clips:
+    - one lane per track, lined up with the track headers on the left, holding the clips (and
+      under a track, its automation lanes, if shown: see AutomationLaneArea):
       drag a clip to move it (also to another track), drag its edges to trim it, drag the small
       squares at its top corners to fade in/out, right-click for more; drop audio files here,
     - a scroll bar.
@@ -55,6 +57,9 @@ public:
     ~TimelineComponent() override;
 
     TimelineView& getView() noexcept   { return view; }
+
+    /** The automation lanes (for the tests). */
+    AutomationLaneArea& getAutomationArea() noexcept   { return *automationArea; }
 
     void zoomIn();
     void zoomOut();
@@ -187,6 +192,7 @@ private:
     std::unique_ptr<SignatureLane> signatureLane;
     std::unique_ptr<TempoLane> tempoLane;
     std::unique_ptr<TrackLanes> trackLanes;
+    std::unique_ptr<AutomationLaneArea> automationArea;   // over the track lanes, on the automation rows
     juce::ScrollBar scrollBar { false };
 
     bool fileDragActive = false;

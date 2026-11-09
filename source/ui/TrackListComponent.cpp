@@ -8,6 +8,7 @@
 #include "dsp/DrumKit.h"
 #include "dsp/EffectTypes.h"
 #include "dsp/Synth.h"
+#include "model/Automation.h"
 #include "model/DrumPatterns.h"
 #include "model/EditCommands.h"
 #include "model/MidiClips.h"
@@ -30,6 +31,7 @@ public:
           solo (owner.theme, "S", owner.theme.meterMid),
           arm (owner.theme, "R", owner.theme.meterHigh),
           monitor (owner.theme, "I", owner.theme.accent),
+          automation (owner.theme, "A", owner.theme.accent),
           volume (owner.theme, false),
           pan (owner.theme),
           meter (owner.theme, true)
@@ -54,7 +56,18 @@ public:
         connectVolume (volume, list.project, [id] { return id; }, group);
         connectPan (pan, list.project, [id] { return id; }, group);
 
-        for (auto* control : std::initializer_list<juce::Component*> { &mute, &solo, &volume, &pan, &meter })
+        automation.isOn = [this]
+        {
+            for (const auto& lane : automation::lanesOf (owner.project, track.getId()))
+                if ((bool) lane[ids::shown])
+                    return true;
+            return false;
+        };
+        automation.onClick = [this] { owner.selectTrack (track.getId()); owner.showAutomationMenu (track.getId()); };
+        automation.setTooltip ("Automation: make volume, pan, effects or the instrument change by themselves as the song "
+                               "plays. Choose a setting to show its lane under the track, then click in the lane to draw.");
+
+        for (auto* control : std::initializer_list<juce::Component*> { &mute, &solo, &automation, &volume, &pan, &meter })
             addAndMakeVisible (control);
 
         // Recording: audio and MIDI tracks (not buses).
@@ -85,7 +98,7 @@ public:
     StereoMeter& getMeter()         { return meter; }
 
     juce::Rectangle<int> getColourStripArea() const   { return getLocalBounds().removeFromLeft (14); }
-    juce::Rectangle<int> getNameArea() const          { return getLocalBounds().withTrimmedLeft (26).withTrimmedRight (20).removeFromTop (getHeight() / 2 + 4).withTrimmedTop (8); }
+    juce::Rectangle<int> getNameArea() const          { return getLocalBounds().withTrimmedLeft (26).withTrimmedRight (44).removeFromTop (getHeight() / 2 + 4).withTrimmedTop (8); }
 
     void startRenaming()
     {
@@ -169,6 +182,7 @@ public:
         arm.setBounds (114, rowY, 19, 18);
         monitor.setBounds (135, rowY, 19, 18);
         meter.setBounds (getWidth() - 11, 8, 6, getHeight() - 16);
+        automation.setBounds (getWidth() - 37, 7, 20, 17);
         pan.setBounds (getWidth() - 40, rowY - 3, 24, 24);
 
         const auto volumeX = arm.isVisible() ? 158 : 116;
@@ -254,12 +268,109 @@ private:
 
     TrackListComponent& owner;
     Track track;
-    ToggleBox mute, solo, arm, monitor;
+    ToggleBox mute, solo, arm, monitor, automation;
     VolumeFader volume;
     PanKnob pan;
     StereoMeter meter;
     std::unique_ptr<juce::TextEditor> editor;
     bool dragging = false;
+};
+
+//==============================================================================
+/** The header of an automation lane, under its track: the setting's name, and a menu. */
+class TrackListComponent::LaneHeader final : public juce::Component,
+                                             public juce::SettableTooltipClient
+{
+public:
+    LaneHeader (TrackListComponent& ownerToUse, juce::String track, juce::String lane)
+        : owner (ownerToUse), trackId (std::move (track)), laneId (std::move (lane))
+    {
+        setTooltip ("An automation lane: the line is the setting's value as the song plays. Click in the lane (on the "
+                    "right) to add points, drag them to change it. Click the arrow here for more.");
+    }
+
+    const juce::String& getLaneId() const noexcept   { return laneId; }
+
+    juce::Rectangle<int> menuArea() const    { return { getWidth() - 28, 6, 20, 18 }; }
+    juce::Rectangle<int> hideArea() const    { return { getWidth() - 50, 6, 20, 18 }; }
+
+    void paint (juce::Graphics& g) override
+    {
+        const auto& t = owner.theme;
+        const auto lane = automation::findLane (owner.project, laneId);
+        const auto target = automation::Target::fromString (lane[ids::setting].toString());
+        const auto track = owner.project.findTrack (trackId);
+
+        g.setColour (t.panel.darker (0.25f));
+        g.fillRect (getLocalBounds());
+        g.setColour (track.getColour().withAlpha (0.5f));
+        g.fillRect (getLocalBounds().removeFromLeft (14).reduced (0, 1));
+        g.setColour (t.outline.withAlpha (0.6f));
+        g.drawHorizontalLine (getHeight() - 1, 0.0f, (float) getWidth());
+
+        auto text = getLocalBounds().withTrimmedLeft (26).withTrimmedRight (56);
+        g.setColour (t.text);
+        g.setFont (juce::FontOptions (12.5f, juce::Font::bold));
+        g.drawText (automation::nameOf (owner.project, trackId, target), text.removeFromTop (getHeight() / 2 + 2).withTrimmedTop (4),
+                    juce::Justification::bottomLeft, true);
+
+        g.setColour (t.textDim);
+        g.setFont (juce::FontOptions (11.5f));
+        const auto automated = automation::isAutomated (owner.project, trackId, target);
+        g.drawText (automated ? "Automated: the lane sets it" : "No points yet: click in the lane",
+                    text.withTrimmedTop (2), juce::Justification::topLeft, true);
+
+        // Hide (eye) and menu (arrow).
+        g.setColour (t.textDim);
+        g.setFont (juce::FontOptions (13.0f));
+        g.drawText (juce::String (juce::CharPointer_UTF8 ("\xc3\x97")), hideArea(), juce::Justification::centred);   // x
+        g.drawText (juce::String (juce::CharPointer_UTF8 ("\xe2\x96\xbe")), menuArea(), juce::Justification::centred); // down arrow
+    }
+
+    void mouseDown (const juce::MouseEvent& e) override
+    {
+        owner.focusTrack (trackId);
+
+        if (hideArea().contains (e.getPosition()))
+        {
+            edit::hideAutomationLane (owner.project, laneId);
+            return;
+        }
+
+        if (e.mods.isPopupMenu() || menuArea().contains (e.getPosition()))
+            showMenu();
+    }
+
+    void mouseMove (const juce::MouseEvent& e) override
+    {
+        setMouseCursor (hideArea().contains (e.getPosition()) || menuArea().contains (e.getPosition())
+                            ? juce::MouseCursor::PointingHandCursor : juce::MouseCursor::NormalCursor);
+        setTooltip (hideArea().contains (e.getPosition()) ? "Hide this lane (its points keep working)"
+                  : menuArea().contains (e.getPosition()) ? "More: clear the points, remove the lane"
+                  : "An automation lane: the line is the setting's value as the song plays. Click in the lane (on the "
+                    "right) to add points, drag them to change it.");
+    }
+
+private:
+    void showMenu()
+    {
+        auto& proj = owner.project;
+        juce::PopupMenu menu;
+        const auto id = laneId;
+        juce::Component::SafePointer<TrackListComponent> list (&owner);
+
+        menu.addItem ("Hide this lane (its points keep working)", [&proj, id] { edit::hideAutomationLane (proj, id); });
+        menu.addItem ("Clear all points", [&proj, id] { edit::clearAutomationLane (proj, id); });
+        menu.addSeparator();
+        menu.addItem ("Remove the lane and its points", [&proj, id] { edit::removeAutomationLane (proj, id); });
+        menu.addSeparator();
+        const auto track = trackId;
+        menu.addItem ("Show another setting...", [list, track] { if (list != nullptr) list->showAutomationMenu (track); });
+        menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (this));
+    }
+
+    TrackListComponent& owner;
+    juce::String trackId, laneId;
 };
 
 //==============================================================================
@@ -276,9 +387,48 @@ TrackListComponent::~TrackListComponent()
     tracksNode.removeListener (this);
 }
 
+void TrackListComponent::childrenChanged (const juce::ValueTree& parent)
+{
+    if (parent == tracksNode)
+        rebuild();
+    else if (parent.hasType (ids::Automation) || parent.hasType (ids::Track))
+        rebuildLanes();   // a lane added or removed (or a track's first lane list)
+    else if (parent.hasType (ids::AutomationLane))
+        for (auto& header : laneHeaders)
+            header->repaint();   // points added or removed: "automated" or not
+}
+
+void TrackListComponent::valueTreePropertyChanged (juce::ValueTree& tree, const juce::Identifier& property)
+{
+    if (property == ids::shown && tree.hasType (ids::AutomationLane))
+        rebuildLanes();
+    else
+        repaintHeaders();
+}
+
+void TrackListComponent::rebuildLanes()
+{
+    laneHeaders.clear();
+    const TrackRows rows (project);
+
+    for (const auto& row : rows.getRows())
+    {
+        if (! row.isLane())
+            continue;
+
+        laneHeaders.push_back (std::make_unique<LaneHeader> (*this, row.trackId, row.laneId));
+        addAndMakeVisible (*laneHeaders.back());
+    }
+
+    setSize (getWidth(), getIdealHeight());
+    resized();
+    repaint();
+}
+
 void TrackListComponent::rebuild()
 {
     headers.clear();
+    laneHeaders.clear();
 
     for (int i = 0; i < project.getNumTracks(); ++i)
     {
@@ -298,9 +448,7 @@ void TrackListComponent::rebuild()
     if (selectedTrackId.isNotEmpty())
         selectedIds.addIfNotAlreadyThere (selectedTrackId);
 
-    setSize (getWidth(), getIdealHeight());
-    resized();
-    repaint();
+    rebuildLanes();
 
     if (onSelectionChanged)
         onSelectionChanged();
@@ -398,11 +546,84 @@ void TrackListComponent::repaintHeaders()
 {
     for (auto& header : headers)
         header->repaint();
+
+    for (auto& header : laneHeaders)
+        header->repaint();
 }
 
 int TrackListComponent::getIdealHeight() const
 {
-    return juce::jmax (rowHeight * 3, rowHeight * project.getNumTracks() + rowHeight);
+    return juce::jmax (rowHeight * 3, TrackRows (project).totalHeight() + rowHeight);
+}
+
+void TrackListComponent::showAutomationMenu (const juce::String& trackId)
+{
+    using automation::Target;
+    auto& proj = project;
+    const auto choices = automation::choicesFor (proj, trackId);
+    juce::PopupMenu menu, sends;
+    std::vector<std::pair<juce::String, juce::PopupMenu>> groups;
+    menu.addSectionHeader ("Show the lane of...");
+
+    for (const auto& choice : choices)
+    {
+        const auto lane = automation::findLane (proj, trackId, choice.target);
+        const auto shown = lane.isValid() && (bool) lane[ids::shown];
+        const auto automated = automation::isAutomated (proj, trackId, choice.target);
+        const auto target = choice.target;
+        auto action = [&proj, trackId, target, shown, laneId = lane[ids::id].toString()]
+        {
+            if (shown)
+                edit::hideAutomationLane (proj, laneId);
+            else
+                edit::showAutomationLane (proj, trackId, target);
+        };
+
+        juce::PopupMenu::Item item (choice.name + (automated ? "   (automated)" : ""));
+        item.setTicked (shown);
+        item.setAction (action);
+
+        if (choice.group.isEmpty())
+        {
+            menu.addItem (item);
+            continue;
+        }
+
+        if (choice.group == "Sends")
+        {
+            sends.addItem (item);
+            continue;
+        }
+
+        auto it = std::find_if (groups.begin(), groups.end(), [&] (const auto& g) { return g.first == choice.group; });
+        if (it == groups.end())
+        {
+            groups.push_back ({ choice.group, {} });
+            it = groups.end() - 1;
+        }
+
+        it->second.addItem (item);
+    }
+
+    if (sends.getNumItems() > 0)
+        menu.addSubMenu ("Sends", sends);
+
+    if (! groups.empty())
+    {
+        menu.addSeparator();
+        for (auto& [name, sub] : groups)
+            menu.addSubMenu (name, sub);
+    }
+
+    menu.addSeparator();
+    menu.addItem ("Show all automated lanes", [&proj, trackId]
+    {
+        for (const auto& lane : automation::lanesOf (proj, trackId))
+            if (lane.getChildWithName (ids::AutomationPoint).isValid())
+                edit::showAutomationLane (proj, trackId, automation::Target::fromString (lane[ids::setting].toString()));
+    });
+    menu.addItem ("Hide all lanes", [&proj, trackId] { edit::hideAllAutomationLanes (proj, trackId); });
+    menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (this).withMousePosition());
 }
 
 void TrackListComponent::selectTrack (const juce::String& trackId)
@@ -418,7 +639,7 @@ void TrackListComponent::selectTrack (const juce::String& trackId)
     // Scroll so the selected track is visible.
     if (auto* viewport = findParentComponentOfClass<juce::Viewport>())
     {
-        const auto top = project.indexOfTrack (trackId) * rowHeight;
+        const auto top = TrackRows (project).trackTop (project.indexOfTrack (trackId));
         const auto viewTop = viewport->getViewPositionY();
         const auto viewHeight = viewport->getViewHeight();
 
@@ -651,7 +872,7 @@ void TrackListComponent::dragStarted (const juce::String& trackId)
 
 int TrackListComponent::insertIndexForY (int y) const
 {
-    return juce::jlimit (0, project.getNumTracks(), (y + rowHeight / 2) / rowHeight);
+    return TrackRows (project).insertIndexAt (y);
 }
 
 void TrackListComponent::dragMoved (int yInList)
@@ -704,13 +925,13 @@ void TrackListComponent::paintOverChildren (juce::Graphics& g)
     if (draggingTrackId.isNotEmpty() && dropIndex >= 0)
     {
         g.setColour (theme.accent);
-        g.fillRect (0, dropIndex * rowHeight - 2, getWidth(), 4);
+        g.fillRect (0, TrackRows (project).trackTop (dropIndex) - 2, getWidth(), 4);
     }
 
     // While dragging files: the track they'll go onto, or "new track" below the others.
     if (fileDropRow >= 0)
     {
-        const juce::Rectangle<int> row (0, fileDropRow * rowHeight, getWidth(), rowHeight);
+        const juce::Rectangle<int> row (0, TrackRows (project).trackTop (fileDropRow), getWidth(), rowHeight);
         g.setColour (theme.accent.withAlpha (0.15f));
         g.fillRect (row);
         g.setColour (theme.accent);
@@ -743,7 +964,7 @@ void TrackListComponent::fileDragEnter (const juce::StringArray& files, int x, i
 
 void TrackListComponent::fileDragMove (const juce::StringArray&, int, int y)
 {
-    const auto row = juce::jlimit (0, project.getNumTracks(), y / rowHeight);
+    const auto row = juce::jlimit (0, project.getNumTracks(), TrackRows (project).trackIndexAt (y));
 
     if (row != fileDropRow)
     {
@@ -778,8 +999,14 @@ void TrackListComponent::filesDropped (const juce::StringArray& paths, int x, in
 
 void TrackListComponent::resized()
 {
+    const TrackRows rows (project);
+
     for (size_t i = 0; i < headers.size(); ++i)
-        headers[i]->setBounds (0, (int) i * rowHeight, getWidth(), rowHeight);
+        headers[i]->setBounds (0, rows.trackTop ((int) i), getWidth(), rowHeight);
+
+    for (auto& header : laneHeaders)
+        if (const auto* row = rows.laneRow (header->getLaneId()))
+            header->setBounds (0, row->top, getWidth(), row->height);
 }
 
 bool TrackListComponent::keyPressed (const juce::KeyPress& key)

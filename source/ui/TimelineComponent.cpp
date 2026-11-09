@@ -573,14 +573,25 @@ public:
         const auto rowHeight = TrackListComponent::rowHeight;
         const auto scrollY = owner.trackViewport.getViewPositionY();
         const auto& proj = owner.project;
-        for (int i = 0; i < proj.getNumTracks(); ++i)
+        const TrackRows rows (proj);
+
+        for (const auto& r : rows.getRows())
         {
-            const auto y = i * rowHeight - scrollY;
-            if (y > getHeight() || y + rowHeight < 0)
+            const auto y = r.top - scrollY;
+            if (y > getHeight() || y + r.height < 0)
                 continue;
 
-            const auto track = proj.getTrack (i);
-            juce::Rectangle<int> row (0, y, getWidth(), rowHeight);
+            const auto track = proj.getTrack (r.trackIndex);
+            juce::Rectangle<int> row (0, y, getWidth(), r.height);
+
+            if (r.isLane())
+            {
+                // An automation lane (drawn by the automation area on top).
+                g.setColour (colours.background.withAlpha (0.6f));
+                g.fillRect (row);
+                continue;
+            }
+
             g.setColour (owner.trackList.isTrackSelected (track.getId()) ? colours.panelRaised.withAlpha (0.55f) : colours.panel.withAlpha (0.35f));
             g.fillRect (row);
 
@@ -597,8 +608,9 @@ public:
         owner.drawGrid (g, getLocalBounds(), false);
 
         g.setColour (colours.outline.withAlpha (0.6f));
-        for (int i = 0; i <= proj.getNumTracks(); ++i)
-            g.drawHorizontalLine (i * rowHeight - scrollY - 1, 0.0f, (float) getWidth());
+        for (const auto& r : rows.getRows())
+            g.drawHorizontalLine (r.top - scrollY - 1, 0.0f, (float) getWidth());
+        g.drawHorizontalLine (rows.totalHeight() - scrollY - 1, 0.0f, (float) getWidth());
 
         for (const auto& box : layoutClips())
             drawClip (g, box);
@@ -627,7 +639,7 @@ public:
 
                 const auto x1 = (float) owner.view.tickToX (live.start);
                 const auto x2 = (float) owner.view.tickToX (std::max (live.start, playhead));
-                const auto area = juce::Rectangle<float> (x1, (float) (row * rowHeight - scrollY) + 2.0f, std::max (2.0f, x2 - x1), (float) rowHeight - 4.0f);
+                const auto area = juce::Rectangle<float> (x1, (float) (rows.trackTop (row) - scrollY) + 2.0f, std::max (2.0f, x2 - x1), (float) rowHeight - 4.0f);
 
                 g.setColour (colours.meterHigh.withAlpha (0.35f));
                 g.fillRoundedRectangle (area, 4.0f);
@@ -642,7 +654,7 @@ public:
         if (owner.fileDragActive)
         {
             const auto x = (float) owner.view.tickToX (owner.dropTick);
-            const auto y = (float) (std::min (owner.dropRow, proj.getNumTracks()) * rowHeight - scrollY);
+            const auto y = (float) (rows.trackTop (std::min (owner.dropRow, proj.getNumTracks())) - scrollY);
             g.setColour (colours.accent.withAlpha (0.25f));
             g.fillRect (juce::Rectangle<float> (x, y, (float) getWidth() - x, (float) rowHeight));
             g.setColour (colours.accent);
@@ -915,8 +927,7 @@ private:
 
     int rowAt (int y) const
     {
-        const auto yInList = y + owner.trackViewport.getViewPositionY();
-        return yInList < 0 ? -1 : yInList / TrackListComponent::rowHeight;
+        return TrackRows (owner.project).trackIndexAt (y + owner.trackViewport.getViewPositionY());
     }
 
     float xForClipPosition (const Clip& clip, double samplesIn) const
@@ -931,10 +942,11 @@ private:
         const auto& proj = owner.project;
         const auto rowHeight = TrackListComponent::rowHeight;
         const auto scrollY = owner.trackViewport.getViewPositionY();
+        const TrackRows rows (proj);
 
         for (int i = 0; i < proj.getNumTracks(); ++i)
         {
-            const auto y = i * rowHeight - scrollY;
+            const auto y = rows.trackTop (i) - scrollY;
             if (y > getHeight() || y + rowHeight < 0)
                 continue;
 
@@ -1367,6 +1379,21 @@ TimelineComponent::TimelineComponent (const Theme& themeToUse, Project& projectT
                                 (juce::Component*) tempoLane.get(), (juce::Component*) trackLanes.get() })
         addAndMakeVisible (c);
 
+    // The automation lanes, drawn over the track area (they only take the mouse on their rows).
+    AutomationLaneArea::Host host;
+    host.tickToX = [this] (Tick tick) { return view.tickToX (tick); };
+    host.xToTick = [this] (double x) { return view.xToTick (x); };
+    host.snap = [this] (Tick tick, juce::ModifierKeys mods) { return snap (tick, mods); };
+    host.scrollY = [this] { return trackViewport.getViewPositionY(); };
+    host.focusTrack = [this] (const juce::String& trackId) { trackList.focusTrack (trackId); };
+    host.describeTime = [this] (Tick tick)
+    {
+        const auto position = tempoMap.ticksToBarBeat (tick);
+        return "bar " + juce::String (position.bar + 1) + ", beat " + juce::String (position.beat + 1);
+    };
+    automationArea = std::make_unique<AutomationLaneArea> (theme, project, std::move (host));
+    trackLanes->addAndMakeVisible (*automationArea);
+
     scrollBar.setAutoHide (false);
     scrollBar.addListener (this);
     addAndMakeVisible (scrollBar);
@@ -1613,7 +1640,7 @@ void TimelineComponent::nudge (int direction, bool fine)
 int TimelineComponent::trackRowAt (int yInTimeline) const
 {
     const auto y = yInTimeline - headerHeight + trackViewport.getViewPositionY();
-    return y < 0 ? -1 : y / TrackListComponent::rowHeight;
+    return TrackRows (project).trackIndexAt (y);
 }
 
 bool TimelineComponent::isInterestedInFileDrag (const juce::StringArray& files)
@@ -1822,6 +1849,7 @@ void TimelineComponent::resized()
     signatureLane->setBounds (area.removeFromTop (signatureHeight));
     tempoLane->setBounds (area.removeFromTop (tempoHeight));
     trackLanes->setBounds (area);
+    automationArea->setBounds (trackLanes->getLocalBounds());
     updateScrollBar();
 }
 
