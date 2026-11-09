@@ -28,6 +28,9 @@ namespace aether::ids
     inline const juce::Identifier Insert         { "Insert" };
     inline const juce::Identifier Note           { "Note" };             // inside a MIDI Clip
     inline const juce::Identifier Instrument     { "Instrument" };       // inside a MIDI Track: what plays its notes
+    inline const juce::Identifier Automation     { "Automation" };       // list of AutomationLane, inside a Track
+    inline const juce::Identifier AutomationLane { "AutomationLane" };   // list of AutomationPoint
+    inline const juce::Identifier AutomationPoint { "AutomationPoint" };
 
     // Properties
     inline const juce::Identifier id      { "id" };       // unique id (UUID text) of a track, clip, etc.
@@ -78,6 +81,12 @@ namespace aether::ids
     inline const juce::Identifier preFader { "preFader" };   // a send taken before the volume fader
     inline const juce::Identifier type     { "type" };       // an insert's effect type, e.g. "reverb"
     inline const juce::Identifier bypass   { "bypass" };     // an insert that is switched off
+    // Automation (a lane's `id`, its points' `tick`)
+    inline const juce::Identifier setting  { "setting" };    // what a lane changes: see model/Automation.h
+    inline const juce::Identifier shown    { "shown" };      // a lane shown under its track
+    inline const juce::Identifier value    { "value" };      // a point's value (in the setting's own units)
+    inline const juce::Identifier bend     { "bend" };       // how a point's line to the next one curves: -1..1, 0 straight
+
     inline const juce::Identifier chain    { "chain" };      // an insert added with a ready-made chain: the chain's name
     inline const juce::Identifier chainGroup { "chainGroup" }; // ...and an id shared by that chain's effects on that channel
     // An insert's settings are stored as properties named after the effect's parameters

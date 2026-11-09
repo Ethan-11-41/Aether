@@ -4,6 +4,7 @@
 #include <cmath>
 #include <set>
 
+#include "Automation.h"
 #include "dsp/EffectTypes.h"
 
 namespace aether::mixer
@@ -461,6 +462,7 @@ bool removeSend (Project& project, const juce::String& sendId)
 
     auto& undo = project.getUndoManager();
     undo.beginNewTransaction ("Remove send");
+    edit::removeAutomationFor (project, sendId);
     send.getParent().removeChild (send, &undo);
     return true;
 }
@@ -649,6 +651,7 @@ bool removeInsert (Project& project, const juce::String& insertId)
     const auto* type = dsp::findEffectType (insert[ids::type].toString());
     auto& undo = project.getUndoManager();
     undo.beginNewTransaction ("Remove " + (type != nullptr ? type->name : juce::String ("effect")));
+    edit::removeAutomationFor (project, insertId);
     insert.getParent().removeChild (insert, &undo);
     return true;
 }
@@ -681,7 +684,10 @@ bool removeEffectChain (Project& project, const juce::String& insertId)
     undo.beginNewTransaction ("Remove \"" + members.front()[ids::chain].toString() + "\"");
 
     for (auto member : members)
+    {
+        edit::removeAutomationFor (project, member[ids::id].toString());
         member.getParent().removeChild (member, &undo);
+    }
 
     return true;
 }
@@ -703,6 +709,7 @@ int removeAllInserts (Project& project, const juce::StringArray& channelIds)
                 started = true;
             }
 
+            edit::removeAutomationFor (project, insert[ids::id].toString());
             insert.getParent().removeChild (insert, &undo);
             ++removed;
         }

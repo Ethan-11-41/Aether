@@ -98,6 +98,8 @@ add_library(aether_core STATIC
     io/RecentProjects.h
     model/Clip.cpp
     model/Clip.h
+    model/Automation.cpp
+    model/Automation.h
     model/ClipEdits.cpp
     model/ClipEdits.h
     model/DrumPatterns.cpp
