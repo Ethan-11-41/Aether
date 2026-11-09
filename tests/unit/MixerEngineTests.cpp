@@ -13,6 +13,7 @@
 #include "engine/AudioEngine.h"
 #include "engine/MixerRouting.h"
 #include "engine/TimelineSync.h"
+#include "model/Automation.h"
 #include "model/ClipEdits.h"
 #include "model/EditCommands.h"
 #include "model/Mixer.h"
@@ -502,4 +503,106 @@ TEST_CASE ("Changing the delay's time or the reverb's size doesn't bend the pitc
                 CHECK (std::abs (crossings[i] - crossings[i - 1] - 48.0) < 3.0);
         }
     }
+}
+
+TEST_CASE ("Automation changes the volume, pan, mute, sends and effects as the song plays", "[engine][mixer][automation]")
+{
+    using automation::Target;
+    Fixture f;
+    const auto track = f.addTrackWithSound ("a");   // a steady 0.5, for 10 seconds
+    constexpr auto beat = ticksPerQuarter;          // half a second at 120 BPM: 24000 samples
+
+    SECTION ("A volume fade out over one beat")
+    {
+        const auto lane = edit::showAutomationLane (f.project, track, Target::volume());
+        edit::addAutomationPoint (f.project, lane, beat, 0.0f);
+        edit::addAutomationPoint (f.project, lane, 2 * beat, -100.0f);
+
+        const auto out = f.play (72000);
+        CHECK_THAT (out.left[12000], WithinAbs (0.5, 0.001));    // before the first point: its value
+        CHECK (out.left[36000] < 0.3f);                           // fading
+        CHECK (out.left[36000] > 0.01f);
+        CHECK (out.left[60000] == 0.0f);                          // after the last: silent
+        CHECK (out.left[30000] > out.left[42000]);                // going down all the way
+    }
+
+    SECTION ("Pan moving from left to right")
+    {
+        const auto lane = edit::showAutomationLane (f.project, track, Target::pan());
+        edit::addAutomationPoint (f.project, lane, 0, -1.0f);
+        edit::addAutomationPoint (f.project, lane, beat, 1.0f);
+
+        const auto out = f.play (48000);
+        CHECK (out.right[1000] < 0.05f);
+        CHECK (out.left[40000] < 0.01f);
+        CHECK_THAT (out.right[40000], WithinAbs (0.5, 0.001));
+    }
+
+    SECTION ("Mute switching on at a point (and smoothly)")
+    {
+        const auto lane = edit::showAutomationLane (f.project, track, Target::mute());
+        edit::addAutomationPoint (f.project, lane, 0, 0.0f);
+        edit::addAutomationPoint (f.project, lane, beat, 1.0f);
+
+        const auto out = f.play (48000);
+        CHECK (out.left[20000] == 0.5f);
+        CHECK (out.left[30000] == 0.0f);
+    }
+
+    SECTION ("An effect's setting, and switching it off")
+    {
+        const auto eq = edit::addInsert (f.project, track, "eq");
+        const auto output = edit::showAutomationLane (f.project, track, Target::effect (eq, "output"));
+        edit::addAutomationPoint (f.project, output, 0, 0.0f);
+        edit::addAutomationPoint (f.project, output, beat, 12.0f);
+        const auto on = edit::showAutomationLane (f.project, track, Target::effectOn (eq));
+        edit::addAutomationPoint (f.project, on, 0, 1.0f);
+        edit::addAutomationPoint (f.project, on, 2 * beat, 0.0f);
+
+        const auto out = f.play (72000);
+        CHECK_THAT (out.left[200], WithinAbs (0.5, 0.02));
+        CHECK_THAT (out.left[40000], WithinAbs (2.0, 0.1));       // +12 dB: about 4 times
+        CHECK_THAT (out.left[60000], WithinAbs (0.5, 0.001));     // switched off
+    }
+
+    SECTION ("A send's level")
+    {
+        const auto bus = edit::addTrack (f.project, TrackKind::bus).getId();
+        edit::setVolume (f.project, track, -100.0);   // only the send is heard
+        const auto send = edit::addSend (f.project, track, bus);
+        edit::setSendPreFader (f.project, send, true);
+        const auto lane = edit::showAutomationLane (f.project, track, Target::send (send));
+        edit::addAutomationPoint (f.project, lane, 0, -100.0f);
+        edit::addAutomationPoint (f.project, lane, beat, 0.0f);
+
+        const auto out = f.play (48000);
+        CHECK (out.left[500] < 0.01f);
+        CHECK_THAT (out.left[40000], WithinAbs (0.5, 0.001));
+    }
+
+    SECTION ("A lane without points changes nothing; one point holds its value all through")
+    {
+        edit::showAutomationLane (f.project, track, Target::volume());
+        CHECK (f.play (4800).left[2000] == 0.5f);
+
+        f.engine.stop();
+        f.engine.locate (0);
+        edit::addAutomationPoint (f.project, automation::findLane (f.project, track, Target::volume())[ids::id].toString(),
+                                  10 * beat, -6.0206f);
+        CHECK_THAT (f.play (4800).left[2000], WithinAbs (0.25, 0.001));
+    }
+}
+
+TEST_CASE ("Automation plays from where the playhead is, also when it's moved", "[engine][automation]")
+{
+    using automation::Target;
+    Fixture f;
+    const auto track = f.addTrackWithSound ("a");
+    const auto lane = edit::showAutomationLane (f.project, track, Target::volume());
+    edit::addAutomationPoint (f.project, lane, 0, 0.0f);
+    edit::addAutomationPoint (f.project, lane, 4 * ticksPerQuarter, -100.0f);
+
+    f.engine.locate (4 * ticksPerQuarter);   // the end of the fade
+    const auto out = f.play (4800);
+    CHECK (out.left[2000] == 0.0f);
 }

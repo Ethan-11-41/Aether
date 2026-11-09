@@ -12,6 +12,7 @@
 #include "io/AudioImport.h"
 #include "model/ClipEdits.h"
 #include "model/MidiClips.h"
+#include "model/Automation.h"
 #include "model/Mixer.h"
 #include "model/TimelineEdits.h"
 
@@ -20,16 +21,9 @@ namespace aether
 
 namespace
 {
-    /** Pan as a balance control: the centre leaves the sound unchanged; turning it to one side
-        gradually turns the other side down (the side it points to stays at full level). */
-    std::pair<float, float> panGains (double pan)
-    {
-        auto turnDown = [] (double amount) { return amount >= 1.0 ? 0.0f : (float) std::cos (amount * juce::MathConstants<double>::halfPi); };
-        return { pan > 0.0 ? turnDown (pan) : 1.0f, pan < 0.0 ? turnDown (-pan) : 1.0f };
-    }
 
     void addInserts (TrackPlayback& channel, const Project& project, const juce::String& channelId,
-                     double sampleRate, MixerResources& resources)
+                     double sampleRate, MixerResources& resources, juce::StringArray* insertIds = nullptr)
     {
         for (const auto& insert : mixer::insertsOf (project, channelId))
         {
@@ -48,7 +42,80 @@ namespace
                 playback.parameters[i] = mixer::getInsertParameter (insert, type->parameters[i].id);
 
             if (playback.effect != nullptr)
+            {
                 channel.inserts.push_back (std::move (playback));
+                if (insertIds != nullptr)
+                    insertIds->add (insert[ids::id].toString());
+            }
+        }
+    }
+
+    /** The track's lanes with points, pointed at its sends, effects and instrument. */
+    void addAutomation (TrackPlayback& channel, const Project& project, const TimelineSnapshot& snapshot, const Track& track,
+                        double sampleRate, const juce::StringArray& sendIds, const juce::StringArray& insertIds)
+    {
+        using Kind = automation::Target::Kind;
+        const auto trackId = track.getId();
+
+        for (const auto& lane : automation::lanesOf (project, trackId))
+        {
+            const auto target = automation::Target::fromString (lane[ids::setting].toString());
+            const auto range = automation::rangeOf (project, trackId, target);
+            const auto points = automation::pointsOf (lane);
+
+            if (! range || points.empty())
+                continue;
+
+            AutomationPlayback playback;
+            playback.range = *range;
+
+            switch (target.kind)
+            {
+                case Kind::volume:   playback.kind = AutomationPlayback::Kind::volume; break;
+                case Kind::pan:      playback.kind = AutomationPlayback::Kind::pan; break;
+                case Kind::mute:     playback.kind = AutomationPlayback::Kind::mute; break;
+                case Kind::send:     playback.kind = AutomationPlayback::Kind::send; playback.index = sendIds.indexOf (target.objectId); break;
+                case Kind::effectOn: playback.kind = AutomationPlayback::Kind::effectOn; playback.index = insertIds.indexOf (target.objectId); break;
+
+                case Kind::effect:
+                {
+                    playback.kind = AutomationPlayback::Kind::effect;
+                    playback.index = insertIds.indexOf (target.objectId);
+                    const auto* type = dsp::findEffectType (mixer::findInsert (project, target.objectId)[ids::type].toString());
+                    for (size_t i = 0; type != nullptr && i < type->parameters.size(); ++i)
+                        if (type->parameters[i].id.toString() == target.parameterId)
+                            playback.parameter = (int) i;
+                    break;
+                }
+
+                case Kind::instrument:
+                {
+                    playback.kind = AutomationPlayback::Kind::instrument;
+                    playback.index = 0;
+                    const auto* type = dsp::findEffectType (midi::instrumentOf (project, trackId)[ids::type].toString());
+                    for (size_t i = 0; type != nullptr && i < type->parameters.size(); ++i)
+                        if (type->parameters[i].id.toString() == target.parameterId)
+                            playback.parameter = (int) i;
+                    break;
+                }
+
+                case Kind::none:
+                    continue;
+            }
+
+            // A send or effect that isn't playing (e.g. a send to a bus that would make a loop).
+            if (playback.index < 0 && target.kind != Kind::volume && target.kind != Kind::pan && target.kind != Kind::mute)
+                continue;
+
+            if ((target.kind == Kind::effect || target.kind == Kind::instrument) && playback.parameter < 0)
+                continue;
+
+            playback.points.reserve (points.size());
+            for (const auto& p : points)
+                playback.points.push_back ({ (std::int64_t) std::llround (snapshot.tempo.ticksToSeconds (p.tick) * sampleRate),
+                                             range->toPosition (p.value), p.bend });
+
+            channel.automation.push_back (std::move (playback));
         }
     }
 
@@ -257,12 +324,17 @@ std::unique_ptr<TimelineSnapshot> buildTimelineSnapshot (const Project& project,
         const auto [left, right] = panGains (track.getPan());
         channel.leftGain = volume * left;
         channel.rightGain = volume * right;
-        channel.muteGain = track.isMuted() && ! (looping && track.getId() == partLoop.trackId) ? 0.0f : 1.0f;
+        channel.volumeDb = (float) track.getVolumeDb();
+        channel.pan = (float) track.getPan();
+        channel.muteFixed = looping && track.getId() == partLoop.trackId;
+        channel.muteGain = track.isMuted() && ! channel.muteFixed ? 0.0f : 1.0f;
 
         const auto out = outputConnection[(size_t) t];
         const auto to = connections[out].to;
         channel.destination = routes.kept[out] && to != n ? position[(size_t) to] : -1;
         channel.outputGain = routes.audible[out] ? 1.0f : 0.0f;
+
+        juce::StringArray sendIds, insertIds;
 
         for (const auto& send : sends)
         {
@@ -271,13 +343,15 @@ std::unique_ptr<TimelineSnapshot> buildTimelineSnapshot (const Project& project,
 
             SendPlayback playback;
             playback.destination = position[(size_t) connections[send.connection].to];
-            playback.gain = routes.audible[send.connection] ? mixer::dbToGain ((double) send.node[ids::level]) : 0.0f;
+            playback.audible = routes.audible[send.connection];
+            playback.gain = playback.audible ? mixer::dbToGain ((double) send.node[ids::level]) : 0.0f;
+            sendIds.add (send.node[ids::id].toString());
             playback.preFader = (bool) send.node[ids::preFader];
             playback.state = res.send (send.node[ids::id].toString());
             channel.sends.push_back (std::move (playback));
         }
 
-        addInserts (channel, project, track.getId(), sampleRate, res);
+        addInserts (channel, project, track.getId(), sampleRate, res, &insertIds);
 
         if (track.getKind() == TrackKind::audio && track.isMonitoring() && track.getInputChannel() >= 0)
         {
@@ -296,6 +370,8 @@ std::unique_ptr<TimelineSnapshot> buildTimelineSnapshot (const Project& project,
 
         if (track.getKind() == TrackKind::midi)
             addMidi (channel, project, *snapshot, track, sampleRate, res, focusedTrackId, resolver, projectFolder);
+
+        addAutomation (channel, project, *snapshot, track, sampleRate, sendIds, insertIds);
 
         snapshot->tracks.push_back (std::move (channel));
     }

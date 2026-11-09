@@ -1,6 +1,8 @@
 // Aether - Copyright (C) 2026 The Aether authors. Licensed under the GNU AGPLv3 or later.
 #include "AudioEngine.h"
 
+#include "model/Mixer.h"
+
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -441,19 +443,19 @@ namespace
     }
 }
 
-void AudioEngine::runInsert (const InsertPlayback& insert, float* left, float* right, int numSamples,
-                             const dsp::EffectContext& context) noexcept AETHER_NONBLOCKING
+void AudioEngine::runInsert (const InsertPlayback& insert, const dsp::EffectParameterValues& parameters, bool bypassed,
+                             float* left, float* right, int numSamples, const dsp::EffectContext& context) noexcept AETHER_NONBLOCKING
 {
     if (insert.effect == nullptr || numSamples <= 0)
         return;
 
     auto& state = *insert.state;
-    const auto target = insert.bypassed ? 0.0f : 1.0f;
+    const auto target = bypassed ? 0.0f : 1.0f;
     const auto count = std::min (numSamples, mixChunkSize);
 
     if (state.amount == target && target == 1.0f)
     {
-        insert.effect->process (left, right, count, insert.parameters, context);
+        insert.effect->process (left, right, count, parameters, context);
         return;
     }
 
@@ -463,7 +465,7 @@ void AudioEngine::runInsert (const InsertPlayback& insert, float* left, float* r
     auto* wetRight = state.scratchRight.data();
     std::copy (left, left + count, wetLeft);
     std::copy (right, right + count, wetRight);
-    insert.effect->process (wetLeft, wetRight, count, insert.parameters, context);
+    insert.effect->process (wetLeft, wetRight, count, parameters, context);
 
     if (state.amount == target)
         return;   // off: the dry sound goes on unchanged
@@ -496,29 +498,101 @@ void AudioEngine::processChannel (const TimelineSnapshot& timeline, const TrackP
         return nullptr;
     };
 
-    // 1. Effects.
-    for (const auto& insert : channel.inserts)
-        runInsert (insert, left, right, numSamples, context);
+    // 0. Automation: where the lanes are at the playhead (the changes are smoothed below, like
+    // any other change, so a jump doesn't click).
+    auto muteGain = channel.muteGain, leftGain = channel.leftGain, rightGain = channel.rightGain;
+
+    if (! channel.automation.empty())
+    {
+        auto volumeDb = channel.volumeDb, pan = channel.pan;
+        bool gainsChanged = false;
+
+        for (const auto& lane : channel.automation)
+        {
+            switch (lane.kind)
+            {
+                case AutomationPlayback::Kind::volume: volumeDb = lane.valueAt (automationSample); gainsChanged = true; break;
+                case AutomationPlayback::Kind::pan:    pan = lane.valueAt (automationSample); gainsChanged = true; break;
+                case AutomationPlayback::Kind::mute:
+                    if (! channel.muteFixed)
+                        muteGain = lane.valueAt (automationSample) >= 0.5f ? 0.0f : 1.0f;
+                    break;
+                case AutomationPlayback::Kind::send:
+                case AutomationPlayback::Kind::effect:
+                case AutomationPlayback::Kind::effectOn:
+                case AutomationPlayback::Kind::instrument:
+                    break;
+            }
+        }
+
+        if (gainsChanged)
+        {
+            const auto volume = mixer::dbToGain ((double) volumeDb);
+            const auto [l, r] = panGains ((double) pan);
+            leftGain = volume * l;
+            rightGain = volume * r;
+        }
+    }
+
+    // 1. Effects (with their automated settings).
+    for (size_t i = 0; i < channel.inserts.size(); ++i)
+    {
+        const auto& insert = channel.inserts[i];
+        bool automated = false;
+
+        for (const auto& lane : channel.automation)
+            automated = automated || ((lane.kind == AutomationPlayback::Kind::effect || lane.kind == AutomationPlayback::Kind::effectOn)
+                                      && lane.index == (int) i);
+
+        if (! automated)
+        {
+            runInsert (insert, insert.parameters, insert.bypassed, left, right, numSamples, context);
+            continue;
+        }
+
+        auto parameters = insert.parameters;
+        auto bypassed = insert.bypassed;
+
+        for (const auto& lane : channel.automation)
+        {
+            if (lane.index != (int) i)
+                continue;
+
+            if (lane.kind == AutomationPlayback::Kind::effect && lane.parameter >= 0 && lane.parameter < dsp::maxEffectParameters)
+                parameters[(size_t) lane.parameter] = lane.valueAt (automationSample);
+            else if (lane.kind == AutomationPlayback::Kind::effectOn)
+                bypassed = lane.valueAt (automationSample) < 0.5f;
+        }
+
+        runInsert (insert, parameters, bypassed, left, right, numSamples, context);
+    }
 
     // 2. Mute (after the effects, so a muted channel's echoes stop too).
-    state.mute.setTarget (channel.muteGain, rampSamples);
+    state.mute.setTarget (muteGain, rampSamples);
     if (! state.mute.isSteady() || state.mute.getCurrent() != 1.0f)
     {
         auto copy = state.mute;   // the same fade for both sides
-        applyGain (state.mute, channel.muteGain, rampSamples, left, numSamples);
-        applyGain (copy, channel.muteGain, rampSamples, right, numSamples);
+        applyGain (state.mute, muteGain, rampSamples, left, numSamples);
+        applyGain (copy, muteGain, rampSamples, right, numSamples);
     }
 
     // 3. Sends taken before the fader.
     auto doSends = [&] (bool preFader)
     {
-        for (const auto& send : channel.sends)
+        for (size_t s = 0; s < channel.sends.size(); ++s)
         {
+            const auto& send = channel.sends[s];
+
             if (send.preFader != preFader)
                 continue;
 
+            auto gain = send.gain;
+            for (const auto& lane : channel.automation)
+                if (lane.kind == AutomationPlayback::Kind::send && lane.index == (int) s)
+                    gain = send.audible ? mixer::dbToGain ((double) lane.valueAt (automationSample)) : 0.0f;
+
             if (auto* target = inputOf (send.destination))
-                addWithGain (send.state->gain, send.gain, rampSamples, left, right,
+                addWithGain (send.state->gain, gain, rampSamples, left, right,
                              target->input.getWritePointer (0), target->input.getWritePointer (1), numSamples);
         }
     };
@@ -526,8 +600,8 @@ void AudioEngine::processChannel (const TimelineSnapshot& timeline, const TrackP
     doSends (true);
 
     // 4. Volume and pan.
-    applyGain (state.left, channel.leftGain, rampSamples, left, numSamples);
-    applyGain (state.right, channel.rightGain, rampSamples, right, numSamples);
+    applyGain (state.left, leftGain, rampSamples, left, numSamples);
+    applyGain (state.right, rightGain, rampSamples, right, numSamples);
 
     // 5. Sends after the fader, the meters, and on to the bus or the master.
     doSends (false);
@@ -557,7 +631,7 @@ void AudioEngine::mixChannels (const TimelineSnapshot& timeline, float* const* o
     auto* right = master.input.getWritePointer (1);
 
     for (const auto& insert : timeline.master.inserts)
-        runInsert (insert, left, right, numSamples, context);
+        runInsert (insert, insert.parameters, insert.bypassed, left, right, numSamples, context);
 
     applyGain (master.left, timeline.master.leftGain, rampSamples, left, numSamples);
     applyGain (master.right, timeline.master.rightGain, rampSamples, right, numSamples);
@@ -788,8 +862,26 @@ void AudioEngine::playInstruments (const TimelineSnapshot& timeline, int chunkSt
             for (int j = i; j > 0 && noteEvents[(size_t) j].offset < noteEvents[(size_t) j - 1].offset; --j)
                 std::swap (noteEvents[(size_t) j], noteEvents[(size_t) j - 1]);
 
+        // The instrument's settings, with any automation.
+        const auto* parameters = &track.instrumentParameters;
+        bool automated = false;
+        for (const auto& lane : track.automation)
+        {
+            if (lane.kind != AutomationPlayback::Kind::instrument || lane.parameter < 0 || lane.parameter >= dsp::maxEffectParameters)
+                continue;
+
+            if (! automated)
+            {
+                automatedInstrumentParameters = track.instrumentParameters;
+                parameters = &automatedInstrumentParameters;
+                automated = true;
+            }
+
+            automatedInstrumentParameters[(size_t) lane.parameter] = lane.valueAt (automationSample);
+        }
+
         track.instrument->process (track.state->input.getWritePointer (0), track.state->input.getWritePointer (1),
-                                   numSamples, track.instrumentParameters, noteEvents.data(), count, &track.sounds);
+                                   numSamples, *parameters, noteEvents.data(), count, &track.sounds);
     }
 
     stopClipNotes = false;
@@ -845,6 +937,9 @@ void AudioEngine::processChunk (const TimelineSnapshot& timeline, const float* c
         timeline.master.state->input.clear (0, numSamples);
         monitorInputs (timeline, inputs, numInputs, numSamples);
     }
+
+    // Automation is read where the playhead is at the start of this chunk.
+    automationSample = positionSamples;
 
     // Transport: count-in, then playback (which puts the clips into their channels).
     int done = 0;
