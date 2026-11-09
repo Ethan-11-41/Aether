@@ -1,6 +1,8 @@
 // Aether - Copyright (C) 2026 The Aether authors. Licensed under the GNU AGPLv3 or later.
 #include "MixerControls.h"
 
+#include "AutomationFollow.h"
+
 #include <cmath>
 
 #include "model/Mixer.h"
@@ -315,8 +317,11 @@ namespace
 
         control.getValue = [&project, channelId, parameter]
         {
-            return parameter == edit::ChannelGesture::Parameter::volume ? mixer::getVolumeDb (project, channelId())
-                                                                         : mixer::getPan (project, channelId());
+            // An automated volume or pan shows the lane's value as the song plays.
+            const auto id = channelId();
+            return parameter == edit::ChannelGesture::Parameter::volume
+                     ? (double) automationfollow::shown (project, id, automation::Target::volume(), (float) mixer::getVolumeDb (project, id))
+                     : (double) automationfollow::shown (project, id, automation::Target::pan(), (float) mixer::getPan (project, id));
         };
 
         control.onGestureStart = [&project, channelId, group, parameter, gesture]

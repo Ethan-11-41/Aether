@@ -6,6 +6,37 @@ follow [Semantic Versioning](https://semver.org/) (0.x while Aether is in early 
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-11-09 - Milestone 14: automation
+
+### Added
+- **Automation**: settings that change by themselves as the song plays, e.g. the volume fading out
+  at the end, more reverb in the chorus, a filter opening during a build-up, a sound moving from
+  left to right, an effect switching on for one section.
+  - Click a track's new **A** button and choose a setting: its **lane** opens under the track,
+    lined up with the clips. Several lanes per track; **Hide** keeps their points working.
+  - Everything can be automated: **volume, pan, mute, sends**, every **effect** setting and
+    switching effects **on/off**, and the **instrument's** settings (Synth, sampler, drum kit).
+  - **Draw**: click in a lane to add a point (on the grid; hold Alt for anywhere), drag points to
+    move them, **double-click** a point to remove it, **Ctrl+drag** a line to bend it into a curve.
+    Right-click for more (clear the lane, remove it). Every change can be undone.
+  - **Record your moves**: switch on **Write automation** (the new button after the metronome, or
+    the Transport menu), play, and move any fader, knob or switch, in the track headers, the
+    mixer, an effect's window or an instrument's window. Your moves are written into the lane
+    (which opens by itself). Holding a control still keeps writing its value; let go, and the lane
+    carries on as it was. One Ctrl+Z takes back a move.
+  - Faders and knobs **follow** their automation as the song plays, so you can see it working.
+  - Automation is saved with the project and included when you export.
+- Effects can be removed together: right-click an effect that came with a ready-made chain and
+  choose **Remove the whole chain**, or **Remove all effects** on a channel (both one undo step).
+
+### Changed
+- **Switching an effect on or off while playing fades** over 20 ms, so it no longer crackles
+  (from your M13 testing). A switched-off effect keeps listening, so its echoes and reverb are
+  ready when it comes back on. Adding an effect while playing fades it in too.
+- **Changing the Delay's time or the Reverb's size or pre-delay while playing crossfades** from
+  the old setting to the new one, instead of gliding, which bent the pitch (the short "laser"
+  sound when switching presets, from your M13 testing).
+
 ## [0.14.0] - 2026-11-08 - Milestone 13: effects
 
 ### Added

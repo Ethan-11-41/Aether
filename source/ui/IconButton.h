@@ -16,7 +16,7 @@ namespace aether::ui
 class IconButton final : public juce::Button
 {
 public:
-    enum class Icon { play, stop, toStart, loop, metronome, record, punch };
+    enum class Icon { play, stop, toStart, loop, metronome, record, punch, automation };
 
     IconButton (const Theme& theme, Icon icon, const juce::String& name);
 

@@ -7,6 +7,7 @@
 
 #include "dsp/EffectTypes.h"
 #include "io/ProjectFormat.h"
+#include "engine/AutomationRecorder.h"
 #include "model/Automation.h"
 #include "model/EditCommands.h"
 #include "model/MidiClips.h"
@@ -293,4 +294,80 @@ TEST_CASE ("Automation is saved with the project", "[automation][io]")
     CHECK (points[0].value == -0.5f);
     CHECK (points[0].bend == 0.25f);
     CHECK ((bool) findLane (*reopened, lane)[ids::shown]);
+}
+
+TEST_CASE ("Recording automation writes the moves of any control while playing", "[automation][recording]")
+{
+    Fixture f;
+    bool playing = false;
+    Tick playhead = 0;
+    double now = 0.0;
+    AutomationRecorder recorder (f.project, [&] { return playing; }, [&] { return playhead; });
+    recorder.clock = [&] { return now; };
+
+    // Off, or stopped: changes are just changes.
+    edit::setVolume (f.project, f.track, -3.0);
+    CHECK_FALSE (findLane (f.project, f.track, Target::volume()).isValid());
+
+    recorder.setEnabled (true);
+    edit::setVolume (f.project, f.track, -4.0);
+    CHECK_FALSE (findLane (f.project, f.track, Target::volume()).isValid());
+
+    // Playing: a fader move from bar 1 to bar 2, in one undo step (like a drag).
+    playing = true;
+    f.project.getUndoManager().beginNewTransaction ("Change volume");
+    for (int i = 0; i <= 4; ++i)
+    {
+        playhead = bar + i * bar / 4;
+        now = 1.0 + i * 0.1;
+        edit::setVolume (f.project, f.track, -5.0 - i * 2.0, false);
+    }
+
+    const auto lane = findLane (f.project, f.track, Target::volume());
+    REQUIRE (lane.isValid());
+    CHECK ((bool) lane[ids::shown]);
+    auto points = pointsOf (lane);
+    REQUIRE (points.size() == 5);
+    CHECK (points.front().tick == bar);
+    CHECK (points.back().tick == 2 * bar);
+    CHECK_THAT (points.back().value, WithinAbs (-13.0, 1.0e-4));
+    CHECK (recorder.getNumActiveMoves() == 1);
+
+    // Let go: the move ends.
+    recorder.update (3.0);
+    CHECK (recorder.getNumActiveMoves() == 0);
+
+    // A second pass: moved to 0 dB at 1.25 bars, then held still (mouse down) until 1.75 bars,
+    // replacing what was there.
+    bool held = true;
+    recorder.controlHeld = [&] { return held; };
+    f.project.getUndoManager().beginNewTransaction ("Change volume");
+    playhead = bar + bar / 4;
+    now = 4.0;
+    edit::setVolume (f.project, f.track, 0.0, false);
+    playhead = bar + 3 * bar / 4;
+    now = 4.5;
+    recorder.update (now);
+    CHECK (recorder.getNumActiveMoves() == 1);   // still held
+    points = pointsOf (lane);
+    CHECK (points.size() == 5);   // 1, 1.25 (old and new), 1.75 (new), 2: the old 1.5 and 1.75 are gone
+    CHECK_THAT (valueAt (points, *rangeOf (f.project, f.track, Target::volume()), bar + bar / 2, 0.0f), WithinAbs (0.0, 1.0e-4));
+
+    held = false;
+    recorder.update (5.5);
+    CHECK (recorder.getNumActiveMoves() == 0);
+
+    // One undo takes back the second pass (the fader move and what it wrote).
+    f.project.getUndoManager().undo();
+    CHECK (pointsOf (lane).size() == 5);
+    CHECK_THAT (valueAt (pointsOf (lane), *rangeOf (f.project, f.track, Target::volume()), bar + bar / 2, 0.0f), WithinAbs (-9.0, 1.0e-3));
+
+    // Effects (and switching them off) record too.
+    const auto eq = edit::addInsert (f.project, f.track, "eq");
+    playhead = 4 * bar;
+    edit::setInsertParameter (f.project, eq, "output", 6.0f);
+    edit::setInsertBypassed (f.project, eq, true);
+    CHECK (isAutomated (f.project, f.track, Target::effect (eq, "output")));
+    CHECK (isAutomated (f.project, f.track, Target::effectOn (eq)));
+    CHECK (currentValue (f.project, f.track, Target::effectOn (eq), 4 * bar) == 0.0f);
 }

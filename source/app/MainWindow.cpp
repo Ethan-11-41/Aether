@@ -634,7 +634,7 @@ void MainContent::getAllCommands (juce::Array<juce::CommandID>& list)
                      commands::copyClips, commands::cutClips, commands::pasteClips, commands::deselect,
                      commands::importAudio, commands::splitClips, commands::duplicateClips,
                      commands::nudgeLeft, commands::nudgeRight, commands::nudgeLeftFine, commands::nudgeRightFine,
-                     commands::toggleSnap, commands::toggleMixer, commands::addBus, commands::record, commands::togglePunch, commands::toggleKeyboard,
+                     commands::toggleSnap, commands::toggleMixer, commands::addBus, commands::record, commands::togglePunch, commands::writeAutomation, commands::toggleKeyboard,
                      commands::addAudioTrack, commands::addMidiTrack, commands::addDrumTrack, commands::renameTrack, commands::deleteTrack,
                      commands::moveTrackUp, commands::moveTrackDown,
                      commands::playStop, commands::stop, commands::goToStart, commands::toggleLoop,
@@ -881,6 +881,13 @@ void MainContent::getCommandInfo (juce::CommandID id, juce::ApplicationCommandIn
             info.setTicked (hasProject && (bool) project->getState()[ids::punch]);
             break;
 
+        case commands::writeAutomation:
+            info.setInfo ("Write automation", "While it's on, moving a fader, knob or switch as the song plays writes the "
+                          "moves into the setting's automation lane", commands::categories::transport, 0);
+            info.setActive (hasProject);
+            info.setTicked (hasProject && projectView->isWritingAutomation());
+            break;
+
         case commands::goToStart:
             info.setInfo ("Go to start", "Move the playhead to the start of the song", commands::categories::transport, 0);
             info.addDefaultKeypress (KeyPress::homeKey, 0);
@@ -1090,6 +1097,12 @@ bool MainContent::perform (const InvocationInfo& invocation)
             ctx.commands.commandStatusChanged();
             return true;
 
+        case commands::writeAutomation:
+            if (projectView != nullptr)
+                projectView->setWritingAutomation (! projectView->isWritingAutomation());
+            ctx.commands.commandStatusChanged();
+            return true;
+
         case commands::goToStart:
             ctx.engine.locate (0);
             return true;
@@ -1226,6 +1239,7 @@ juce::PopupMenu MainContent::getMenuForIndex (int menuIndex, const juce::String&
         menu.addCommandItem (cm, commands::toggleLoop);
         menu.addCommandItem (cm, commands::togglePunch);
         menu.addCommandItem (cm, commands::toggleMetronome);
+        menu.addCommandItem (cm, commands::writeAutomation);
     }
     else if (menuIndex == 4)
     {

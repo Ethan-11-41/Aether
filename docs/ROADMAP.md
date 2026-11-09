@@ -37,7 +37,7 @@ how quickly testing rounds come back. It will keep being updated.
 | ✅ **M11** | Drum sampler + step sequencer; patterns on the timeline; custom kits (per-pad tune, volume, pan, envelope, choke groups) |
 | ✅ **M12** | Multi-sample sampler (key zones, velocity layers, ADSR); any drum sound (e.g. an 808) playable across the keyboard, with glide; 28 recorded instruments (CC0) |
 | ✅ **M13** | Effects: EQ, compressor, limiter, gate, de-esser, saturation, filter, chorus, delay, reverb, each in its own window with a live picture; presets for vocals, instruments and the whole song; ready-made chains |
-| M14 | Automation lanes for any parameter, including plug-ins |
+| ✅ **M14** | Automation lanes under the tracks for volume, pan, mute, sends, effect and instrument settings: draw points and curves, or record knob moves as the song plays (plug-ins get the same lanes in M15) |
 | M15 | VST3 hosting: safe scanning, blacklist, browser, favourites, presets, plug-in delay compensation |
 | M16 | MIDI learn for any knob |
 | M17 | Built-in sound library v1 (procedurally generated kits, one-shots, loops, presets) |

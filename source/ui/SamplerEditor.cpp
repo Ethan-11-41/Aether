@@ -1,5 +1,6 @@
 // Aether - Copyright (C) 2026 The Aether authors. Licensed under the GNU AGPLv3 or later.
 #include "SamplerEditor.h"
+#include "AutomationFollow.h"
 
 #include "AetherLookAndFeel.h"
 #include "io/SamplerImport.h"
@@ -357,7 +358,11 @@ ParameterKnob* SamplerEditor::makeKnob (const juce::String& id)
     knob->setName (id);
     knob->setTooltip (explain (id) + " Double-click to reset.");
     knob->resetValue = parameter->defaultValue;
-    knob->getValue = [this, pid = parameter->id] { return (double) mixer::getInsertParameter (instrument(), pid); };
+    knob->getValue = [this, pid = parameter->id]
+    {
+        return (double) automationfollow::shown (project, trackId, automation::Target::instrument (pid.toString()),
+                                                 mixer::getInsertParameter (instrument(), pid));
+    };
     knob->onGestureStart = [this, name = parameter->name]
     {
         project.getUndoManager().beginNewTransaction ("Change sampler " + name.toLowerCase());

@@ -1,6 +1,8 @@
 // Aether - Copyright (C) 2026 The Aether authors. Licensed under the GNU AGPLv3 or later.
 #include "EffectView.h"
 
+#include "AutomationFollow.h"
+
 #include <map>
 
 #include "dsp/ColourEffects.h"
@@ -112,7 +114,11 @@ EffectView::EffectView (const Theme& t, Project& p, juce::String id)
 {
     type = dsp::findEffectType (insert()[ids::type].toString());
 
-    onOff.isOn = [this] { return ! (bool) insert()[ids::bypass]; };
+    onOff.isOn = [this]
+    {
+        return automationfollow::shown (project, trackIdOf(), automation::Target::effectOn (insertId),
+                                        (bool) insert()[ids::bypass] ? 0.0f : 1.0f) >= 0.5f;
+    };
     onOff.onClick = [this] { edit::setInsertBypassed (project, insertId, ! (bool) insert()[ids::bypass]); };
     onOff.setTooltip ("Switch the effect on or off, to hear the difference it makes");
     addAndMakeVisible (onOff);
@@ -148,6 +154,11 @@ EffectView::~EffectView()
 juce::ValueTree EffectView::insert() const
 {
     return mixer::findInsert (project, insertId);
+}
+
+juce::String EffectView::trackIdOf() const
+{
+    return insert().getParent().getParent()[ids::id].toString();   // empty for the master (no lanes)
 }
 
 juce::String EffectView::getTitle() const
@@ -242,7 +253,11 @@ void EffectView::buildControls()
             if (isOnOff (*parameter))
             {
                 control.toggle = std::make_unique<ToggleBox> (theme, "On", theme.accent);
-                control.toggle->isOn = [this, parameter] { return mixer::getInsertParameter (insert(), parameter->id) >= 0.5f; };
+                control.toggle->isOn = [this, parameter]
+                {
+                    return automationfollow::shown (project, trackIdOf(), automation::Target::effect (insertId, parameter->id.toString()),
+                                                    mixer::getInsertParameter (insert(), parameter->id)) >= 0.5f;
+                };
                 control.toggle->onClick = [this, parameter]
                 {
                     const auto on = mixer::getInsertParameter (insert(), parameter->id) >= 0.5f;
@@ -269,7 +284,11 @@ void EffectView::buildControls()
                 control.knob = std::make_unique<ParameterKnob> (theme, *parameter);
                 control.knob->label = control.label;
                 const auto name = type->name;
-                control.knob->getValue = [this, parameter] { return (double) mixer::getInsertParameter (insert(), parameter->id); };
+                control.knob->getValue = [this, parameter]
+                {
+                    return (double) automationfollow::shown (project, trackIdOf(), automation::Target::effect (insertId, parameter->id.toString()),
+                                                             mixer::getInsertParameter (insert(), parameter->id));
+                };
                 control.knob->onGestureStart = [this, parameter, name]
                 {
                     project.getUndoManager().beginNewTransaction ("Change " + name + " " + parameter->name.toLowerCase());

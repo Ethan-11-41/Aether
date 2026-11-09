@@ -8,7 +8,10 @@
 
 #include "model/Automation.h"
 #include "model/EditCommands.h"
+#include "model/Mixer.h"
+#include "ui/AutomationFollow.h"
 #include "ui/AutomationLanes.h"
+#include "ui/MixerControls.h"
 #include "ui/TrackListComponent.h"
 
 using namespace aether;
@@ -168,4 +171,27 @@ TEST_CASE ("Switches and choices are drawn as steps and snap to their values", "
     juce::Image image (juce::Image::ARGB, 1000, 600, true);
     juce::Graphics g (image);
     f.lanes->paintEntireComponent (g, false);
+}
+
+TEST_CASE ("An automated fader shows the lane's value where the playhead is", "[ui][automation]")
+{
+    Fixture f;
+    Tick playhead = 0;
+    ui::automationfollow::setPlayhead ([&] { return playhead; });
+
+    ui::VolumeFader fader (f.theme, false);
+    ui::connectVolume (fader, f.project, [&f] { return f.first; }, {});
+    edit::setVolume (f.project, f.first, -3.0);
+    CHECK (fader.getValue() == -3.0);   // not automated: its own value
+
+    const auto lane = edit::showAutomationLane (f.project, f.first, Target::volume());
+    edit::addAutomationPoint (f.project, lane, 0, 0.0f);
+    edit::addAutomationPoint (f.project, lane, 4 * beat, -20.0f);
+
+    CHECK_THAT (fader.getValue(), WithinAbs (0.0, 1.0e-4));
+    playhead = 8 * beat;
+    CHECK_THAT (fader.getValue(), WithinAbs (-20.0, 1.0e-4));
+
+    ui::automationfollow::setPlayhead (nullptr);
+    CHECK (fader.getValue() == -3.0);
 }

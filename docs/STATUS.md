@@ -4,7 +4,7 @@ An honest list of what works. Updated at the end of every milestone.
 
 **Legend:** ✅ Working · 🟡 Partial · 🧪 Stub/placeholder · ⬜ Not started
 
-Current version: **0.14.0** (Milestone 13: effects)
+Current version: **0.15.0** (Milestone 14: automation)
 
 ## Milestone 0: skeleton and build pipeline
 
@@ -224,11 +224,27 @@ Current version: **0.14.0** (Milestone 13: effects)
 | Loudness (LUFS) meter for the master | ⬜ | Not planned yet. |
 | Changing effect settings over time | ⬜ | Automation, M14. |
 
+## Milestone 14: automation
+
+| Feature | Status | Notes |
+|---|---|---|
+| Lanes under each track (the A button), several per track, hide/show | ✅ | |
+| Volume, pan, mute, sends, effect settings and on/off, instrument settings | ✅ | Plug-ins' settings come with plug-ins (M15). |
+| Drawing: add, drag, remove points; bent lines; switches and choices jump | ✅ | On the grid, or anywhere with Alt. |
+| Recording moves (Write automation) from any control, as the song plays | ✅ | Like "touch" in other DAWs: while you hold a control it writes; let go and the lane carries on. |
+| Faders and knobs follow their automation | ✅ | |
+| Included in exports | ✅ | |
+| The master channel's automation | ⬜ | The master has no lane row yet. Automate a bus that everything plays into, or ask for it. |
+| Selecting several points at once, copy and paste points | ⬜ | Not yet: one point at a time. |
+| Automation moving with clips | ⬜ | Lanes belong to the track, not the clips: moving a clip leaves its automation where it was (as in most DAWs). |
+| How precisely changes land | 🟡 | The engine reads the lanes every 512 samples (about 10 ms) and smooths the changes; fine for fades and sweeps, not for changing something on an exact sample. |
+| Fixed from M13 testing: crackles when switching effects on, "laser" sound when changing delay or reverb presets | ✅ | |
+| Removing a whole chain at once | ✅ | From M13 testing. |
+
 ## Everything else
 
 | Area | Status | Milestone |
 |---|---|---|
-| Automation | ⬜ | M14 |
 | VST3 / CLAP plug-ins | ⬜ | M15 / M28 |
 | Sound library | ⬜ | M17, M23 |
 | Import/export with other DAWs | 🟡 | MIDI file import since 0.7.0; the rest in M18, M26, M27 |

@@ -13,7 +13,7 @@ namespace aether::ui
 {
 
 /** The transport controls: go to start, stop, play/pause, record, loop, punch, metronome,
-    count-in, the current position, the tempo and the time signature.
+    write automation, count-in, the current position, the tempo and the time signature.
 
     The buttons trigger the same commands as the keyboard shortcuts (Space, Home, R, L, P, K), so
     the tooltips show the shortcuts. The tempo and time signature shown are the ones in effect
@@ -27,7 +27,7 @@ public:
     ~TransportBar() override;
 
     /** The width this bar needs to show everything. */
-    static constexpr int idealWidth = 724;
+    static constexpr int idealWidth = 720;
 
     void paint (juce::Graphics&) override;
     void resized() override;
@@ -47,7 +47,7 @@ private:
     AudioEngine& engine;
     juce::PropertySet& settings;
 
-    IconButton toStartButton, stopButton, playButton, recordButton, loopButton, punchButton, metronomeButton;
+    IconButton toStartButton, stopButton, playButton, recordButton, loopButton, punchButton, metronomeButton, automationButton;
     juce::ComboBox countInBox;
     std::unique_ptr<PositionDisplay> positionDisplay;
     NumberDragField tempoField;

@@ -240,6 +240,21 @@ ranges); a setting that isn't there takes its default, so older files open uncha
 |---|---|---|
 | `Insert` | `preset` | The name of the preset last chosen (shown while the settings still match it). |
 
+### Added in Aether 0.15.0 (still format version 1)
+
+| Node | Property | Meaning |
+|---|---|---|
+| `Automation` | | Inside a `Track`: its automation lanes. |
+| `AutomationLane` | `id` | Unique id. |
+| | `setting` | What it changes: `"volume"` (dB), `"pan"` (-1..1), `"mute"` (0/1), `"send:<send id>"` (dB), `"effect:<insert id>:<setting>"` (the effect's own units), `"effect:<insert id>:on"` (0/1), `"instrument:<setting>"`. |
+| | `shown` | `true` while it's shown under its track. |
+| `AutomationPoint` | `tick` | Where, in ticks. Points are kept in time order. |
+| | `value` | The setting's value there, in its own units (as above). |
+| | `bend` | How the line to the next point curves: 0 straight, -1..1. |
+| `Insert` | `chain`, `chainGroup` | Added with a ready-made chain: the chain's name, and an id shared by that chain's effects on the channel (so they can be removed together). |
+
+A lane with no points changes nothing. Lanes for an effect or send that's gone are ignored.
+
 ## Rules for changing the format
 
 1. Never rename or reuse a node type or property name (see `source/model/Ids.h`).

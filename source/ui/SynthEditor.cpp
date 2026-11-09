@@ -1,5 +1,6 @@
 // Aether - Copyright (C) 2026 The Aether authors. Licensed under the GNU AGPLv3 or later.
 #include "SynthEditor.h"
+#include "AutomationFollow.h"
 
 #include <cmath>
 #include <map>
@@ -628,7 +629,11 @@ juce::Component* SynthEditor::makeControl (int index)
     auto* knob = new ParameterKnob (theme, p);
     knob->setName (id.toString());
     knob->setTooltip (p.name + ": " + explain (id.toString()));
-    knob->getValue = [this, id] { return (double) mixer::getInsertParameter (instrument(), id); };
+    knob->getValue = [this, id]
+    {
+        return (double) automationfollow::shown (project, trackId, automation::Target::instrument (id.toString()),
+                                                 mixer::getInsertParameter (instrument(), id));
+    };
     knob->onGestureStart = [this, name = p.name] { project.getUndoManager().beginNewTransaction ("Change Synth " + name.toLowerCase()); };
     knob->onValueChange = [this, id] (double value) { edit::setInsertParameter (project, instrumentId(), id, (float) value, false); };
     knobs.push_back (knob);

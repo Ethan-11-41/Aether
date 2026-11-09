@@ -37,6 +37,8 @@ add_library(aether_core STATIC
     dsp/EffectTypes.h
     engine/SamplerLibrary.cpp
     engine/SamplerLibrary.h
+    engine/AutomationRecorder.cpp
+    engine/AutomationRecorder.h
     engine/AudioEngine.cpp
     engine/AudioFileCache.cpp
     engine/AudioFileCache.h
@@ -149,6 +151,8 @@ juce_add_binary_data(aether_fonts
 add_library(aether_ui STATIC
     ui/AetherLookAndFeel.cpp
     ui/AetherLookAndFeel.h
+    ui/AutomationFollow.cpp
+    ui/AutomationFollow.h
     ui/AutomationLanes.cpp
     ui/AutomationLanes.h
     ui/DelayedTooltipWindow.h

@@ -6,6 +6,7 @@
 #include <map>
 
 #include "io/AudioImport.h"
+#include "model/Automation.h"
 #include "model/MidiClips.h"
 #include "model/Mixer.h"
 #include "dsp/DrumKit.h"
@@ -16,6 +17,7 @@
 #include "io/MidiImport.h"
 #include "model/DrumPatterns.h"
 #include "model/TimelineEdits.h"
+#include "ui/AutomationFollow.h"
 #include "ui/DelayedTooltipWindow.h"
 
 namespace aether
@@ -31,6 +33,8 @@ ProjectView::ProjectView (AppContext& context, Project& projectToShow)
     : ctx (context),
       project (projectToShow),
       timelineSync (projectToShow, context.engine, context.audioFiles, [&session = context.session] { return session.getLocation(); }),
+      automationRecorder (projectToShow, [&engine = context.engine] { return engine.getTransportStatus().playing; },
+                          [&engine = context.engine] { return engine.getTransportStatus().position; }),
       transportBar (context.theme, projectToShow, context.engine, context.commands, context.settings.get()),
       trackList (context.theme, projectToShow)
 {
@@ -161,6 +165,11 @@ ProjectView::ProjectView (AppContext& context, Project& projectToShow)
     {
         importFiles (files, trackId, ctx.engine.getTransportStatus().position);
     };
+
+    // Automation: controls show automated values where the playhead is; while Write automation
+    // is on, a control held with the mouse keeps writing its value.
+    ui::automationfollow::setPlayhead ([&engine = ctx.engine] { return engine.getTransportStatus().position; });
+    automationRecorder.controlHeld = [] { return juce::ModifierKeys::currentModifiers.isAnyMouseButtonDown(); };
 
     // The mixer, below the timeline.
     mixer = std::make_unique<ui::MixerComponent> (ctx.theme, project, trackList);
@@ -346,6 +355,8 @@ void ProjectView::followPatternPlay()
 void ProjectView::timerCallback()
 {
     followPatternPlay();
+    automationRecorder.update (juce::Time::getMillisecondCounterHiRes() / 1000.0);
+    followAutomation();
 
     const auto now = juce::Time::getMillisecondCounterHiRes();
     const auto elapsed = lastMeterTime > 0.0 ? (float) ((now - lastMeterTime) / 1000.0) : 0.0f;
@@ -385,6 +396,39 @@ void ProjectView::timerCallback()
 
     if (mixerVisible)
         mixer->updateMeters (peaksOf, elapsed);
+}
+
+void ProjectView::followAutomation()
+{
+    // Automated controls show the lane's value: redraw them as the playhead moves (only when
+    // something is automated).
+    const auto position = ctx.engine.getTransportStatus().position;
+
+    if (position == lastAutomationTick)
+        return;
+
+    lastAutomationTick = position;
+    bool any = false;
+
+    for (int t = 0; t < project.getNumTracks() && ! any; ++t)
+        for (const auto& lane : automation::lanesOf (project, project.getTrack (t).getId()))
+            any = any || lane.getChildWithName (ids::AutomationPoint).isValid();
+
+    if (! any)
+        return;
+
+    trackList.repaint();
+
+    if (mixerVisible)
+        mixer->repaint();
+
+    for (auto& w : effectWindows)
+        if (w.view != nullptr)
+            w.view->repaint();
+
+    for (juce::Component* editor : { (juce::Component*) synthEditor, (juce::Component*) samplerEditor, (juce::Component*) drumEditor })
+        if (editor != nullptr)
+            editor->repaint();
 }
 
 void ProjectView::importFiles (const juce::Array<juce::File>& allFiles, const juce::String& trackId, Tick position)
@@ -1003,6 +1047,7 @@ ProjectView::~ProjectView()
 {
     stopTimer();
     stopPatternPlay();
+    ui::automationfollow::setPlayhead (nullptr);
     effectWindows.clear();
     samplerEditor = nullptr;
     samplerWindow = nullptr;

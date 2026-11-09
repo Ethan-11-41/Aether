@@ -72,6 +72,7 @@ TransportBar::TransportBar (const Theme& themeToUse, Project& projectToControl, 
       loopButton (themeToUse, IconButton::Icon::loop, "Loop"),
       punchButton (themeToUse, IconButton::Icon::punch, "Punch in/out"),
       metronomeButton (themeToUse, IconButton::Icon::metronome, "Metronome"),
+      automationButton (themeToUse, IconButton::Icon::automation, "Write automation"),
       positionDisplay (std::make_unique<PositionDisplay> (themeToUse)),
       tempoField (themeToUse, TempoMap::minBpm, TempoMap::maxBpm, 1, "BPM")
 {
@@ -81,7 +82,8 @@ TransportBar::TransportBar (const Theme& themeToUse, Project& projectToControl, 
                                     std::pair { &recordButton, commands::record },
                                     std::pair { &loopButton, commands::toggleLoop },
                                     std::pair { &punchButton, commands::togglePunch },
-                                    std::pair { &metronomeButton, commands::toggleMetronome } })
+                                    std::pair { &metronomeButton, commands::toggleMetronome },
+                                    std::pair { &automationButton, commands::writeAutomation } })
     {
         button->setCommandToTrigger (&commandManager, command, true);
         addAndMakeVisible (*button);
@@ -216,17 +218,17 @@ void TransportBar::resized()
     auto area = getLocalBounds();
     constexpr int button = 38, gap = 4;
 
-    for (auto* b : { &toStartButton, &stopButton, &playButton, &recordButton, &loopButton, &punchButton, &metronomeButton })
+    for (auto* b : { &toStartButton, &stopButton, &playButton, &recordButton, &loopButton, &punchButton, &metronomeButton, &automationButton })
     {
         b->setBounds (area.removeFromLeft (button).withSizeKeepingCentre (button, button - 4));
         area.removeFromLeft (gap);
     }
 
-    countInBox.setBounds (area.removeFromLeft (112).withSizeKeepingCentre (112, 30));
-    area.removeFromLeft (gap * 3);
-    positionDisplay->setBounds (area.removeFromLeft (120).withSizeKeepingCentre (120, 40));
+    countInBox.setBounds (area.removeFromLeft (100).withSizeKeepingCentre (100, 30));
     area.removeFromLeft (gap);
-    tempoField.setBounds (area.removeFromLeft (110).withSizeKeepingCentre (110, 34));
+    positionDisplay->setBounds (area.removeFromLeft (112).withSizeKeepingCentre (112, 40));
+    area.removeFromLeft (gap);
+    tempoField.setBounds (area.removeFromLeft (100).withSizeKeepingCentre (100, 34));
     area.removeFromLeft (gap);
     signatureButton.setBounds (area.removeFromLeft (56).withSizeKeepingCentre (56, 34));
 }
