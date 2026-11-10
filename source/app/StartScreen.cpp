@@ -1,6 +1,8 @@
 // Aether - Copyright (C) 2026 The Aether authors. Licensed under the GNU AGPLv3 or later.
 #include "StartScreen.h"
 
+#include "AetherImages.h"
+
 #include "io/ProjectFiles.h"
 #include "ui/AetherLookAndFeel.h"
 
@@ -36,6 +38,7 @@ StartScreen::StartScreen (const ui::Theme& themeToUse, RecentProjects& recentPro
     : theme (themeToUse), recent (recentProjects), newProjectFolder (std::move (folder))
 {
     title.setText ("Aether", juce::dontSendNotification);
+    logo = juce::Drawable::createFromImageData (AetherImages::aethermarkwhite_svg, AetherImages::aethermarkwhite_svgSize);
     styleLabel (title, theme, 34.0f, true, false);
     addAndMakeVisible (title);
 
@@ -310,6 +313,10 @@ juce::String StartScreen::getTooltipForRow (int row)
 void StartScreen::paint (juce::Graphics& g)
 {
     g.fillAll (theme.background);
+
+    if (logo != nullptr && ! logoArea.isEmpty())
+        logo->drawWithin (g, logoArea.toFloat(), juce::RectanglePlacement::centred, 1.0f);
+
     ui::AetherLookAndFeel::drawCard (g, newCard.toFloat(), theme);
     ui::AetherLookAndFeel::drawCard (g, recentCard.toFloat(), theme);
 }
@@ -325,7 +332,10 @@ void StartScreen::resized()
         area = area.withSizeKeepingCentre (1100, area.getHeight());
 
     auto header = area.removeFromTop (84);
-    title.setBounds (header.removeFromTop (46));
+    auto titleRow = header.removeFromTop (46);
+    logoArea = titleRow.removeFromLeft (46).reduced (2);
+    titleRow.removeFromLeft (8);
+    title.setBounds (titleRow);
     tagline.setBounds (header.removeFromTop (24));
 
     auto footer = area.removeFromBottom (36);
