@@ -146,6 +146,12 @@ juce_add_binary_data(aether_fonts
     SOURCES     "${PROJECT_SOURCE_DIR}/resources/fonts/Inter-Regular.ttf"
                 "${PROJECT_SOURCE_DIR}/resources/fonts/Inter-SemiBold.ttf")
 
+# The logo mark (for the start screen).
+juce_add_binary_data(aether_images
+    HEADER_NAME AetherImages.h
+    NAMESPACE   AetherImages
+    SOURCES     "${PROJECT_SOURCE_DIR}/resources/icon/aether-mark-white.svg")
+
 # aether_ui: reusable interface pieces (track list, meters, look and feel). Also a library, so
 # the tests can drive them without opening a window.
 add_library(aether_ui STATIC
@@ -214,7 +220,7 @@ if(AETHER_BUILD_APP)
         COMPANY_WEBSITE               "https://github.com/Ethan-11-41/aether"
         BUNDLE_ID                     "io.github.ethan-11-41.aether"
         ICON_BIG                      "${PROJECT_SOURCE_DIR}/resources/icon/aether-icon-1024.png"
-        ICON_SMALL                    "${PROJECT_SOURCE_DIR}/resources/icon/aether-icon-256.png"
+        ICON_SMALL                    "${PROJECT_SOURCE_DIR}/resources/icon/aether-icon-32.png"   # a simpler drawing for 16-32 px
         MICROPHONE_PERMISSION_ENABLED TRUE
         NEEDS_WEB_BROWSER             FALSE
         NEEDS_CURL                    FALSE)
@@ -238,7 +244,7 @@ if(AETHER_BUILD_APP)
         app/StartScreen.h
         ui/Theme.h)
 
-    target_link_libraries(AetherApp PRIVATE aether_ui aether_warnings
+    target_link_libraries(AetherApp PRIVATE aether_ui aether_images aether_warnings
                                             $<$<PLATFORM_ID:Windows>:Dbghelp>)   # crash reports
 
     # "cmake --install <build> --component Aether" copies the finished program into a staging

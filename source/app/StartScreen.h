@@ -57,6 +57,8 @@ private:
     juce::Array<juce::File> recentFiles;
 
     juce::Label title, tagline;
+    std::unique_ptr<juce::Drawable> logo;   // the mark beside the title
+    juce::Rectangle<int> logoArea;
     juce::Label newHeading, nameLabel, locationLabel, locationValue, templatesNote;
     juce::TextEditor nameEditor;
     juce::TextButton changeFolderButton { "Change..." }, createButton { "Create project" };

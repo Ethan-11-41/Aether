@@ -1,3 +1,8 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/aether-logo-dark.png">
+  <img src="docs/images/aether-logo-light.png" alt="Aether" width="300">
+</picture>
+
 # Aether
 
 A free, open-source digital audio workstation (DAW) for Windows: record, arrange, mix and make

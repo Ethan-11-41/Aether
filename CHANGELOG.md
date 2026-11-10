@@ -6,6 +6,13 @@ follow [Semantic Versioning](https://semver.org/) (0.x while Aether is in early 
 
 ## [Unreleased]
 
+## [0.15.2] - 2026-11-10
+
+### Changed
+- **A new logo and app icon** (your design): the "A" peak with a sound wave inside. It's on the
+  start screen, the window and taskbar, the installer and the README. At the smallest sizes
+  (title bar, taskbar) a simpler version with three thicker bars is used, so it stays sharp.
+
 ## [0.15.1] - 2026-11-09
 
 From your M14 testing.
