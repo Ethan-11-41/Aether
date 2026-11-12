@@ -23,7 +23,7 @@ with deep customisation underneath.
 > de-esser, saturation, filter, chorus, delay, reverb), each in its own window with a live
 > picture, presets and ready-made chains for vocals, instruments and the whole song; automate
 > any of it (draw lanes under the tracks, or record your knob moves); and export the mix and
-> stems to WAV, FLAC or MP3. Next: VST3 plug-ins (M15). See
+> stems to WAV, FLAC or MP3. Next: timing (M15): find the tempo you played and line everything up. See
 > [docs/STATUS.md](docs/STATUS.md) for exactly what works, and
 > [docs/ROADMAP.md](docs/ROADMAP.md) for what's coming.
 
