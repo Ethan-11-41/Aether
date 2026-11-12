@@ -634,6 +634,7 @@ void MainContent::getAllCommands (juce::Array<juce::CommandID>& list)
                      commands::copyClips, commands::cutClips, commands::pasteClips, commands::deselect,
                      commands::importAudio, commands::splitClips, commands::duplicateClips,
                      commands::nudgeLeft, commands::nudgeRight, commands::nudgeLeftFine, commands::nudgeRightFine,
+                     commands::quantizeClips, commands::fixTiming,
                      commands::toggleSnap, commands::toggleMixer, commands::addBus, commands::record, commands::togglePunch, commands::writeAutomation, commands::toggleKeyboard,
                      commands::addAudioTrack, commands::addMidiTrack, commands::addDrumTrack, commands::renameTrack, commands::deleteTrack,
                      commands::moveTrackUp, commands::moveTrackDown,
@@ -830,6 +831,20 @@ void MainContent::getCommandInfo (juce::CommandID id, juce::ApplicationCommandIn
             info.setActive (hasProject);
             break;
         }
+
+        case commands::quantizeClips:
+            info.setInfo ("Quantize...", "Move the notes of the selected MIDI clips (or of the clips on the selected track) onto "
+                          "the grid: choose the grid, strength and swing", commands::categories::edit, 0);
+            info.addDefaultKeypress ('q', 0);
+            info.setActive (hasProject);
+            break;
+
+        case commands::fixTiming:
+            info.setInfo ("Fix timing (find the tempo you played)...", "For MIDI you played without the metronome: find the "
+                          "tempo you played, then make it steady, or make the song's tempo follow your playing",
+                          commands::categories::edit, 0);
+            info.setActive (hasProject);
+            break;
 
         case commands::toggleSnap:
             info.setInfo ("Snap to grid", "Switch snapping to the grid off or on", commands::categories::view, 0);
@@ -1058,6 +1073,14 @@ bool MainContent::perform (const InvocationInfo& invocation)
         case commands::toggleSnap:
             if (projectView != nullptr) projectView->getTimeline().toggleSnap();
             return true;
+
+        case commands::quantizeClips:
+            if (projectView != nullptr) projectView->showQuantizePanel (projectView->midiClipsToEdit());
+            return true;
+
+        case commands::fixTiming:
+            if (projectView != nullptr) projectView->showTimingWindow (projectView->midiClipsToEdit());
+            return true;
         case commands::moveTrackUp:        moveSelectedTrack (-1); return true;
         case commands::moveTrackDown:      moveSelectedTrack (+1); return true;
 
@@ -1214,6 +1237,9 @@ juce::PopupMenu MainContent::getMenuForIndex (int menuIndex, const juce::String&
         menu.addCommandItem (cm, commands::nudgeRight);
         menu.addCommandItem (cm, commands::nudgeLeftFine);
         menu.addCommandItem (cm, commands::nudgeRightFine);
+        menu.addSeparator();
+        menu.addCommandItem (cm, commands::quantizeClips);
+        menu.addCommandItem (cm, commands::fixTiming);
     }
     else if (menuIndex == 2)
     {

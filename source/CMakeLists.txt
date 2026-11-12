@@ -113,6 +113,8 @@ add_library(aether_core STATIC
     model/Ids.h
     model/MidiClips.cpp
     model/MidiClips.h
+    model/MidiTiming.cpp
+    model/MidiTiming.h
     model/NoteEdits.cpp
     model/NoteEdits.h
     model/Scales.h
@@ -129,6 +131,8 @@ add_library(aether_core STATIC
     model/TrackColours.h
     time/Grid.cpp
     time/Grid.h
+    time/TempoDetect.cpp
+    time/TempoDetect.h
     time/TempoMap.cpp
     time/TempoMap.h)
 
@@ -197,9 +201,13 @@ add_library(aether_ui STATIC
     ui/SynthEditor.cpp
     ui/SynthEditor.h
     ui/Theme.h
+    ui/QuantizePanel.cpp
+    ui/QuantizePanel.h
     ui/TimelineComponent.cpp
     ui/TimelineComponent.h
     ui/TimelineView.h
+    ui/TimingPanel.cpp
+    ui/TimingPanel.h
     ui/TrackListComponent.cpp
     ui/TrackRows.cpp
     ui/TrackRows.h

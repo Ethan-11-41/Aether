@@ -81,6 +81,9 @@ public:
     /** Opens the Synth's window for a track (set by the app). */
     std::function<void (const juce::String& trackId)> onOpenInstrument;
 
+    /** "Fix the timing..." and "Quantize..." from a MIDI track's menu, for its clips (Milestone 15). */
+    std::function<void (const juce::StringArray& clipIds)> onFixTiming, onQuantize;
+
     /** Called whenever the selected track changes. */
     std::function<void()> onSelectionChanged;
 

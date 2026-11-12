@@ -6,6 +6,35 @@ follow [Semantic Versioning](https://semver.org/) (0.x while Aether is in early 
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-11-12 - Milestone 15: timing for MIDI
+
+### Added
+- **Fix timing** for MIDI you played without the metronome: right-click a MIDI clip and choose
+  **Fix timing (find the tempo you played)...** (or select several clips, or use the track's
+  menu or **Edit > Fix timing**). Aether finds the beat of your playing, even if you sped up or
+  slowed down, and shows it in a new window: your notes as you played them, with a line on every
+  beat it found and numbered lines where bars start.
+  - If the lines are wrong: **Half as fast** / **Twice as fast** (when you counted the other
+    way), or type the tempo you meant and click **Look again**. The **<** and **>** buttons move
+    where bar 1 starts, for a pick-up (notes before the first full bar).
+  - **Make it steady** (the default): your notes move onto a steady beat, so they line up with
+    the bars, the grid, drums and loops. Inside each beat they keep your feel. Choose the tempo
+    you played (the song's tempo becomes it) or keep the song's tempo. **Strength** below 100%
+    keeps some of your push and pull from beat to beat.
+  - **Make the song's tempo follow your playing** (like Logic's Smart Tempo): your notes stay
+    exactly as you played them, and the song gets tempo changes, every bar (smoother) or every
+    beat (closer), so its bars, the metronome and other tracks follow you.
+  - One Ctrl+Z puts everything back. Clips chosen together (e.g. a piano part and a bass part
+    played over it) are fixed together.
+  - Optionally the window opens by itself when you stop recording MIDI that you played without
+    the metronome: tick **Offer this after recording without the metronome** in it (off at
+    first).
+- **Quantize from the timeline**: **Q** (or **Edit > Quantize...**, or a MIDI clip's or track's
+  menu) quantizes the selected MIDI clips, or every clip on the selected track, without opening
+  the piano roll: choose the grid (bar, beat, 1/8, 1/16, 1/32, triplets), strength, swing, and
+  whether note ends move too. Notes go onto the song's grid even when a clip doesn't start on a
+  grid line. Your choices are remembered.
+
 ## [0.15.2] - 2026-11-10
 
 ### Changed

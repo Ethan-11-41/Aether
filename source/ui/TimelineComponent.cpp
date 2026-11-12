@@ -12,6 +12,7 @@
 #include "model/DrumPatterns.h"
 #include "model/ClipEdits.h"
 #include "model/MidiClips.h"
+#include "model/MidiTiming.h"
 #include "model/Recording.h"
 #include "model/TimelineEdits.h"
 
@@ -1240,6 +1241,29 @@ private:
             });
             menu.addItem ("Repeat pattern (drag the right edge for more repeats)", true, clip.isLooping(),
                           [&proj, id, loop = ! clip.isLooping()] { edit::setPatternLooping (proj, id, loop); });
+            menu.addSeparator();
+
+            // Timing (Milestone 15): for this clip, or all the selected MIDI clips with it.
+            juce::StringArray targets;
+            for (const auto& selected : owner.selectedClips)
+                if (const auto c = clips::findClip (proj, selected); c.isValid() && c.isMidi())
+                    targets.add (selected);
+
+            if (! targets.contains (id))
+                targets = { id };
+
+            const auto several = targets.size() > 1 ? " (the " + juce::String (targets.size()) + " selected clips)" : juce::String();
+            menu.addItem ("Fix timing (find the tempo you played)" + several + "...",
+                          ! miditiming::usableClips (proj, targets).isEmpty(), false, [safeOwner, targets]
+            {
+                if (safeOwner != nullptr && safeOwner->onFixTiming)
+                    safeOwner->onFixTiming (targets);
+            });
+            menu.addItem ("Quantize" + several + "... (Q)", [safeOwner, targets]
+            {
+                if (safeOwner != nullptr && safeOwner->onQuantize)
+                    safeOwner->onQuantize (targets);
+            });
             menu.addSeparator();
             menu.addItem ("Split at the playhead (S)", [safeOwner] { if (safeOwner) safeOwner->splitClipsAtPlayhead(); });
             menu.addItem ("Duplicate (Ctrl+D)", [safeOwner] { if (safeOwner) safeOwner->duplicateSelectedClips(); });

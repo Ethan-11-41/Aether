@@ -310,6 +310,53 @@ void edit::quantizeNotes (Project& project, const NoteNodes& notesToEdit, Tick s
     grow (project, notes);
 }
 
+bool edit::quantizeClips (Project& project, const juce::StringArray& clipIds, GridSize grid, double strength, double swing, bool ends)
+{
+    const auto tempo = timeline::buildTempoMap (project);
+    const auto size = grid == GridSize::off ? GridSize::sixteenth : grid;
+    NoteNodes all;
+
+    for (const auto& id : clipIds)
+    {
+        const auto clip = clips::findClip (project, id);
+        if (clip.isValid() && clip.isMidi())
+            for (const auto& n : notes::nodesOf (clip))
+                all.push_back (n);
+    }
+
+    if (all.empty())
+        return false;
+
+    // On the song's grid: lines counted from the start of the bar the position is in.
+    const auto onGrid = [&] (Tick position)
+    {
+        const auto barStart = tempo.barToTicks (tempo.ticksToBarBeat (position).bar);
+        return barStart + notes::quantizeTick (position - barStart, gridStepAt (tempo, position, size), strength, swing);
+    };
+
+    project.getUndoManager().beginNewTransaction ("Quantize");
+    auto& undo = project.getUndoManager();
+
+    for (auto n : all)
+    {
+        const Clip clip (n.getParent());
+        const auto origin = clip.getStart() - clip.getContentStart();
+        const auto start = origin + tickOf (n);
+        const auto end = start + lengthOf (n);
+        const auto newStart = onGrid (start);
+        auto newEnd = ends ? onGrid (end) : newStart + (end - start);
+
+        if (newEnd <= newStart)
+            newEnd = newStart + std::max<Tick> (1, ends ? gridStepAt (tempo, newStart, size) : end - start);
+
+        n.setProperty (ids::tick, (juce::int64) std::max<Tick> (0, newStart - origin), &undo);
+        n.setProperty (ids::length, (juce::int64) (newEnd - newStart), &undo);
+    }
+
+    grow (project, all);
+    return true;
+}
+
 void edit::humanizeNotes (Project& project, const NoteNodes& notesToEdit, Tick timing, int velocity, juce::Random& random)
 {
     // A copy: the list passed in may be a selection that listeners change while notes change.

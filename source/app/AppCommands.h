@@ -53,6 +53,8 @@ namespace commands
         nudgeRight          = 0x3105,
         nudgeLeftFine       = 0x3106,
         nudgeRightFine      = 0x3107,
+        quantizeClips       = 0x3108,
+        fixTiming           = 0x3109,
 
         // Transport and view
         playStop            = 0x6001,

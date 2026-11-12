@@ -10,8 +10,10 @@
 #include "dsp/Synth.h"
 #include "model/Automation.h"
 #include "model/DrumPatterns.h"
+#include "model/ClipEdits.h"
 #include "model/EditCommands.h"
 #include "model/MidiClips.h"
+#include "model/MidiTiming.h"
 #include "model/Mixer.h"
 #include "model/Recording.h"
 #include "model/TrackColours.h"
@@ -823,6 +825,20 @@ void TrackListComponent::showContextMenu (const juce::String& trackId)
         }));
         menu.addItem (track.isArmed() ? "Disarm (don't record)" : "Arm for recording",
                       whenStillOpen ([targets, armed = ! track.isArmed()] (TrackListComponent& list) { edit::setArmed (list.project, targets, armed); }));
+
+        // Timing (Milestone 15): all the clips on the track (or the selected tracks).
+        juce::StringArray midiClips;
+        for (const auto& t : targets)
+            for (const auto& clip : clips::clipsOnTrack (project.findTrack (t).getState()))
+                if (clip.isMidi())
+                    midiClips.add (clip.getId());
+
+        const auto onTracks = targets.size() > 1 ? juce::String (" on the selected tracks") : juce::String (" on this track");
+        menu.addSeparator();
+        menu.addItem ("Fix the timing of the clips" + onTracks + "...", ! miditiming::usableClips (project, midiClips).isEmpty(), false,
+                      whenStillOpen ([midiClips] (TrackListComponent& list) { if (list.onFixTiming) list.onFixTiming (midiClips); }));
+        menu.addItem ("Quantize the clips" + onTracks + "...", ! midiClips.isEmpty(), false,
+                      whenStillOpen ([midiClips] (TrackListComponent& list) { if (list.onQuantize) list.onQuantize (midiClips); }));
     }
 
     // What it records from.

@@ -178,6 +178,26 @@ Separate process:   plug-in scanner
   `TimelineSync::setPartLoop` makes the snapshot loop that range and treat that track as the only
   soloed one (`PartLoop`), and the app puts everything back when playback stops.
 
+- Timing for MIDI (M15): `time/TempoDetect` finds the beat of notes played freely (seconds in,
+  one time per beat out). Notes starting within 35 ms are one onset, weighted by loudness,
+  length and how low they are. In windows of a few seconds, a histogram of the distances
+  between onsets says how well each beat length fits (it must fit at 1, 2, 3 and 4 beats, which
+  separates the beat from half-beats); the windows' answers, leaning towards about 105 BPM, give
+  the typical tempo, and the best smooth path through them (Viterbi) the tempo at each moment.
+  Dynamic programming (Ellis 2007) then picks the chain of beats that lands on the strongest
+  onsets at that tempo; it runs twice (the second time following the first chain's beats), the
+  beats are moved exactly onto their onsets, and empty beats are spread evenly. A check halves
+  the tempo when every other beat carries much heavier notes. Plain C++, on the UI thread
+  (a 5-minute performance takes about 0.15 s in a debug build).
+- `model/MidiTiming` uses the beats: "steady" maps each note's time to a position between the
+  ticks of the two beats around it (each beat on the song's beat grid, bar 1 of the playing on a
+  bar line; with less strength each beat keeps part of its distance from a line fitted through
+  its neighbours); "follow" writes tempo changes (per bar or per beat) so the song's beats fall
+  at the beats' times, then converts every note's original time back to ticks through the new
+  tempo map, so nothing moves in time. Both are one undo step; `edit::replaceTempo` replaces the
+  whole tempo list. `edit::quantizeClips` quantizes notes against the song's grid, counted from
+  each bar's start (the piano roll's quantize counts from the clip's start).
+
 ### Mixer
 - Tracks → buses → master, with pre- or post-fader sends. Feedback loops are refused when
   editing, and broken if a hand-edited file contains one (`engine/MixerRouting`).

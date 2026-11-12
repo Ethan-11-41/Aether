@@ -151,6 +151,26 @@ bool edit::deleteTempoChange (Project& project, int pointIndex)
     return true;
 }
 
+void edit::replaceTempo (Project& project, std::vector<TempoPoint> points, const juce::String& undoName, bool newUndoStep)
+{
+    // The same tidying as the tempo map's: sorted, one per tick, one at the start.
+    const TempoMap tidy (std::move (points), {});
+    auto tempo = tempoNode (project);
+    auto& undo = project.getUndoManager();
+
+    startStep (project, undoName, newUndoStep);
+    tempo.removeAllChildren (&undo);
+
+    for (const auto& p : tidy.getTempoPoints())
+    {
+        juce::ValueTree point (ids::TempoPoint);
+        point.setProperty (ids::tick, (juce::int64) p.tick, nullptr);
+        point.setProperty (ids::bpm, cleanBpm (p.bpm), nullptr);
+        point.setProperty (ids::curve, curveToString (p.curve), nullptr);
+        tempo.appendChild (point, &undo);
+    }
+}
+
 //==============================================================================
 bool edit::setTimeSignature (Project& project, int bar, int numerator, int denominator)
 {

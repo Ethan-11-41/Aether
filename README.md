@@ -9,7 +9,7 @@ A free, open-source digital audio workstation (DAW) for Windows: record, arrange
 music, in the spirit of GarageBand, FL Studio, LMMS and Reaper. Beginner-friendly on the surface,
 with deep customisation underneath.
 
-> **Status: early development (Milestone 12 of 30; Phase 1, the core, is complete).** Aether
+> **Status: early development (Milestone 15 of 31; Phase 1, the core, is complete).** Aether
 > can create, save and open projects with full undo/redo, autosave and crash recovery; play with
 > tempo changes, time signatures, looping and a metronome; record audio (with latency
 > compensation, punch in/out and loop takes) and MIDI from a keyboard (or the on-screen one)
@@ -22,8 +22,10 @@ with deep customisation underneath.
 > with volume, pan, mute, solo, buses, sends and ten effects (EQ, compressor, limiter, gate,
 > de-esser, saturation, filter, chorus, delay, reverb), each in its own window with a live
 > picture, presets and ready-made chains for vocals, instruments and the whole song; automate
-> any of it (draw lanes under the tracks, or record your knob moves); and export the mix and
-> stems to WAV, FLAC or MP3. Next: timing (M15): find the tempo you played and line everything up. See
+> any of it (draw lanes under the tracks, or record your knob moves); find the tempo of MIDI you
+> played without the metronome, then make it steady or make the song's tempo follow it, and
+> quantize whole clips; and export the mix and stems to WAV, FLAC or MP3. Next (M16):
+> time-stretching, and tempo and timing for recorded audio. See
 > [docs/STATUS.md](docs/STATUS.md) for exactly what works, and
 > [docs/ROADMAP.md](docs/ROADMAP.md) for what's coming.
 
@@ -83,6 +85,8 @@ See [docs/FILE_FORMAT.md](docs/FILE_FORMAT.md).
 | Edit a MIDI clip's notes in the piano roll / make a new MIDI clip | double-click the clip / an empty part of a MIDI track |
 | Piano roll: add / delete a note | click an empty place / right-click the note |
 | Piano roll: transpose / quantize / duplicate | Up, Down (Shift: octave) / Q / Ctrl+D |
+| Quantize the selected MIDI clips (or the selected track's clips) | Q |
+| Fix the timing of MIDI played without the metronome | right-click the clip > Fix timing (or Edit > Fix timing) |
 | Add a drum track / edit a drum pattern | Ctrl+Shift+D / double-click the pattern |
 | Drum editor: step on or off / accent (again: normal) / remove a hit | click (drag for several) / Shift+click / right-click |
 | Drum editor: play just the pattern / stop | Space |

@@ -17,6 +17,7 @@
 #include "ui/EffectView.h"
 #include "ui/SamplerEditor.h"
 #include "ui/SynthEditor.h"
+#include "ui/TimingPanel.h"
 #include "ui/TimelineComponent.h"
 #include "ui/TrackListComponent.h"
 #include "ui/TransportBar.h"
@@ -93,10 +94,24 @@ public:
     /** A MIDI clip's own editor: the drum editor for drum patterns, otherwise the piano roll. */
     void editNotes (const juce::String& clipId);
 
+    /** The timing window (Milestone 15) for MIDI clips played without the metronome: finds the
+        tempo played, then makes it steady or makes the song's tempo follow it. */
+    void showTimingWindow (const juce::StringArray& clipIds);
+    ui::TimingPanel* getTimingPanel() noexcept        { return timingPanel; }
+
+    /** The quantize pop-up for whole MIDI clips, pointing at `screenArea` (empty: the timeline). */
+    void showQuantizePanel (const juce::StringArray& clipIds, juce::Rectangle<int> screenArea = {});
+
+    /** The MIDI clips the Edit menu's Quantize and Fix timing work on: the selected clips, or if
+        none are selected, the clips on the selected tracks. */
+    juce::StringArray midiClipsToEdit() const;
+
     static constexpr const char* gridKey = "gridSize";
     static constexpr const char* mixerVisibleKey = "mixerVisible";
     static constexpr const char* mixerHeightKey = "mixerHeight";
     static constexpr const char* keyboardVisibleKey = "keyboardVisible";
+    static constexpr const char* quantizeKey = "quantizeClips";
+    static constexpr const char* offerTimingKey = "offerTimingAfterRecording";
 
     void paint (juce::Graphics&) override;
     void resized() override;
@@ -191,6 +206,10 @@ private:
     std::vector<EffectWindow> effectWindows;                 // effects' windows (close with the project)
     void closeEffectWindow (const juce::String& insertId);
     void followAutomation();
+    std::unique_ptr<juce::DocumentWindow> timingWindow;      // "Fix timing" (closes with the project)
+    ui::TimingPanel* timingPanel = nullptr;                  // inside timingWindow
+    bool recordingWithMetronome = true;                      // the metronome was on when recording started
+    void offerTimingAfterRecording (const juce::StringArray& clipIds);
     std::unique_ptr<juce::DocumentWindow> drumWindow;        // the drum editor (closes with the project)
     ui::DrumEditor* drumEditor = nullptr;                    // inside drumWindow
     void openDrumWindow();

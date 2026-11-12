@@ -8,6 +8,8 @@
 #include "io/AudioImport.h"
 #include "model/Automation.h"
 #include "model/MidiClips.h"
+#include "model/MidiTiming.h"
+#include "model/NoteEdits.h"
 #include "model/Mixer.h"
 #include "dsp/DrumKit.h"
 #include "dsp/Sampler.h"
@@ -19,6 +21,7 @@
 #include "model/TimelineEdits.h"
 #include "ui/AutomationFollow.h"
 #include "ui/DelayedTooltipWindow.h"
+#include "ui/QuantizePanel.h"
 
 namespace aether
 {
@@ -81,6 +84,13 @@ ProjectView::ProjectView (AppContext& context, Project& projectToShow)
     timeline->onClipSelectionChanged = [this] { ctx.commands.commandStatusChanged(); };
     timeline->onEditNotes = [this] (const juce::String& clipId) { editNotes (clipId); };
     timeline->onOpenPianoRoll = [this] (const juce::String& clipId) { showPianoRoll (clipId); };
+    timeline->onFixTiming = [this] (const juce::StringArray& clipIds) { showTimingWindow (clipIds); };
+    timeline->onQuantize = [this] (const juce::StringArray& clipIds)
+    {
+        showQuantizePanel (clipIds, juce::Rectangle<int> (1, 1) + juce::Desktop::getMousePosition());
+    };
+    trackList.onFixTiming = timeline->onFixTiming;
+    trackList.onQuantize = timeline->onQuantize;
 
     // The snap grid, remembered between sessions.
     for (size_t i = 0; i < allGridSizes.size(); ++i)
@@ -129,6 +139,7 @@ ProjectView::ProjectView (AppContext& context, Project& projectToShow)
             timeline->selectClips (clipIds);
 
         ctx.commands.commandStatusChanged();
+        offerTimingAfterRecording (clipIds);
     };
     recorder->onProblem = [this] (const juce::String& problem) { showProblem ("Recording", problem); };
 
@@ -241,6 +252,7 @@ void ProjectView::toggleRecording()
         return;
     }
 
+    recordingWithMetronome = ctx.engine.isMetronomeEnabled();
     const auto problem = recorder->start();
 
     if (problem.isNotEmpty())
@@ -648,6 +660,125 @@ void ProjectView::showPianoRoll (const juce::String& clipId)
 
     pianoRollWindow->toFront (true);
     pianoRoll->grabKeyboardFocus();
+}
+
+void ProjectView::showTimingWindow (const juce::StringArray& clipIds)
+{
+    const auto usable = miditiming::usableClips (project, clipIds);
+
+    if (usable.isEmpty())
+    {
+        showProblem ("Fix timing", "Choose a MIDI clip you played (right-click it), or select some. Repeating patterns "
+                                   "(like drum patterns) are already in time.");
+        return;
+    }
+
+    // One timing window at a time: a new choice of clips replaces the old one.
+    timingPanel = nullptr;
+    timingWindow = nullptr;
+
+    juce::Component::SafePointer<ProjectView> safeThis (this);
+    const auto close = [safeThis]
+    {
+        // Closed a moment later, not from inside the window's own callback.
+        juce::MessageManager::callAsync ([safeThis]
+        {
+            if (safeThis != nullptr)
+            {
+                safeThis->timingPanel = nullptr;
+                safeThis->timingWindow = nullptr;
+            }
+        });
+    };
+
+    auto window = std::make_unique<PianoRollWindow> (ctx.theme.background, close);
+    auto panel = std::make_unique<ui::TimingPanel> (ctx.theme, project, usable, ctx.settings.get().getBoolValue (offerTimingKey, false));
+    timingPanel = panel.get();
+    timingPanel->onClose = close;
+    timingPanel->onOfferChanged = [safeThis] (bool offer)
+    {
+        if (safeThis != nullptr)
+            safeThis->ctx.settings.get().setValue (offerTimingKey, offer);
+    };
+
+    window->setName ("Fix timing");
+    window->setUsingNativeTitleBar (true);
+    window->setResizable (true, false);
+    window->setResizeLimits (760, 680, 4000, 1200);
+    window->setContentOwned (panel.release(), true);
+    window->addKeyListener (ctx.commands.getKeyMappings());
+    window->centreAroundComponent (this, window->getWidth(), window->getHeight());
+    window->setVisible (true);
+    timingWindow = std::move (window);
+    timingWindow->toFront (true);
+}
+
+void ProjectView::offerTimingAfterRecording (const juce::StringArray& clipIds)
+{
+    // Only when asked for (in the timing window), for MIDI played without the metronome.
+    if (recordingWithMetronome || ! ctx.settings.get().getBoolValue (offerTimingKey, false))
+        return;
+
+    juce::StringArray played;
+    for (const auto& id : miditiming::usableClips (project, clipIds))
+        if (midi::audibleNotes (clips::findClip (project, id)).size() >= 8)
+            played.add (id);
+
+    if (! played.isEmpty())
+        showTimingWindow (played);
+}
+
+void ProjectView::showQuantizePanel (const juce::StringArray& clipIds, juce::Rectangle<int> screenArea)
+{
+    juce::StringArray midiClips;
+    for (const auto& id : clipIds)
+        if (const auto clip = clips::findClip (project, id); clip.isValid() && clip.isMidi())
+            midiClips.add (id);
+
+    if (midiClips.isEmpty())
+    {
+        showProblem ("Quantize", "Select one or more MIDI clips (or a MIDI track) first.");
+        return;
+    }
+
+    if (screenArea.isEmpty())
+        screenArea = juce::Rectangle<int> (timeline->getScreenX() + timeline->getWidth() / 2, timeline->getScreenY() + 40, 1, 1);
+
+    const auto what = midiClips.size() == 1 ? "\"" + clips::findClip (project, midiClips[0]).getName() + "\""
+                                            : juce::String (midiClips.size()) + " clips";
+    juce::Component::SafePointer<ProjectView> safeThis (this);
+
+    auto panel = std::make_unique<ui::QuantizePanel> (
+        ctx.theme, ui::QuantizeSettings::fromString (ctx.settings.get().getValue (quantizeKey)), what,
+        [safeThis, midiClips] (const ui::QuantizeSettings& settings)
+        {
+            if (safeThis == nullptr)
+                return;
+
+            safeThis->ctx.settings.get().setValue (quantizeKey, settings.toString());
+            edit::quantizeClips (safeThis->project, midiClips, settings.grid, settings.strength, settings.swing, settings.ends);
+        });
+
+    juce::CallOutBox::launchAsynchronously (std::move (panel), screenArea, nullptr);
+}
+
+juce::StringArray ProjectView::midiClipsToEdit() const
+{
+    juce::StringArray result;
+
+    for (const auto& id : timeline->getSelectedClips())
+        if (const auto clip = clips::findClip (project, id); clip.isValid() && clip.isMidi())
+            result.add (id);
+
+    if (! result.isEmpty())
+        return result;
+
+    for (const auto& trackId : trackList.getSelectedTrackIds())
+        for (const auto& clip : clips::clipsOnTrack (project.findTrack (trackId).getState()))
+            if (clip.isMidi())
+                result.add (clip.getId());
+
+    return result;
 }
 
 void ProjectView::showSampler (const juce::String& trackId)

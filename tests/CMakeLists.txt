@@ -20,6 +20,7 @@ add_executable(aether_tests
     unit/LatencyInfoTests.cpp
     unit/MidiEngineTests.cpp
     unit/MidiModelTests.cpp
+    unit/MidiTimingTests.cpp
     unit/MixerEngineTests.cpp
     unit/MixerModelTests.cpp
     unit/MixerUiTests.cpp
@@ -42,11 +43,13 @@ add_executable(aether_tests
     unit/SpscQueueTests.cpp
     unit/SynthEditorTests.cpp
     unit/SynthTests.cpp
+    unit/TempoDetectTests.cpp
     unit/TempoMapTests.cpp
     unit/TestToneGeneratorTests.cpp
     unit/TimelineClipTests.cpp
     unit/TimelineEditTests.cpp
     unit/TimelineViewTests.cpp
+    unit/TimingUiTests.cpp
     unit/TrackListComponentTests.cpp
     unit/TransportTests.cpp
     realtime/RealtimeSafetyTests.cpp)

@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "MidiClips.h"
+#include "time/Grid.h"
 
 /** Editing the notes inside a MIDI clip (the piano roll).
 
@@ -61,6 +62,12 @@ namespace edit
 
     /** Moves note starts (and ends, if `ends`) to the grid; see notes::quantizeTick. */
     void quantizeNotes (Project& project, const NoteNodes& notes, Tick step, double strength, double swing, bool ends);
+
+    /** Quantizes whole MIDI clips from the timeline: every note's start (and end, if `ends`)
+        moves towards the nearest line of the song's grid, counted from the start of its bar
+        ("off" quantizes to 1/16), so a clip that doesn't start on a grid line still lands on the
+        song's grid. One undo step. Returns false if the clips have no notes. */
+    bool quantizeClips (Project& project, const juce::StringArray& clipIds, GridSize grid, double strength, double swing, bool ends);
 
     /** Makes notes less mechanical: each start moves by up to +/- `timing` ticks and each
         velocity by up to +/- `velocity`, at random. */

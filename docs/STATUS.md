@@ -4,7 +4,7 @@ An honest list of what works. Updated at the end of every milestone.
 
 **Legend:** ✅ Working · 🟡 Partial · 🧪 Stub/placeholder · ⬜ Not started
 
-Current version: **0.15.2** (Milestone 14: automation, with fixes from testing)
+Current version: **0.16.0** (Milestone 15: timing for MIDI)
 
 ## Milestone 0: skeleton and build pipeline
 
@@ -240,6 +240,21 @@ Current version: **0.15.2** (Milestone 14: automation, with fixes from testing)
 | How precisely changes land | 🟡 | The engine reads the lanes every 512 samples (about 10 ms) and smooths the changes; fine for fades and sweeps, not for changing something on an exact sample. |
 | Fixed from M13 testing: crackles when switching effects on, "laser" sound when changing delay or reverb presets | ✅ | |
 | Removing a whole chain at once | ✅ | From M13 testing. |
+
+## Milestone 15: timing for MIDI
+
+| Feature | Status | Notes |
+|---|---|---|
+| Finding the tempo of MIDI played without the metronome, following speeding up and slowing down | ✅ | Aether's own beat finder (no third-party code). Tested automatically on made-up performances: steady, speeding up, rubato, rests and held chords, pick-ups, melodies alone; real playing is in the M15 checklist. It needs at least 6 notes or chords over 2 seconds. |
+| Picture of the playing with the beats and bars found; half / twice as fast; a tempo you type; moving bar 1 | ✅ | |
+| Make it steady (at the tempo played or the song's), with a strength | ✅ | Within a beat, notes keep their place (Quantize tightens that too). Choosing the tempo played gives the whole song that one tempo (its tempo changes are replaced). |
+| Make the song's tempo follow the playing, every bar or every beat | ✅ | The notes keep their exact timing. Before the playing, one tempo change (a "lead-in") makes bar 1 of the playing start on a bar line; if you started playing very soon after pressing Record, that first bar can be very fast (it's empty, so you only notice it in the tempo lane and the metronome). |
+| Several clips fixed together (e.g. piano and bass) | ✅ | Other clips keep their place in the bars, as with any tempo change. Audio clips don't follow tempo changes until M16. |
+| Music with two good answers | 🟡 | A slow ballad with fast arpeggios may be found at twice its tempo, and music in 6/8 or 12/8 at the speed of two eighth notes: use Half as fast, or type the tempo. Bar 1 is guessed from bass notes and long chords; check it in the picture. |
+| Offering it after recording without the metronome | ✅ | Off at first: tick the box in the window. |
+| Quantize whole clips or tracks from the timeline (Q, grid, strength, swing, note ends) | ✅ | On the song's grid (bars from their start), so clips that don't start on a grid line still end up on it. |
+| Repeating patterns (drum patterns) | ⬜ (by design) | They're already in time: Fix timing leaves them out (Quantize works on them). |
+| Tempo and timing of recorded audio | ⬜ | M16 (with time-stretching). |
 
 ## Everything else
 

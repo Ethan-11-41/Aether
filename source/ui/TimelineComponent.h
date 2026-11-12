@@ -126,6 +126,9 @@ public:
     std::function<void (const juce::String& clipId)> onEditNotes;       // its own editor (drum patterns: the drum editor)
     std::function<void (const juce::String& clipId)> onOpenPianoRoll;   // the piano roll, whatever it is
 
+    /** "Fix timing..." and "Quantize..." from a MIDI clip's menu, for these clips (Milestone 15). */
+    std::function<void (const juce::StringArray& clipIds)> onFixTiming, onQuantize;
+
     /** Makes an empty one-bar MIDI clip on a MIDI track, at the bar `position` is in, and opens it
         in the piano roll. Returns its id (empty if the row isn't a MIDI track). */
     juce::String createMidiClipAt (int row, Tick position);

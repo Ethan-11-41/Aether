@@ -42,6 +42,10 @@ namespace edit
     bool setTempoCurve (Project& project, int pointIndex, TempoCurve curve);
     bool deleteTempoChange (Project& project, int pointIndex);
 
+    /** Replaces all the tempo changes at once (sorted; one at tick 0 is added if missing).
+        Used by the timing tools (Milestone 15). */
+    void replaceTempo (Project& project, std::vector<TempoPoint> points, const juce::String& undoName, bool newUndoStep = true);
+
     // Time signatures (bars count from 0)
     bool setTimeSignature (Project& project, int bar, int numerator, int denominator);
     bool deleteTimeSignature (Project& project, int bar);
