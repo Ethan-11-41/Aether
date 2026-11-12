@@ -242,12 +242,17 @@ namespace
         std::vector<Tick> ticks;
 
         // Bar 1 of the playing on the nearest bar line where the beats before it fit after the
-        // start of the song, with some time before the first beat for a lead-in to take up.
+        // start of the song, with some time before the first beat for a lead-in to take up. If
+        // the playing starts so soon after the start of the song that even a first bar at the
+        // fastest tempo couldn't fit before it, it starts on the song's first bar line instead
+        // (its first beat then lasts that little bit longer).
+        const auto quickest = (double) current.barToTicks (1) / (double) ticksPerQuarter * 60.0 / TempoMap::maxBpm;
+
         for (int attempt = 0; attempt < 512; ++attempt, ++bar)
         {
             ticks = beatTicks (current, current.barToTicks (bar), downbeat, count);
 
-            if (ticks.front() > 0 || (ticks.front() == 0 && beats[0] <= 0.1 * (beats[1] - beats[0])))
+            if (ticks.front() > 0 || (ticks.front() == 0 && beats[0] <= std::max (0.1 * (beats[1] - beats[0]), quickest)))
                 break;
         }
 
@@ -256,6 +261,9 @@ namespace
 
         FollowPlan plan;
         plan.startBar = bar;
+
+        // When the first beat will really come: the lead-in (or the song's start) decides.
+        double reached = 0.0;
 
         // The lead-in: from the bar line before the first beat, the tempo that gets there at the
         // moment it was played. (Earlier tempo changes stay; if that would be impossibly fast,
@@ -285,8 +293,10 @@ namespace
 
                 if (leadBpm <= TempoMap::maxBpm || leadBar <= 0)
                 {
+                    const auto bpm = std::clamp (leadBpm, TempoMap::minBpm, TempoMap::maxBpm);
                     plan.points = kept;
-                    plan.points.push_back ({ leadStart, std::clamp (leadBpm, TempoMap::minBpm, TempoMap::maxBpm), TempoCurve::jump });
+                    plan.points.push_back ({ leadStart, bpm, TempoCurve::jump });
+                    reached = beats[0] - leadSeconds + (double) (ticks.front() - leadStart) / ticksPerQuarter * 60.0 / bpm;
                     break;
                 }
             }
@@ -300,11 +310,16 @@ namespace
 
         marks.push_back (count - 1);
 
+        // Each change lasts from where the last one really got to (normally exactly its beat)
+        // until its own last beat, so one that couldn't get there exactly is caught up by the next.
         for (size_t i = 0; i + 1 < marks.size(); ++i)
         {
             const auto from = (size_t) marks[i], to = (size_t) marks[i + 1];
-            const auto bpm = (double) (ticks[to] - ticks[from]) / ticksPerQuarter * 60.0 / (beats[to] - beats[from]);
-            plan.points.push_back ({ ticks[from], std::clamp (bpm, TempoMap::minBpm, TempoMap::maxBpm), TempoCurve::jump });
+            const auto quarters = (double) (ticks[to] - ticks[from]) / ticksPerQuarter;
+            const auto seconds = beats[to] - reached;
+            const auto bpm = std::clamp (seconds > 0.0 ? quarters * 60.0 / seconds : TempoMap::maxBpm, TempoMap::minBpm, TempoMap::maxBpm);
+            plan.points.push_back ({ ticks[from], bpm, TempoCurve::jump });
+            reached += quarters * 60.0 / bpm;
         }
 
         // After the playing: the last tempo carries on, up to any later tempo changes the song had.

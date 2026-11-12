@@ -302,6 +302,31 @@ TEST_CASE ("Making the song's tempo follow the playing keeps every note's time",
     CHECK (p.soundingTimes() == before);
 }
 
+TEST_CASE ("Playing that starts right after the start of the song follows from bar 1", "[timing][model]")
+{
+    // The first chord a fifth of a second in: too soon for a whole lead-in bar before it.
+    Played p (8, speedingUp (96.0, 104.0, 32.0, 0.2), 0.0);
+    const auto beat = miditiming::findBeat (p.project, { p.clipId });
+    REQUIRE (beat.found);
+
+    CHECK (miditiming::followStartBar (p.project, { p.clipId }, beat) == 0);
+    const auto before = p.soundingTimes();
+    REQUIRE (edit::makeTempoFollow (p.project, { p.clipId }, beat, {}));
+
+    const auto after = p.soundingTimes();
+    REQUIRE (after.size() == before.size());
+    for (size_t i = 0; i < after.size(); ++i)
+        CHECK (after[i].first == Catch::Approx (before[i].first).margin (0.001));
+
+    // From the second bar on, the bass notes are exactly on bar lines (the first bar's first
+    // beat took up the moment before the playing started).
+    const auto map = p.tempo();
+    const auto bass = p.positionsOf (40);
+    REQUIRE (bass.size() == 8);
+    for (size_t i = 1; i < bass.size(); ++i)
+        CHECK (std::abs (bass[i] - map.barToTicks ((int) i)) < q / 100);
+}
+
 TEST_CASE ("The tempo can follow the playing beat by beat", "[timing][model]")
 {
     Played p (8, speedingUp (88.0, 100.0, 32.0, 2.1), 0.01);
