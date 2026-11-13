@@ -204,15 +204,23 @@ juce::Result rename (const juce::File& projectFile, const juce::String& newName,
     if (! ownFolder && newFile.exists() && ! sameIgnoringCase)
         return juce::Result::fail ("There's already a project called \"" + name + "\" in this folder. Please choose another name.");
 
-    // The folder first (a case-only change goes through a temporary name, which every system
-    // allows); then the files inside it.
+    // A change of capitals only goes through a temporary name: on Windows, "Mine" and "MINE" are
+    // the same name, so a direct move would do nothing.
+    auto move = [sameIgnoringCase] (const juce::File& from, const juce::File& to)
+    {
+        if (! sameIgnoringCase)
+            return from.moveFileTo (to);
+
+        const auto step = to.getSiblingFile (to.getFileNameWithoutExtension() + " (renaming)" + to.getFileExtension());
+        return from.moveFileTo (step) && step.moveFileTo (to);
+    };
+
+    // The folder first, then the files inside it.
     auto folder = oldFolder;
 
     if (ownFolder)
     {
-        const auto step = sameIgnoringCase ? oldFolder.getSiblingFile (name + " (renaming)") : newFolder;
-
-        if (! oldFolder.moveFileTo (step) || (step != newFolder && ! step.moveFileTo (newFolder)))
+        if (! move (oldFolder, newFolder))
             return juce::Result::fail ("The project's folder couldn't be renamed. A file in it may be open in another "
                                        "program (or in Explorer); close it and try again.");
         folder = newFolder;
@@ -220,7 +228,7 @@ juce::Result rename (const juce::File& projectFile, const juce::String& newName,
 
     const auto currentFile = folder.getChildFile (projectFile.getFileName());
 
-    if (! currentFile.moveFileTo (newFile))
+    if (! move (currentFile, newFile))
     {
         if (ownFolder)
             folder.moveFileTo (oldFolder);   // put the folder back as it was
@@ -233,10 +241,10 @@ juce::Result rename (const juce::File& projectFile, const juce::String& newName,
     const auto oldAutosave = renamed.getAutosaveFolder().getChildFile (oldName + ".autosave" + projectformat::fileExtension);
 
     if (oldAutosave.existsAsFile())
-        oldAutosave.moveFileTo (renamed.getAutosaveFile());
+        move (oldAutosave, renamed.getAutosaveFile());
 
     for (const auto& backup : renamed.getBackupsFolder().findChildFiles (juce::File::findFiles, false, oldName + " *" + projectformat::fileExtension))
-        backup.moveFileTo (backup.getSiblingFile (name + backup.getFileName().substring (oldName.length())));
+        move (backup, backup.getSiblingFile (name + backup.getFileName().substring (oldName.length())));
 
     renamedTo = newFile;
     return juce::Result::ok();

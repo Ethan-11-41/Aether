@@ -138,7 +138,8 @@ juce::Result ProjectSession::rename (const juce::String& newName)
     const auto oldFile = location.getMainFile();
     const auto result = projectfiles::rename (oldFile, newName, renamedTo);
 
-    if (result.wasOk() && renamedTo != oldFile)
+    // (Compared exactly: on Windows, File's == ignores capitals, and "Mine" to "MINE" is a rename.)
+    if (result.wasOk() && renamedTo.getFullPathName() != oldFile.getFullPathName())
     {
         const auto wasSaved = ! project->hasUnsavedChanges();
         location = ProjectLocation (renamedTo);
