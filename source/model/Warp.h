@@ -89,7 +89,8 @@ namespace warp
     };
 
     /** The clip's time map at the song's tempo, from its start to its end (for the stretcher):
-        exact at warp markers, loop repeats and tempo changes, and every 16th note between. */
+        exact at warp markers, loop repeats and tempo changes (straight lines between), and every
+        16th note in tempo ramps. */
     std::vector<TimePoint> timeMap (const Clip& clip, const TempoMap& tempo);
 
     /** True if the clip can't simply play its recording: it follows the tempo and somewhere it

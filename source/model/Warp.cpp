@@ -249,15 +249,21 @@ std::vector<warp::TimePoint> warp::timeMap (const Clip& clip, const TempoMap& te
     {
         const auto end = timing.end (tempo);
 
-        // Every 16th note (curves in tempo ramps are close enough at this spacing)...
+        // Between tempo changes, markers and repeats the map is a straight line, except in tempo
+        // ramps: there, every 16th note (close enough to the curve).
         constexpr Tick step = ticksPerQuarter / 4;
-        for (auto t = (start / step + 1) * step; t < end; t += step)
-            played.push_back (timing.playedAt (tempo, (double) t));
+        const auto& points = tempo.getTempoPoints();
 
-        // ...and exactly where the tempo changes,
-        for (const auto& p : tempo.getTempoPoints())
-            if (p.tick > start && p.tick < end)
-                played.push_back (timing.playedAt (tempo, (double) p.tick));
+        for (size_t i = 0; i < points.size(); ++i)
+        {
+            if (points[i].tick > start && points[i].tick < end)
+                played.push_back (timing.playedAt (tempo, (double) points[i].tick));
+
+            if (points[i].curve == TempoCurve::ramp && i + 1 < points.size())
+                for (auto t = std::max ((points[i].tick / step + 1) * step, (start / step + 1) * step);
+                     t < std::min (points[i + 1].tick, end); t += step)
+                    played.push_back (timing.playedAt (tempo, (double) t));
+        }
 
         // where the content repeats, and at the warp markers (in every repeat).
         const auto contentLength = (double) clip.getContentLength();

@@ -230,3 +230,41 @@ TEST_CASE ("A loop's tempo is read from its file name", "[warp][import]")
     CHECK (warp::bpmFromFileName ("Vocals 2026", 5.0) == 0.0);
     CHECK (warp::bpmFromFileName ("Guitar", 5.0) == 0.0);
 }
+
+TEST_CASE ("A clip following the tempo through a tempo ramp lands on its beats", "[warp]")
+{
+    Fixture f;   // 4 s (8 beats at 120) from bar 2
+    REQUIRE (edit::setFollowTempo (f.project, { f.clipId }, true));
+
+    // The tempo slows from 120 to 60 over the clip.
+    edit::setTempoCurve (f.project, 0, TempoCurve::ramp);
+    edit::addTempoChange (f.project, 12 * q, 60.0);
+    edit::setTempoCurve (f.project, 0, TempoCurve::ramp);
+    const auto tempo = f.tempo();
+    REQUIRE (tempo.getTempoPoints().front().curve == TempoCurve::ramp);
+
+    // Every beat of the recording (every half second of it) plays at its beat in the ramp.
+    const auto map = warp::timeMap (f.clip(), tempo);
+    const auto startSeconds = tempo.ticksToSeconds (4 * q);
+    for (int beat = 0; beat <= 8; ++beat)
+    {
+        const auto expected = tempo.ticksToSeconds ((4 + beat) * q) - startSeconds;
+        const auto played = beat * 24000.0;
+
+        // The map's seconds at that point (between its points, in proportion).
+        double seconds = map.back().seconds;
+        for (size_t i = 1; i < map.size(); ++i)
+            if (map[i].played >= played)
+            {
+                const auto& a = map[i - 1];
+                const auto& b = map[i];
+                seconds = a.seconds + (played - a.played) * (b.seconds - a.seconds) / std::max (1.0, b.played - a.played);
+                break;
+            }
+
+        INFO ("beat " << beat);
+        CHECK (seconds == Catch::Approx (expected).margin (0.002));
+    }
+
+    CHECK (map.size() < 60);   // 16th notes in the ramp only
+}

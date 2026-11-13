@@ -986,11 +986,13 @@ private:
             return result;
 
         const auto markers = warp::markersOf (clip);
+        const warp::ClipTiming timing (clip);
+
         for (int i = 0; i < (int) markers.size(); ++i)
         {
             const auto played = (double) (markers[(size_t) i].sample - clip.getOffset());
             if (played > 0.0 && played < (double) clip.getDuration())
-                result.emplace_back (i, xForClipPosition (clip, played));
+                result.emplace_back (i, (float) owner.view.tickToX ((Tick) std::llround (timing.tickAt (owner.tempoMap, played))));
         }
 
         return result;
