@@ -12,6 +12,7 @@
 #include "model/EditCommands.h"
 #include "model/MidiTiming.h"
 #include "model/TimelineEdits.h"
+#include "model/Warp.h"
 #include "ui/QuantizePanel.h"
 #include "ui/TimingPanel.h"
 
@@ -252,4 +253,34 @@ TEST_CASE ("The quantize pop-up remembers its settings and quantizes", "[ui][tim
     REQUIRE (applied.has_value());
     CHECK (applied->strength == Catch::Approx (0.75));
     CHECK (applied->ends);
+}
+
+TEST_CASE ("The timing window works on a recording, through its hits", "[ui][timing][audio]")
+{
+    juce::ScopedJuceInitialiser_GUI juceInit;
+    const auto theme = ui::Theme::dark();
+    Project project;
+    const auto track = edit::addTrack (project, TrackKind::audio).getId();
+    const auto clipId = edit::addAudioClip (project, track, { "Audio/take.wav", "Take 1", 48000.0, 20 * 48000 }, 0);
+
+    // Played at about 92 BPM, slowing a little.
+    std::vector<audioonsets::Hit> hitList;
+    for (int b = 0; b < 28; ++b)
+        hitList.push_back ({ (juce::int64) std::llround ((0.4 + b * 60.0 / 92.0 + b * b * 0.0004) * 48000.0),
+                             b % 4 == 0 ? 1.0f : 0.7f, b % 4 == 0 ? 0.9f : 0.1f });
+
+    ui::TimingPanel panel (theme, project, { clipId }, false, [&hitList] (const Clip&) { return hitList; });
+    REQUIRE (panel.getBeat().found);
+    CHECK (panel.getBeat().bpm == Catch::Approx (91.0).margin (3.0));
+    CHECK (panel.getSummary().startsWith ("You played at about"));
+
+    REQUIRE (panel.apply());
+    CHECK (warp::followsTempo (clips::findClip (project, clipId)));
+    CHECK_FALSE (warp::markersOf (clips::findClip (project, clipId)).empty());
+    CHECK (panel.canPutBack());
+
+    // Without the recording's hits (still loading), it says there's too little to go on.
+    ui::TimingPanel loading (theme, project, { clipId }, false);
+    CHECK_FALSE (loading.getBeat().found);
+    CHECK (loading.getSummary().startsWith ("There are too few"));
 }

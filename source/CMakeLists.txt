@@ -22,6 +22,8 @@ add_library(aether_core STATIC
     dsp/SpaceEffects.h
     dsp/SoundEffects.cpp
     dsp/SoundEffects.h
+    dsp/TimeStretch.cpp
+    dsp/TimeStretch.h
     dsp/PitchDetect.cpp
     dsp/PitchDetect.h
     dsp/Sampler.cpp
@@ -68,6 +70,8 @@ add_library(aether_core STATIC
     engine/TestToneGenerator.cpp
     engine/TestToneGenerator.h
     engine/TimelineSnapshot.h
+    engine/StretchCache.cpp
+    engine/StretchCache.h
     engine/TimelineSync.cpp
     engine/TimelineSync.h
     engine/rt/RealtimeAnnotations.h
@@ -130,11 +134,15 @@ add_library(aether_core STATIC
     model/Recording.h
     model/TimelineEdits.cpp
     model/TimelineEdits.h
+    model/Warp.cpp
+    model/Warp.h
     model/Track.cpp
     model/Track.h
     model/TrackColours.h
     time/Grid.cpp
     time/Grid.h
+    time/AudioOnsets.cpp
+    time/AudioOnsets.h
     time/TempoDetect.cpp
     time/TempoDetect.h
     time/TempoMap.cpp
@@ -145,6 +153,15 @@ target_link_libraries(aether_core
     PUBLIC  aether_juce
     PRIVATE aether_warnings)
 target_compile_definitions(aether_core PUBLIC AETHER_VERSION_STRING="${PROJECT_VERSION}")
+
+# Time-stretching (Signalsmith Stretch, see CREDITS.md): only dsp/TimeStretch.cpp uses it. It's a
+# lot of number-crunching, so that file is optimised even in Debug builds (GCC/Clang; Windows
+# builds are Release anyway), and its headers' warnings are not Aether's.
+target_include_directories(aether_core SYSTEM PRIVATE
+    "${signalsmith_stretch_SOURCE_DIR}/include"
+    "${signalsmith_linear_SOURCE_DIR}/include")
+set_source_files_properties(dsp/TimeStretch.cpp PROPERTIES COMPILE_OPTIONS
+    "$<$<CXX_COMPILER_ID:GNU,Clang>:-O2>;$<$<CXX_COMPILER_ID:MSVC>:/bigobj>")
 
 # The interface font, Inter (SIL Open Font Licence 1.1; see CREDITS.md), built into the program
 # so Aether looks the same on every PC.

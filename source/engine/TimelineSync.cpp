@@ -15,6 +15,7 @@
 #include "model/Automation.h"
 #include "model/Mixer.h"
 #include "model/TimelineEdits.h"
+#include "model/Warp.h"
 
 namespace aether
 {
@@ -120,7 +121,7 @@ namespace
     }
 
     void addClips (TrackPlayback& playback, TimelineSnapshot& snapshot, const Track& track, double sampleRate,
-                   const AudioResolver& resolver)
+                   const AudioResolver& resolver, const StretchResolver& stretcher)
     {
         for (const auto& clip : clips::clipsOnTrack (track.getState()))
         {
@@ -128,6 +129,41 @@ namespace
 
             if (audio == nullptr || audio->sampleRate != sampleRate || audio->samples.getNumSamples() == 0)
                 continue;   // not loaded yet (or missing): silent for now
+
+            // A clip following the tempo (or transposed): its stretched audio, from its start to
+            // its end, played straight through.
+            if (stretcher && warp::needsStretching (clip, snapshot.tempo))
+            {
+                if (auto stretched = stretcher (StretchJob::make (clip, snapshot.tempo, audio));
+                    stretched != nullptr && stretched->sampleRate == sampleRate && stretched->samples.getNumSamples() > 0)
+                {
+                    const warp::ClipTiming timing (clip);
+                    const auto startSeconds = clip.getStartSeconds (snapshot.tempo);
+                    const auto outputAt = [&] (double played)
+                    {
+                        return (std::int64_t) std::llround ((snapshot.tempo.ticksToSeconds ((Tick) std::llround (timing.tickAt (snapshot.tempo, played)))
+                                                             - startSeconds) * sampleRate);
+                    };
+
+                    const auto length = (std::int64_t) stretched->samples.getNumSamples();
+                    ClipPlayback c;
+                    c.audio = stretched.get();
+                    c.start = (std::int64_t) std::llround (startSeconds * sampleRate);
+                    c.duration = length;
+                    c.offset = 0;
+                    c.contentLength = length;
+                    c.gain = std::pow (10.0f, (float) clip.getGainDb() / 20.0f);
+                    c.fadeIn = std::clamp<std::int64_t> (outputAt ((double) clip.getFadeIn()), 0, length);
+                    c.fadeOut = std::clamp<std::int64_t> (length - outputAt ((double) (clip.getDuration() - clip.getFadeOut())), 0, length);
+                    c.fadeInCurve = clip.getFadeInCurve();
+                    c.fadeOutCurve = clip.getFadeOutCurve();
+
+                    playback.clips.push_back (c);
+                    snapshot.keepAlive.push_back (std::move (stretched));
+                    snapshot.keepAlive.push_back (std::move (audio));
+                    continue;
+                }
+            }
 
             // Everything in samples at the engine's rate.
             const auto ratio = sampleRate / clip.getSourceRate();
@@ -292,7 +328,8 @@ namespace
 
 std::unique_ptr<TimelineSnapshot> buildTimelineSnapshot (const Project& project, double sampleRate, const AudioResolver& resolver,
                                                          MixerResources* resources, const juce::String& focusedTrackId,
-                                                         const PartLoop& partLoop, const juce::File& projectFolder)
+                                                         const PartLoop& partLoop, const juce::File& projectFolder,
+                                                         const StretchResolver& stretcher)
 {
     auto snapshot = std::make_unique<TimelineSnapshot>();
     snapshot->tempo = timeline::buildTempoMap (project);
@@ -410,7 +447,7 @@ std::unique_ptr<TimelineSnapshot> buildTimelineSnapshot (const Project& project,
         }
 
         if (track.getKind() == TrackKind::audio && resolver)
-            addClips (channel, *snapshot, track, sampleRate, resolver);
+            addClips (channel, *snapshot, track, sampleRate, resolver, stretcher);
 
         if (track.getKind() == TrackKind::midi)
             addMidi (channel, project, *snapshot, track, sampleRate, res, focusedTrackId, resolver, projectFolder);
@@ -437,6 +474,7 @@ TimelineSync::TimelineSync (Project& projectToFollow, AudioEngine& engineToUpdat
 {
     state.addListener (this);
     cache.addChangeListener (this);
+    stretchCache.addChangeListener (this);
 
     if (engine.getCurrentSampleRate() > 0.0)
         cache.setTargetSampleRate (engine.getCurrentSampleRate());
@@ -449,6 +487,7 @@ TimelineSync::TimelineSync (Project& projectToFollow, AudioEngine& engineToUpdat
 TimelineSync::~TimelineSync()
 {
     stopTimer();
+    stretchCache.removeChangeListener (this);
     cache.removeChangeListener (this);
     state.removeListener (this);
     engine.stop();
@@ -485,8 +524,15 @@ void TimelineSync::update()
         return cache.getAudio (file);
     };
 
+    std::set<juce::String> stretches;
+    StretchResolver stretcher = [this, &stretches] (const StretchJob& job)
+    {
+        stretches.insert (job.key);
+        return stretchCache.get (job).audio;
+    };
+
     auto snapshot = buildTimelineSnapshot (project, cache.getTargetSampleRate(), resolver, &mixerResources, focusedTrack, partLoop,
-                                           where.getFolder());
+                                           where.getFolder(), stretcher);
     snapshot->recordRing = recordRing;
     engine.setTimeline (std::move (snapshot));
 
@@ -494,6 +540,10 @@ void TimelineSync::update()
     for (const auto& path : requested)
         filesLastUsed[path] = now;
     filesInUse = std::move (requested);
+
+    for (const auto& key : stretches)
+        stretchesLastUsed[key] = now;
+    stretchesInUse = std::move (stretches);
 }
 
 void TimelineSync::releaseUnusedAudio (double now, double graceSeconds)
@@ -516,6 +566,24 @@ void TimelineSync::releaseUnusedAudio (double now, double graceSeconds)
     }
 
     cache.keepOnly (keep);
+
+    // The same for stretched clips (a moment ago: e.g. before an undo).
+    std::set<juce::String> keepStretches = stretchesInUse;
+
+    for (auto it = stretchesLastUsed.begin(); it != stretchesLastUsed.end();)
+    {
+        if (now - it->second < graceSeconds)
+        {
+            keepStretches.insert (it->first);
+            ++it;
+        }
+        else
+        {
+            it = stretchesLastUsed.erase (it);
+        }
+    }
+
+    stretchCache.keepOnly (keepStretches);
 }
 
 } // namespace aether

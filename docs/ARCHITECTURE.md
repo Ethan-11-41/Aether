@@ -211,6 +211,29 @@ Separate process:   plug-in scanner
   back to the earlier tempo if nothing has changed it since), so fixes never stack; a clip whose
   origin moved ignores its record. `edit::putBackAsPlayed` places the notes at those times again.
 
+- Stretching (M17). `model/Warp` places an audio clip's audio on the timeline: `warp::ClipTiming`
+  maps "samples played into the clip" (counting loop repeats) to timeline ticks and back. A clip
+  that doesn't follow the tempo goes through seconds (as before); one that does goes through
+  W, the beat position of each file sample: linear between warp markers, at the clip's own tempo
+  (`warpBpm`) outside them. Everything that places audio (drawing, trims, splits, fades, playback,
+  recording over clips) uses ClipTiming. `warp::timeMap` gives the stretcher the clip's time map
+  (exact at markers, loop repeats and tempo changes, every 16th note between); `needsStretching`
+  says whether it differs from the recording's own speed (or the clip is transposed).
+  `engine/StretchCache` renders such clips in the background with `dsp/TimeStretch` (Signalsmith
+  Stretch, seeded so the result is always the same, at the engine's rate, following the map in
+  256-sample blocks after an exact start as in its `exact()`), keyed by a fingerprint of the job.
+  `buildTimelineSnapshot` asks a `StretchResolver` for each such clip: TimelineSync's gives the
+  ready result, or the clip's previous one while the new one is made (or none: it then plays
+  unstretched for a moment); the exporter renders synchronously. The audio thread only ever
+  plays finished buffers, as for any clip.
+- Audio timing (M17). `time/AudioOnsets` finds hits (6 band-pass bands, log-energy rise against
+  the loudest of the previous 10 to 30 ms, peaks standing out from their surroundings, then the
+  exact sample the sound starts rising). `model/MidiTiming` treats an audio clip's hits as notes
+  (given by a `miditiming::AudioHits` function: the UI finds them from the loaded audio, cached per
+  file) and turns its fixes into warp markers (steady: one per beat; follow: one per tempo change,
+  so the recording keeps its time and follows the new tempo from then on). Its `PlayedTiming`
+  record keeps where it was before the first fix, so fixes never stack. `quantizeAudioClips` puts
+  a marker on every clear hit, moved towards the song's grid.
 - Sound effects (M16, `dsp/SoundEffects`): risers, a reverse swell and a downlifter are made to
   any length (so they last whole bars at the song's tempo), from seeded noise through a sweeping
   state-variable filter, or polyBLEP saws (no aliasing); impacts, booms and whooshes are the

@@ -3,6 +3,8 @@ include(Catch)
 
 add_executable(aether_tests
     unit/AudioDeviceServiceTests.cpp
+    unit/AudioOnsetTests.cpp
+    unit/AudioTimingTests.cpp
     unit/AudioEngineTests.cpp
     unit/AudioFileTests.cpp
     unit/ClipEditTests.cpp
@@ -45,6 +47,8 @@ add_executable(aether_tests
     unit/SpscQueueTests.cpp
     unit/SynthEditorTests.cpp
     unit/SynthTests.cpp
+    unit/StretchPlaybackTests.cpp
+    unit/TimeStretchTests.cpp
     unit/TempoDetectTests.cpp
     unit/TempoMapTests.cpp
     unit/TestToneGeneratorTests.cpp
@@ -52,6 +56,7 @@ add_executable(aether_tests
     unit/TimelineEditTests.cpp
     unit/TimelineViewTests.cpp
     unit/TimingUiTests.cpp
+    unit/WarpTests.cpp
     unit/TrackListComponentTests.cpp
     unit/TransportTests.cpp
     realtime/RealtimeSafetyTests.cpp)

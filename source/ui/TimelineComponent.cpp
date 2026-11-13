@@ -14,6 +14,7 @@
 #include "model/ClipEdits.h"
 #include "model/MidiClips.h"
 #include "model/MidiTiming.h"
+#include "model/Warp.h"
 #include "model/Recording.h"
 #include "model/TimelineEdits.h"
 
@@ -559,8 +560,13 @@ public:
             case Zone::trimEnd:  return "Drag to trim the clip (hold Alt for exact positions).";
             case Zone::fadeIn:   return "Drag to fade the clip in.";
             case Zone::fadeOut:  return "Drag to fade the clip out.";
-            case Zone::body:     return "Drag to move the clip, also onto another track. Ctrl+click to select several. "
-                                        "Right-click for more (split, loop, volume, fades).";
+            case Zone::warpMarker: return "A warp marker: drag it to move this moment of the recording to another beat (the "
+                                          "audio either side stretches to fit). Right-click to remove it.";
+            case Zone::body:     return warp::followsTempo (hit.clip) && ! hit.clip.isLooping()
+                                            ? "Drag to move the clip. It follows the song's tempo: double-click the waveform to add a "
+                                              "warp marker there. Right-click for more."
+                                            : "Drag to move the clip, also onto another track. Ctrl+click to select several. "
+                                              "Right-click for more (split, loop, volume, fades, tempo, pitch).";
             case Zone::none:     break;
         }
 
@@ -671,7 +677,8 @@ public:
         switch (hit.zone)
         {
             case Zone::trimStart:
-            case Zone::trimEnd:  setMouseCursor (juce::MouseCursor::LeftRightResizeCursor); break;
+            case Zone::trimEnd:
+            case Zone::warpMarker: setMouseCursor (juce::MouseCursor::LeftRightResizeCursor); break;
             case Zone::fadeIn:
             case Zone::fadeOut:  setMouseCursor (juce::MouseCursor::CrosshairCursor); break;
             case Zone::body:     setMouseCursor (juce::MouseCursor::DraggingHandCursor); break;
@@ -709,11 +716,20 @@ public:
 
         if (e.mods.isPopupMenu())
         {
-            if (hit.zone != Zone::none)
+            if (hit.zone == Zone::warpMarker)
+            {
+                juce::PopupMenu menu;
+                menu.addItem ("Remove this warp marker", [&proj = owner.project, id = hit.clip.getId(), index = hit.marker]
+                {
+                    edit::removeWarpMarker (proj, id, index);
+                });
+                menu.showMenuAsync (juce::PopupMenu::Options().withMousePosition());
+            }
+            else if (hit.zone != Zone::none)
             {
                 if (! owner.selectedClips.contains (hit.clip.getId()))
                     owner.setSelection ({ hit.clip.getId() });
-                showClipMenu (hit.clip);
+                showClipMenu (hit.clip, owner.snap (owner.view.xToTick (e.x), e.mods));
             }
             else
             {
@@ -753,6 +769,7 @@ public:
         // Remember where everything was, so the drag can be applied from there each time.
         drag.zone = hit.zone;
         drag.clipId = id;
+        drag.marker = hit.marker;
         drag.downTick = owner.view.xToTick (e.x);
         drag.downRow = row;
         drag.anchorStart = hit.clip.getStart();
@@ -761,7 +778,7 @@ public:
             if (auto clip = clips::findClip (owner.project, selectedId); clip.isValid())
                 drag.originals.push_back ({ selectedId, clip.getStart(), owner.project.indexOfTrack (clip.getTrackState()[ids::id].toString()) });
 
-        const char* names[] = { "", "Move clip", "Trim clip", "Trim clip", "Change fade", "Change fade" };
+        const char* names[] = { "", "Move clip", "Trim clip", "Trim clip", "Change fade", "Change fade", "Move warp marker" };
         owner.project.getUndoManager().beginNewTransaction (names[(int) hit.zone]);
     }
 
@@ -821,7 +838,7 @@ public:
             case Zone::fadeIn:
             {
                 const auto length = clip.isMidi() ? (double) (tick - clip.getStart())
-                                                  : (tempo.ticksToSeconds (tick) - clip.getStartSeconds (tempo)) * clip.getSourceRate();
+                                                  : warp::ClipTiming (clip).playedAt (tempo, (double) tick);
                 edit::setClipFades (proj, drag.clipId, (juce::int64) std::max (0.0, length), clip.getFadeOut(), false);
                 break;
             }
@@ -829,11 +846,14 @@ public:
             case Zone::fadeOut:
             {
                 const auto length = clip.isMidi() ? (double) (clip.getStart() + clip.getLengthTicks() - tick)
-                                                  : (clip.getStartSeconds (tempo) + clip.getDurationSeconds() - tempo.ticksToSeconds (tick))
-                                                        * clip.getSourceRate();
+                                                  : (double) clip.getDuration() - warp::ClipTiming (clip).playedAt (tempo, (double) tick);
                 edit::setClipFades (proj, drag.clipId, clip.getFadeIn(), (juce::int64) std::max (0.0, length), false);
                 break;
             }
+
+            case Zone::warpMarker:
+                edit::moveWarpMarker (proj, drag.clipId, drag.marker, owner.snap (tick, e.mods), false);
+                break;
 
             case Zone::none:
                 break;
@@ -880,9 +900,14 @@ public:
 
         if (hit.zone == Zone::body)
         {
-            // MIDI clips open in the piano roll; audio clips can be renamed.
+            // MIDI clips open in the piano roll. On the waveform of an audio clip that follows the
+            // tempo, a warp marker; otherwise audio clips can be renamed.
+            const auto onWaveform = e.position.y > findBox (hit.clip.getId()).getY() + (float) clipHeaderHeight;
+
             if (hit.clip.isMidi() && owner.onEditNotes)
                 owner.onEditNotes (hit.clip.getId());
+            else if (! hit.clip.isMidi() && warp::followsTempo (hit.clip) && ! hit.clip.isLooping() && onWaveform)
+                addWarpMarkerAt (hit.clip, owner.view.xToTick (e.x));
             else
                 askForClipName (hit.clip.getId());
         }
@@ -894,7 +919,7 @@ public:
     }
 
 private:
-    enum class Zone { none, body, trimStart, trimEnd, fadeIn, fadeOut };
+    enum class Zone { none, body, trimStart, trimEnd, fadeIn, fadeOut, warpMarker };
 
     struct ClipBox
     {
@@ -908,6 +933,7 @@ private:
     {
         Clip clip;
         Zone zone = Zone::none;
+        int marker = -1;   // a warp marker's index
     };
 
     struct Original
@@ -923,6 +949,7 @@ private:
         juce::String clipId;
         Tick downTick = 0, anchorStart = 0;
         int downRow = 0;
+        int marker = -1;
         bool moved = false;
         std::vector<Original> originals;
     };
@@ -936,8 +963,44 @@ private:
 
     float xForClipPosition (const Clip& clip, double samplesIn) const
     {
-        const auto seconds = clip.getStartSeconds (owner.tempoMap) + samplesIn / clip.getSourceRate();
-        return (float) owner.view.tickToX (owner.tempoMap.secondsToTicks (seconds));
+        return (float) owner.view.tickToX ((Tick) std::llround (warp::ClipTiming (clip).tickAt (owner.tempoMap, samplesIn)));
+    }
+
+    /** The clip's box on screen (empty if it isn't showing). */
+    juce::Rectangle<float> findBox (const juce::String& clipId) const
+    {
+        for (const auto& box : layoutClips())
+            if (box.clip.getId() == clipId)
+                return box.bounds;
+
+        return {};
+    }
+
+    /** The warp markers that can be dragged (not the one pinning the clip's start), with where
+        each is on screen. */
+    std::vector<std::pair<int, float>> markerPositions (const Clip& clip) const
+    {
+        std::vector<std::pair<int, float>> result;
+
+        if (clip.isMidi() || clip.isLooping() || ! warp::followsTempo (clip))
+            return result;
+
+        const auto markers = warp::markersOf (clip);
+        for (int i = 0; i < (int) markers.size(); ++i)
+        {
+            const auto played = (double) (markers[(size_t) i].sample - clip.getOffset());
+            if (played > 0.0 && played < (double) clip.getDuration())
+                result.emplace_back (i, xForClipPosition (clip, played));
+        }
+
+        return result;
+    }
+
+    void addWarpMarkerAt (const Clip& clip, Tick tick)
+    {
+        const warp::ClipTiming timing (clip);
+        const auto played = timing.playedAt (owner.tempoMap, (double) tick);
+        edit::addWarpMarker (owner.project, clip.getId(), (juce::int64) std::llround (timing.fileSampleAt (played)));
     }
 
     /** Where a position in a clip's fade units is: samples of an audio clip's file, ticks of a
@@ -1001,6 +1064,12 @@ private:
                 return { clip, Zone::fadeIn };
             if (nearTop && std::abs (p.x - fadeOutX) <= fadeHandleSize && r.getWidth() > 30.0f)
                 return { clip, Zone::fadeOut };
+
+            // A warp marker's handle, in the strip below the title.
+            if (p.y >= bodyTop && p.y <= bodyTop + 12.0f)
+                for (const auto& [index, x] : markerPositions (clip))
+                    if (std::abs (p.x - x) <= 5.0f)
+                        return { clip, Zone::warpMarker, index };
             if (p.x - r.getX() <= edgeGrabWidth)
                 return { clip, Zone::trimStart };
             if (r.getRight() - p.x <= edgeGrabWidth)
@@ -1032,6 +1101,16 @@ private:
         if (clip.isLooping())          title << juce::String::fromUTF8 ("  \xe2\x9f\xb3");   // ⟳
         if (clip.getNumTakes() > 1)    title << "  take " << (clip.getTake() + 1) << "/" << clip.getNumTakes();
         if (clip.getGainDb() != 0.0)   title << "  " << (clip.getGainDb() > 0 ? "+" : "") << juce::String (clip.getGainDb(), 1) << " dB";
+
+        if (! clip.isMidi())
+        {
+            const auto middleDot = juce::String::fromUTF8 ("  \xc2\xb7 ");   // " · "
+            if (warp::followsTempo (clip))              title << middleDot << "in time";
+            if (const auto t = warp::transposeOf (clip); t != 0.0)
+                title << middleDot << "pitch " << (t > 0 ? "+" : "") << juce::String (t, std::abs (t - std::round (t)) > 0.001 ? 2 : 0);
+            if (owner.isStretching && owner.isStretching (clip.getId()))
+                title << middleDot << "stretching...";
+        }
         g.drawText (title, header.reduced (5.0f, 0.0f), juce::Justification::centredLeft, true);
 
         if (clip.isMidi())
@@ -1060,6 +1139,22 @@ private:
 
         drawWaveform (g, box, r);
         drawFades (g, clip, r);
+
+        // Warp markers: a line through the waveform and a handle at its top.
+        for (const auto& [index, x] : markerPositions (clip))
+        {
+            if (x < r.getX() || x > r.getRight())
+                continue;
+
+            const auto dragging = drag.zone == Zone::warpMarker && drag.clipId == clip.getId() && drag.marker == index;
+            g.setColour (colours.text.withAlpha (dragging ? 0.9f : 0.5f));
+            g.drawLine (x, r.getY(), x, r.getBottom(), 1.0f);
+
+            juce::Path handle;
+            handle.addTriangle (x - 4.5f, r.getY(), x + 4.5f, r.getY(), x, r.getY() + 7.0f);
+            g.setColour (dragging ? colours.accent : colours.text);
+            g.fillPath (handle);
+        }
 
         // Where a looping clip repeats.
         if (clip.isLooping())
@@ -1130,8 +1225,7 @@ private:
         }
 
         const auto& tempo = owner.tempoMap;
-        const auto rate = clip.getSourceRate();
-        const auto startSeconds = clip.getStartSeconds (tempo);
+        const warp::ClipTiming timing (clip);
         const auto gain = std::pow (10.0f, (float) clip.getGainDb() / 20.0f);
         const auto centre = area.getCentreY();
         const auto halfHeight = area.getHeight() * 0.5f - 1.0f;
@@ -1143,16 +1237,15 @@ private:
 
         for (int x = left; x < right; ++x)
         {
-            const auto from = (tempo.ticksToSeconds (owner.view.xToTick (x)) - startSeconds) * rate;
-            const auto to = (tempo.ticksToSeconds (owner.view.xToTick (x + 1)) - startSeconds) * rate;
+            const auto from = timing.playedAt (tempo, (double) owner.view.xToTick (x));
+            const auto to = timing.playedAt (tempo, (double) owner.view.xToTick (x + 1));
 
             if (to <= 0.0 || from >= (double) clip.getDuration())
                 continue;
 
-            const auto pos = (juce::int64) std::max (0.0, from);
-            const auto width = std::max<juce::int64> (1, (juce::int64) (to - std::max (0.0, from)));
-            const auto source = clip.isLooping() ? clip.getOffset() + (clip.getPhase() + pos) % clip.getContentLength()
-                                                 : clip.getOffset() + pos;
+            const auto pos = std::max (0.0, from);
+            const auto width = std::max<juce::int64> (1, (juce::int64) (to - pos));
+            const auto source = (juce::int64) timing.fileSampleAt (pos);
 
             float lo = 0.0f, hi = 0.0f;
             for (int ch = 0; ch < peaks->getNumChannels(); ++ch)
@@ -1235,7 +1328,7 @@ private:
         }
     }
 
-    void showClipMenu (const Clip& clip)
+    void showClipMenu (const Clip& clip, Tick clickTick)
     {
         auto& proj = owner.project;
         const auto id = clip.getId();
@@ -1396,9 +1489,74 @@ private:
                 targets = { id };
 
             const auto reversed = clip.getName().endsWith (" (reversed)");
-            menu.addItem (juce::String (reversed ? "Play forwards again" : "Reverse (play backwards)")
-                              + (targets.size() > 1 ? " (the " + juce::String (targets.size()) + " selected clips)" : juce::String()),
+            const auto several = targets.size() > 1 ? " (the " + juce::String (targets.size()) + " selected clips)" : juce::String();
+            menu.addItem (juce::String (reversed ? "Play forwards again" : "Reverse (play backwards)") + several,
                           [safeOwner, targets] { if (safeOwner != nullptr) safeOwner->reverseClips (targets); });
+
+            // Tempo and pitch (Milestone 17).
+            menu.addSeparator();
+            menu.addItem ("Fix timing (find the tempo you played)" + several + "...",
+                          ! miditiming::usableClips (proj, targets).isEmpty(), false, [safeOwner, targets]
+            {
+                if (safeOwner != nullptr && safeOwner->onFixTiming)
+                    safeOwner->onFixTiming (targets);
+            });
+            menu.addItem ("Quantize" + several + "... (Q)", ! clip.isLooping(), false, [safeOwner, targets]
+            {
+                if (safeOwner != nullptr && safeOwner->onQuantize)
+                    safeOwner->onQuantize (targets);
+            });
+
+            const auto follows = warp::followsTempo (clip);
+            menu.addItem ("Follow the song's tempo" + several, true, follows,
+                          [&proj, targets, follow = ! follows] { edit::setFollowTempo (proj, targets, follow); });
+
+            if (follows)
+            {
+                const auto bpm = warp::bpmOf (clip);
+                const auto bpmText = [] (double value) { return juce::String (value, std::abs (value - std::round (value)) < 0.01 ? 0 : 1) + " BPM"; };
+
+                juce::PopupMenu tempoMenu;
+                tempoMenu.addItem ("It's twice as fast (" + bpmText (bpm * 2.0) + ")", bpm * 2.0 <= 400.0, false,
+                                   [&proj, id, bpm] { edit::setClipBpm (proj, id, bpm * 2.0); });
+                tempoMenu.addItem ("It's half as fast (" + bpmText (bpm / 2.0) + ")", bpm / 2.0 >= 20.0, false,
+                                   [&proj, id, bpm] { edit::setClipBpm (proj, id, bpm / 2.0); });
+                tempoMenu.addItem ("Type its tempo...", [this, id, bpm] { askForClipTempo (id, bpm); });
+                menu.addSubMenu ("Its own tempo: " + bpmText (bpm), tempoMenu);
+            }
+
+            if (! clip.isLooping())
+            {
+                menu.addItem (follows ? juce::String ("Add a warp marker here (or double-click the waveform)")
+                                      : juce::String ("Add a warp marker here (it then follows the tempo)"),
+                              [this, clip, clickTick] { addWarpMarkerAt (clip, clickTick); });
+
+                if (follows && ! warp::markersOf (clip).empty())
+                    menu.addItem ("Remove the warp markers", [&proj, id] { edit::clearWarpMarkers (proj, id); });
+            }
+
+            const auto pitchNow = warp::transposeOf (clip);
+            const auto pitchText = [] (double semitones)
+            {
+                if (semitones == 0.0)
+                    return juce::String ("as recorded");
+
+                const auto whole = std::abs (semitones - std::round (semitones)) < 0.001;
+                return (semitones > 0 ? "+" : "") + juce::String (semitones, whole ? 0 : 2)
+                       + (std::abs (semitones) == 1.0 ? " semitone" : " semitones");
+            };
+
+            juce::PopupMenu pitch;
+            for (const auto& [label, change] : { std::pair { "Up a semitone", 1.0 }, std::pair { "Down a semitone", -1.0 },
+                                                 std::pair { "Up an octave", 12.0 }, std::pair { "Down an octave", -12.0 } })
+                pitch.addItem (label, std::abs (pitchNow + change) <= 24.0, false,
+                               [&proj, targets, value = pitchNow + change] { edit::setClipTranspose (proj, targets, value); });
+
+            pitch.addItem ("Type a pitch...", [this, targets, pitchNow] { askForTranspose (targets, pitchNow); });
+            pitch.addItem ("Back to the original pitch", pitchNow != 0.0, false,
+                           [&proj, targets] { edit::setClipTranspose (proj, targets, 0.0); });
+            menu.addSubMenu ("Pitch (" + pitchText (pitchNow) + ")" + several, pitch);
+            menu.addSeparator();
         }
 
         juce::PopupMenu volume;
@@ -1473,6 +1631,40 @@ private:
         menu.addSeparator();
         menu.addSubMenu ("Add a sound effect here", effects);
         menu.showMenuAsync (juce::PopupMenu::Options().withMousePosition());
+    }
+
+    /** Asks for a number (a small window), then calls `apply` with it. */
+    void askForNumber (const juce::String& title, const juce::String& message, double current,
+                       std::function<void (double)> apply)
+    {
+        auto* window = new juce::AlertWindow (title, message, juce::MessageBoxIconType::NoIcon, this);
+        window->addTextEditor ("value", juce::String (current, std::abs (current - std::round (current)) < 0.001 ? 0 : 2));
+        window->addButton ("OK", 1, juce::KeyPress (juce::KeyPress::returnKey));
+        window->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+
+        juce::Component::SafePointer<TrackLanes> safeThis (this);
+        window->enterModalState (true, juce::ModalCallbackFunction::create ([safeThis, window, apply = std::move (apply)] (int result)
+        {
+            const auto text = window->getTextEditorContents ("value").trim().replaceCharacter (',', '.');
+
+            if (safeThis != nullptr && result == 1 && text.containsAnyOf ("0123456789"))
+                apply (text.getDoubleValue());
+        }), true);
+    }
+
+    void askForClipTempo (const juce::String& clipId, double bpm)
+    {
+        askForNumber ("The clip's own tempo",
+                      "The tempo the recording was played at, in BPM. Aether plays it faster or slower so it's in time with "
+                      "the song.", bpm,
+                      [this, clipId] (double value) { edit::setClipBpm (owner.project, clipId, value); });
+    }
+
+    void askForTranspose (const juce::StringArray& clipIds, double semitones)
+    {
+        askForNumber ("Pitch", "How many semitones higher (or lower, with a minus), from -24 to 24. 12 is an octave; "
+                               "0.5 is a quarter tone.", semitones,
+                      [this, clipIds] (double value) { edit::setClipTranspose (owner.project, clipIds, value); });
     }
 
     void askForClipName (const juce::String& clipId)

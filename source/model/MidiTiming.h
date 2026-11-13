@@ -1,7 +1,11 @@
 // Aether - Copyright (C) 2026 The Aether authors. Licensed under the GNU AGPLv3 or later.
 #pragma once
 
+#include <functional>
+
 #include "MidiClips.h"
+#include "time/AudioOnsets.h"
+#include "time/Grid.h"
 #include "time/TempoDetect.h"
 
 /** Timing for MIDI played freely, without the metronome (Milestone 15).
@@ -37,16 +41,24 @@ namespace aether
 
 namespace miditiming
 {
+    /** An audio clip's hits (time/AudioOnsets), in samples of its file: given by whoever has its
+        audio (empty if it isn't loaded). Without it, audio clips have nothing to find a beat in. */
+    using AudioHits = std::function<std::vector<audioonsets::Hit> (const Clip& clip)>;
+
     /** The clips among `clipIds` the timing tools can change: MIDI clips that aren't repeating
-        patterns. */
+        patterns, and audio clips that don't loop (Milestone 17: their hits count as notes, and
+        fixes become warp markers, so the recording is stretched into time). */
     juce::StringArray usableClips (const Project& project, const juce::StringArray& clipIds);
 
-    /** The notes the clips play, as they sound: seconds from the start of the song. */
-    std::vector<tempodetect::PlayedNote> playedNotes (const Project& project, const juce::StringArray& clipIds);
+    /** The notes the clips play (and audio clips' hits), as played: seconds from the start of the
+        song. */
+    std::vector<tempodetect::PlayedNote> playedNotes (const Project& project, const juce::StringArray& clipIds,
+                                                      const AudioHits& hits = {});
 
     /** Finds the beat of the clips' notes, counting bars in the time signature where the first
         clip starts. `hintBpm` asks for a beat near that tempo (0: find it). */
-    tempodetect::Result findBeat (const Project& project, const juce::StringArray& clipIds, double hintBpm = 0.0);
+    tempodetect::Result findBeat (const Project& project, const juce::StringArray& clipIds, double hintBpm = 0.0,
+                                  const AudioHits& hits = {});
 
     struct SteadyOptions
     {
@@ -61,21 +73,22 @@ namespace miditiming
 
     /** The song's bar (0 = the first) where bar 1 of the playing will be. -1 if it can't be done. */
     int steadyStartBar (const Project& project, const juce::StringArray& clipIds, const tempodetect::Result& beat,
-                        const SteadyOptions& options);
-    int followStartBar (const Project& project, const juce::StringArray& clipIds, const tempodetect::Result& beat);
+                        const SteadyOptions& options, const AudioHits& hits = {});
+    int followStartBar (const Project& project, const juce::StringArray& clipIds, const tempodetect::Result& beat,
+                        const AudioHits& hits = {});
 
     /** The song's tempo where the first of the clips starts (as it was before a timing fix
         changed it, if one did: a new fix starts from that). */
-    double songTempoAt (const Project& project, const juce::StringArray& clipIds);
+    double songTempoAt (const Project& project, const juce::StringArray& clipIds, const AudioHits& hits = {});
 
     /** How many tempo changes the song has, counted the same way. */
-    int songTempoChanges (const Project& project, const juce::StringArray& clipIds);
+    int songTempoChanges (const Project& project, const juce::StringArray& clipIds, const AudioHits& hits = {});
 
     /** True if any of the clips remembers how it was played (an earlier timing fix). */
     bool remembersPlaying (const Project& project, const juce::StringArray& clipIds);
 
     /** True if a timing fix changed the clips or the song's tempo, and it can be put back. */
-    bool wasFixed (const Project& project, const juce::StringArray& clipIds);
+    bool wasFixed (const Project& project, const juce::StringArray& clipIds, const AudioHits& hits = {});
 }
 
 namespace edit
@@ -83,16 +96,22 @@ namespace edit
     /** Makes the clips' timing steady (see above). Returns false (changing nothing) if there's
         nothing to change or the beat wasn't found. */
     bool makeTimingSteady (Project& project, const juce::StringArray& clipIds, const tempodetect::Result& beat,
-                           const miditiming::SteadyOptions& options);
+                           const miditiming::SteadyOptions& options, const miditiming::AudioHits& hits = {});
 
     /** Makes the song's tempo follow the clips' playing (see above). */
     bool makeTempoFollow (Project& project, const juce::StringArray& clipIds, const tempodetect::Result& beat,
-                          const miditiming::FollowOptions& options);
+                          const miditiming::FollowOptions& options, const miditiming::AudioHits& hits = {});
 
     /** Puts the clips back as they were played, and the song's tempo as it was then (if the last
         fix changed it and nothing has changed it since). One undo step; false if no fix is
         remembered. */
-    bool putBackAsPlayed (Project& project, const juce::StringArray& clipIds);
+    bool putBackAsPlayed (Project& project, const juce::StringArray& clipIds, const miditiming::AudioHits& hits = {});
+
+    /** Quantizes audio clips (Milestone 17): each hit (time/AudioOnsets) moves towards the
+        song's grid by `strength` (with `swing`), through warp markers, so the recording is
+        stretched between them. The clip's start and end stay. One undo step ("Quantize"). */
+    bool quantizeAudioClips (Project& project, const juce::StringArray& clipIds, const miditiming::AudioHits& hits,
+                             GridSize grid, double strength, double swing);
 }
 
 } // namespace aether

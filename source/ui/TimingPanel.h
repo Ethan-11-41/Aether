@@ -13,7 +13,8 @@
 namespace aether::ui
 {
 
-/** The "Fix timing" window (Milestone 15): for MIDI clips played without the metronome.
+/** The "Fix timing" window (Milestone 15): for MIDI clips played without the metronome, and
+    (Milestone 17) recordings: their hits count as notes, and fixes stretch them with warp markers.
 
     It finds the beat of the clips' notes and shows it: the notes as bars (like a small piano
     roll, in the time they were played), with a line on every beat found and brighter lines where
@@ -37,7 +38,9 @@ namespace aether::ui
 class TimingPanel final : public juce::Component
 {
 public:
-    TimingPanel (const Theme& theme, Project& project, const juce::StringArray& clipIds, bool offeredAfterRecording);
+    /** `hits` gives the hits of audio clips' recordings (see miditiming::AudioHits). */
+    TimingPanel (const Theme& theme, Project& project, const juce::StringArray& clipIds, bool offeredAfterRecording,
+                 miditiming::AudioHits hits = {});
     ~TimingPanel() override;
 
     /** The window should close (after Apply or Cancel). */
@@ -94,6 +97,7 @@ private:
 
     const Theme& theme;
     Project& project;
+    miditiming::AudioHits hits;
     juce::StringArray clipIds;
     tempodetect::Result beat;
     double hint = 0.0;                 // the tempo the beat was looked for near (0: anywhere)

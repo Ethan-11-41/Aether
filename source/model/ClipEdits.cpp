@@ -1,6 +1,8 @@
 // Aether - Copyright (C) 2026 The Aether authors. Licensed under the GNU AGPLv3 or later.
 #include "ClipEdits.h"
 
+#include "Warp.h"
+
 #include <cmath>
 #include <limits>
 
@@ -284,9 +286,8 @@ bool edit::trimClipStart (Project& project, const juce::String& clipId, Tick new
         return trimMidiClipStart (project, clip, newStart, newUndoStep);
 
     const auto tempo = timeline::buildTempoMap (project);
-    const auto rate = clip.getSourceRate();
-    const auto oldStartSeconds = clip.getStartSeconds (tempo);
-    auto delta = (juce::int64) std::llround ((tempo.ticksToSeconds (std::max<Tick> (0, newStart)) - oldStartSeconds) * rate);
+    const warp::ClipTiming timing (clip);
+    auto delta = (juce::int64) std::llround (timing.playedAt (tempo, (double) std::max<Tick> (0, newStart)));
 
     // Limits: at least the minimum length, and (unless looping) only as far left as the file goes.
     delta = std::min (delta, clip.getDuration() - clips::minimumLength (clip));
@@ -312,7 +313,7 @@ bool edit::trimClipStart (Project& project, const juce::String& clipId, Tick new
     set (project, clip, ids::duration, newDuration);
 
     // Place the edge exactly where the audio now starts.
-    set (project, clip, ids::start, (juce::int64) std::max<Tick> (0, tempo.secondsToTicks (oldStartSeconds + (double) delta / rate)));
+    set (project, clip, ids::start, (juce::int64) std::max<Tick> (0, (Tick) std::llround (timing.tickAt (tempo, (double) delta))));
     limitFades (project, clip);
     return true;
 }
@@ -328,8 +329,7 @@ bool edit::trimClipEnd (Project& project, const juce::String& clipId, Tick newEn
         return trimMidiClipEnd (project, clip, newEnd, newUndoStep);
 
     const auto tempo = timeline::buildTempoMap (project);
-    const auto rate = clip.getSourceRate();
-    auto newDuration = (juce::int64) std::llround ((tempo.ticksToSeconds (newEnd) - clip.getStartSeconds (tempo)) * rate);
+    auto newDuration = (juce::int64) std::llround (warp::ClipTiming (clip).playedAt (tempo, (double) newEnd));
 
     newDuration = std::max (newDuration, clips::minimumLength (clip));
     if (! clip.isLooping())
@@ -359,9 +359,8 @@ juce::String edit::splitClip (Project& project, const juce::String& clipId, Tick
         return splitMidiClip (project, clip, position, newUndoStep);
 
     const auto tempo = timeline::buildTempoMap (project);
-    const auto rate = clip.getSourceRate();
-    const auto startSeconds = clip.getStartSeconds (tempo);
-    const auto leftLength = (juce::int64) std::llround ((tempo.ticksToSeconds (position) - startSeconds) * rate);
+    const warp::ClipTiming timing (clip);
+    const auto leftLength = (juce::int64) std::llround (timing.playedAt (tempo, (double) position));
     const auto minLength = clips::minimumLength (clip);
 
     if (leftLength < minLength || leftLength > clip.getDuration() - minLength)
@@ -375,7 +374,7 @@ juce::String edit::splitClip (Project& project, const juce::String& clipId, Tick
     const auto rightId = juce::Uuid().toString();
     Clip right (rightState);
     rightState.setProperty (ids::id, rightId, nullptr);
-    rightState.setProperty (ids::start, (juce::int64) tempo.secondsToTicks (startSeconds + (double) leftLength / rate), nullptr);
+    rightState.setProperty (ids::start, (juce::int64) std::llround (timing.tickAt (tempo, (double) leftLength)), nullptr);
     rightState.setProperty (ids::duration, clip.getDuration() - leftLength, nullptr);
     rightState.setProperty (ids::fadeIn, (juce::int64) 0, nullptr);
 

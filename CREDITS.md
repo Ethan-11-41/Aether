@@ -19,6 +19,8 @@ redistribute under the licence shown. "Shipped" means it is part of the installe
 | [FLAC](https://xiph.org/flac/) (bundled with JUCE) | 1.5.0 | BSD-3-Clause | FLAC audio files | Yes |
 | [Ogg / Vorbis](https://xiph.org/vorbis/) (bundled with JUCE) | 1.3.6 / 1.3.7 | BSD-3-Clause | Ogg Vorbis audio files | Yes |
 | [Opus](https://opus-codec.org) (bundled with JUCE) | 1.6.1 | BSD-3-Clause | Opus audio files | Yes |
+| [Signalsmith Stretch](https://github.com/Signalsmith-Audio/signalsmith-stretch) | 1.4.0 | MIT | Time-stretching and pitch-shifting (clips that follow the tempo, transposing) | Yes, built into Aether.exe |
+| [Signalsmith Linear](https://github.com/Signalsmith-Audio/linear) | 0.6.4 | MIT | The FFT that Signalsmith Stretch uses | Yes, built into Aether.exe |
 | [Catch2](https://github.com/catchorg/Catch2) | 3.16.1 | BSL-1.0 | Automated tests | No (tests only) |
 | [Inno Setup](https://jrsoftware.org/isinfo.php) | 6 or 7 | Inno Setup licence | Building Setup.exe | No (build tool) |
 | [LAME](https://lame.sourceforge.io) | 3.100 | LGPL-2.0-or-later | MP3 export | Yes, as a separate library (libmp3lame.dll) |

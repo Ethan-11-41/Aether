@@ -140,6 +140,9 @@ public:
     /** "Fix timing..." and "Quantize..." from a MIDI clip's menu, for these clips (Milestone 15). */
     std::function<void (const juce::StringArray& clipIds)> onFixTiming, onQuantize;
 
+    /** True while a clip's stretched audio is being made (shown on the clip). */
+    std::function<bool (const juce::String& clipId)> isStretching;
+
     /** Makes an empty one-bar MIDI clip on a MIDI track, at the bar `position` is in, and opens it
         in the piano roll. Returns its id (empty if the row isn't a MIDI track). */
     juce::String createMidiClipAt (int row, Tick position);

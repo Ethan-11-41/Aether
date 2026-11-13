@@ -15,6 +15,21 @@ FetchContent_Declare(JUCE
     GIT_PROGRESS   TRUE)
 FetchContent_MakeAvailable(JUCE)
 
+# Signalsmith Stretch: time-stretching and pitch-shifting (MIT licence), with the Signalsmith
+# Linear FFT library it uses (MIT licence). Both are header-only, so they're only downloaded here
+# (no CMake build of theirs is added): source/dsp/TimeStretch.cpp includes them.
+FetchContent_Declare(signalsmith_linear
+    GIT_REPOSITORY https://github.com/Signalsmith-Audio/linear.git
+    GIT_TAG        0.6.4
+    GIT_SHALLOW    TRUE
+    SOURCE_SUBDIR  aether-headers-only)
+FetchContent_Declare(signalsmith_stretch
+    GIT_REPOSITORY https://github.com/Signalsmith-Audio/signalsmith-stretch.git
+    GIT_TAG        1.4.0
+    GIT_SHALLOW    TRUE
+    SOURCE_SUBDIR  aether-headers-only)
+FetchContent_MakeAvailable(signalsmith_linear signalsmith_stretch)
+
 # Catch2: unit-test framework (Boost Software Licence 1.0). Only needed for the tests.
 if(AETHER_BUILD_TESTS)
     FetchContent_Declare(Catch2

@@ -15,6 +15,7 @@
 #include "model/ClipEdits.h"
 #include "model/EditCommands.h"
 #include "model/TimelineEdits.h"
+#include "model/Warp.h"
 
 using namespace aether;
 using namespace aether::dsp;
@@ -263,4 +264,34 @@ TEST_CASE ("A sound effect in the song can be swapped, made longer or made again
     CHECK (soundEffectOf (project, plain) == nullptr);
     CHECK (changeSoundEffect (project, location, plain, "impact", 1, rate).isNotEmpty());
     CHECK (changeSoundEffect (project, location, id, "no such effect", 1, rate).isNotEmpty());
+}
+
+TEST_CASE ("Sound effects stay in their bars when the tempo changes", "[soundfx][import][warp]")
+{
+    juce::ScopedJuceInitialiser_GUI juceInit;
+    TempFolder temp;
+    const ProjectLocation location (temp.folder.getChildFile ("Song.aether"));
+    Project project;   // 120 BPM
+    const auto fx = edit::addTrack (project, TrackKind::audio, -1, true, "FX").getId();
+    const auto bar = 4 * q;
+
+    const auto r = addSoundEffect (project, location, "riser-noise", 2, fx, 4 * bar, rate);
+    REQUIRE (r.problem.isEmpty());
+    auto clip = clips::findClip (project, r.clipId);
+    CHECK (warp::followsTempo (clip));
+    CHECK_FALSE (warp::needsStretching (clip, timeline::buildTempoMap (project)));
+
+    // Slower: it's stretched to still rise into bar 5.
+    edit::setTempo (project, 0, 90.0);
+    clip = clips::findClip (project, r.clipId);
+    CHECK (clip.getEnd (timeline::buildTempoMap (project)) == 4 * bar);
+    CHECK (warp::needsStretching (clip, timeline::buildTempoMap (project)));
+
+    // Made again at 90: no stretching needed, still into bar 5. One undo step for all of it.
+    REQUIRE (changeSoundEffect (project, location, r.clipId, "riser-noise", 2, rate).isEmpty());
+    clip = clips::findClip (project, r.clipId);
+    CHECK (clip.getEnd (timeline::buildTempoMap (project)) == 4 * bar);
+    CHECK_FALSE (warp::needsStretching (clip, timeline::buildTempoMap (project)));
+    project.getUndoManager().undo();
+    CHECK (warp::needsStretching (clips::findClip (project, r.clipId), timeline::buildTempoMap (project)));
 }

@@ -284,6 +284,21 @@ Nothing new in the file. Sound effects are ordinary audio clips playing WAV file
 
 Older versions of Aether keep these when they open and save a song, and ignore them.
 
+### Added in Aether 0.18.0 (still format version 1)
+
+| Node | Property | Meaning |
+|---|---|---|
+| (audio clip) | `followTempo` | `true`: the clip is placed in beats and stretched to follow the song's tempo. Missing or `false`: it plays at its own speed, as before. |
+| | `warpBpm` | The recording's own tempo (BPM), where no warp marker says otherwise. |
+| | `transpose` | Pitch shift in semitones (-24 to 24, to the cent). Missing: none. |
+| `WarpMarker` (inside an audio clip) | `sample`, `tick` | A moment of the clip's file (sample) pinned to a beat position (ticks; only the differences between markers matter). Between markers the recording is stretched evenly; outside them it plays at `warpBpm`. |
+| `PlayedTiming` (inside an audio clip whose timing was fixed) | `origin`, `offset`, `duration` | Where the clip started, and which part of its file it played, before the first fix. |
+| | `fixedStart` | Where the fix put the clip; if it has moved since, the record is ignored. |
+| | `tempoBefore`, `tempoAfter` | As for MIDI clips (0.17.1). |
+| | `followTempo`, `warpBpm`, `warpMarkers` | Its warp before the first fix (`warpMarkers`: `"sample:tick ..."`), for putting it back. |
+
+Older versions of Aether keep these but play the clips at their own speed and pitch.
+
 ## Rules for changing the format
 
 1. Never rename or reuse a node type or property name (see `source/model/Ids.h`).

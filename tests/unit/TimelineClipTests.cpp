@@ -9,6 +9,7 @@
 #include "model/EditCommands.h"
 #include "model/MidiClips.h"
 #include "model/TimelineEdits.h"
+#include "model/Warp.h"
 #include "ui/TimelineComponent.h"
 
 using namespace aether;
@@ -304,4 +305,40 @@ TEST_CASE ("Double-clicking a MIDI clip opens it; double-clicking an empty MIDI 
     // An audio track's empty space: nothing is made.
     lanes->mouseDoubleClick (event ({ 40.0f * 20.0f, 20.0f }));
     CHECK (opened.size() == 2);
+}
+
+TEST_CASE ("On a clip that follows the tempo, double-clicking adds a warp marker, and it can be dragged", "[ui][timeline][warp]")
+{
+    Fixture f;
+    f.timeline->setVisible (true);
+    REQUIRE (edit::setFollowTempo (f.project, { f.clipA }, true));
+
+    auto* lanes = f.timeline->getComponentAt (500, ui::TimelineComponent::headerHeight + 10);
+    REQUIRE (lanes != nullptr);
+
+    auto event = [lanes] (juce::Point<float> at, juce::Point<float> down)
+    {
+        return juce::MouseEvent (juce::Desktop::getInstance().getMainMouseSource(), at, juce::ModifierKeys::leftButtonModifier,
+                                 juce::MouseInputSource::defaultPressure, 0.0f, 0.0f, 0.0f, 0.0f, lanes, lanes,
+                                 juce::Time::getCurrentTime(), down, juce::Time::getCurrentTime(), 1, at != down);
+    };
+
+    // Clip A: bar 2 (x 160) for 4 beats, 40 pixels per beat. Double-click its waveform at beat
+    // 5.5 (x 220): 1.5 beats in, 0.75 s into the recording.
+    lanes->mouseDoubleClick (event ({ 220.0f, 40.0f }, { 220.0f, 40.0f }));
+    auto markers = warp::markersOf (f.clip (f.clipA));
+    REQUIRE (markers.size() == 2);   // the clip's start, and the new one
+    CHECK (markers[1].sample == 36000);
+
+    // Drag its handle (at the top of the waveform) half a beat later: beat 6.
+    const juce::Point<float> handle { 220.0f, 22.0f };
+    lanes->mouseDown (event (handle, handle));
+    lanes->mouseDrag (event ({ 240.0f, 22.0f }, handle));
+    lanes->mouseUp (event ({ 240.0f, 22.0f }, handle));
+
+    CHECK (f.project.getUndoManager().getUndoDescription() == "Move warp marker");
+    const warp::ClipTiming timing (f.clip (f.clipA));
+    CHECK (std::llround (timing.tickAt (timeline::buildTempoMap (f.project), 36000.0)) == 6 * q);
+    CHECK (f.clip (f.clipA).getStart() == 4 * q);   // the clip itself didn't move
+    CHECK (f.clip (f.clipA).getEnd (timeline::buildTempoMap (f.project)) == 8 * q + q / 2);
 }

@@ -873,6 +873,20 @@ void TrackListComponent::showContextMenu (const juce::String& trackId)
         menu.addSubMenu ("Input (" + recording::describeInput (current, stereo) + ")", inputs);
         menu.addItem (track.isArmed() ? "Disarm (don't record)" : "Arm for recording",
                       whenStillOpen ([targets, armed = ! track.isArmed()] (TrackListComponent& list) { edit::setArmed (list.project, targets, armed); }));
+
+        // Timing of recordings (Milestone 17): all the clips on the track (or the selected tracks).
+        juce::StringArray recordings;
+        for (const auto& t : targets)
+            for (const auto& clip : clips::clipsOnTrack (project.findTrack (t).getState()))
+                if (! clip.isMidi())
+                    recordings.add (clip.getId());
+
+        const auto onTracks = targets.size() > 1 ? juce::String (" on the selected tracks") : juce::String (" on this track");
+        menu.addSeparator();
+        menu.addItem ("Fix the timing of the recordings" + onTracks + "...", ! miditiming::usableClips (project, recordings).isEmpty(), false,
+                      whenStillOpen ([recordings] (TrackListComponent& list) { if (list.onFixTiming) list.onFixTiming (recordings); }));
+        menu.addItem ("Quantize the recordings" + onTracks + "...", ! recordings.isEmpty(), false,
+                      whenStillOpen ([recordings] (TrackListComponent& list) { if (list.onQuantize) list.onQuantize (recordings); }));
     }
 
     // Where the sound goes: the master, or a bus.

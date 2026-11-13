@@ -9,7 +9,7 @@ A free, open-source digital audio workstation (DAW) for Windows: record, arrange
 music, in the spirit of GarageBand, FL Studio, LMMS and Reaper. Beginner-friendly on the surface,
 with deep customisation underneath.
 
-> **Status: early development (Milestone 16 of 32; Phase 1, the core, is complete).** Aether
+> **Status: early development (Milestone 17 of 32; Phase 1, the core, is complete).** Aether
 > can create, save and open projects with full undo/redo, autosave and crash recovery; play with
 > tempo changes, time signatures, looping and a metronome; record audio (with latency
 > compensation, punch in/out and loop takes) and MIDI from a keyboard (or the on-screen one)

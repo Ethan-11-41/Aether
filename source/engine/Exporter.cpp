@@ -86,7 +86,10 @@ juce::Result renderProject (const Project& project, const ProjectLocation& locat
     auto snapshot = buildTimelineSnapshot (project, sampleRate, [&cache, &location] (const juce::String& file)
     {
         return cache.getAudio (resolveClipFile (location, file));
-    }, &resources, {}, {}, location.getFolder());
+    }, &resources, {}, {}, location.getFolder(), [] (const StretchJob& job)
+    {
+        return job.render();   // clips that follow the tempo, stretched now (export waits for them)
+    });
 
     snapshot->loopEnabled = false;   // play straight through
 

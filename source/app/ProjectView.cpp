@@ -1,6 +1,9 @@
 // Aether - Copyright (C) 2026 The Aether authors. Licensed under the GNU AGPLv3 or later.
 #include "ProjectView.h"
 
+#include "model/Warp.h"
+#include "time/AudioOnsets.h"
+
 #include "AppCommands.h"
 
 #include <map>
@@ -85,6 +88,30 @@ ProjectView::ProjectView (AppContext& context, Project& projectToShow)
     timeline->onEditNotes = [this] (const juce::String& clipId) { editNotes (clipId); };
     timeline->onOpenPianoRoll = [this] (const juce::String& clipId) { showPianoRoll (clipId); };
     timeline->onFixTiming = [this] (const juce::StringArray& clipIds) { showTimingWindow (clipIds); };
+
+    // The hits in recordings (for timing and quantize), found once per file.
+    audioHits = [this, found = std::make_shared<std::map<juce::String, std::vector<audioonsets::Hit>>>()] (const Clip& clip)
+    {
+        const auto file = resolveClipFile (ctx.session.getLocation(), clip.getFile());
+
+        if (const auto it = found->find (file.getFullPathName()); it != found->end())
+            return it->second;
+
+        const auto audio = ctx.audioFiles.getAudio (file);
+
+        if (audio == nullptr)
+            return std::vector<audioonsets::Hit>();   // still loading
+
+        // Found at the engine's rate; counted in the file's own samples.
+        auto hits = audioonsets::detect (audio->samples, audio->sampleRate);
+        const auto ratio = clip.getSourceRate() / audio->sampleRate;
+        for (auto& h : hits)
+            h.sample = (juce::int64) std::llround ((double) h.sample * ratio);
+
+        found->emplace (file.getFullPathName(), hits);
+        return hits;
+    };
+    timeline->isStretching = [this] (const juce::String& clipId) { return timelineSync.getStretchCache().isPreparing (clipId); };
     timeline->onQuantize = [this] (const juce::StringArray& clipIds)
     {
         showQuantizePanel (clipIds, juce::Rectangle<int> (1, 1) + juce::Desktop::getMousePosition());
@@ -135,6 +162,11 @@ ProjectView::ProjectView (AppContext& context, Project& projectToShow)
                                            });
     recorder->onFinished = [this] (const juce::StringArray& clipIds)
     {
+        // Recorded with the metronome: in the song's bars, so it follows the tempo if that
+        // changes later (part of the same undo step as the recording).
+        if (recordingWithMetronome)
+            edit::setFollowTempo (project, clipIds, true, false);
+
         if (! clipIds.isEmpty())
             timeline->selectClips (clipIds);
 
@@ -397,6 +429,13 @@ void ProjectView::timerCallback()
     {
         midiLight.lit = lit;
         midiLight.repaint();
+    }
+
+    // Clips being stretched say so (until they're ready).
+    if (const auto stretching = timelineSync.getStretchCache().isBusy(); stretching != wasStretching)
+    {
+        wasStretching = stretching;
+        timeline->repaint();
     }
 
     if (++tooltipRefresh % 60 == 0)
@@ -668,8 +707,8 @@ void ProjectView::showTimingWindow (const juce::StringArray& clipIds)
 
     if (usable.isEmpty())
     {
-        showProblem ("Fix timing", "Choose a MIDI clip you played (right-click it), or select some. Repeating patterns "
-                                   "(like drum patterns) are already in time.");
+        showProblem ("Fix timing", "Choose a MIDI clip or a recording you played (right-click it), or select some. Repeating "
+                                   "patterns (like drum patterns) and looping clips are already in time.");
         return;
     }
 
@@ -692,7 +731,8 @@ void ProjectView::showTimingWindow (const juce::StringArray& clipIds)
     };
 
     auto window = std::make_unique<PianoRollWindow> (ctx.theme.background, close);
-    auto panel = std::make_unique<ui::TimingPanel> (ctx.theme, project, usable, ctx.settings.get().getBoolValue (offerTimingKey, false));
+    auto panel = std::make_unique<ui::TimingPanel> (ctx.theme, project, usable, ctx.settings.get().getBoolValue (offerTimingKey, false),
+                                                    audioHits);
     timingPanel = panel.get();
     timingPanel->onClose = close;
     timingPanel->onOfferChanged = [safeThis] (bool offer)
@@ -730,44 +770,52 @@ void ProjectView::offerTimingAfterRecording (const juce::StringArray& clipIds)
 
 void ProjectView::showQuantizePanel (const juce::StringArray& clipIds, juce::Rectangle<int> screenArea)
 {
-    juce::StringArray midiClips;
+    juce::StringArray midiClips, recordings;
     for (const auto& id : clipIds)
-        if (const auto clip = clips::findClip (project, id); clip.isValid() && clip.isMidi())
-            midiClips.add (id);
+        if (const auto clip = clips::findClip (project, id); clip.isValid())
+            (clip.isMidi() ? midiClips : recordings).add (id);
 
-    if (midiClips.isEmpty())
+    if (midiClips.isEmpty() && recordings.isEmpty())
     {
-        showProblem ("Quantize", "Select one or more MIDI clips (or a MIDI track) first.");
+        showProblem ("Quantize", "Select one or more clips (or a track) first.");
         return;
     }
 
     if (screenArea.isEmpty())
         screenArea = juce::Rectangle<int> (timeline->getScreenX() + timeline->getWidth() / 2, timeline->getScreenY() + 40, 1, 1);
 
-    const auto what = midiClips.size() == 1 ? "\"" + clips::findClip (project, midiClips[0]).getName() + "\""
-                                            : juce::String (midiClips.size()) + " clips";
+    const auto count = midiClips.size() + recordings.size();
+    const auto what = count == 1 ? "\"" + clips::findClip (project, midiClips.isEmpty() ? recordings[0] : midiClips[0]).getName() + "\""
+                                 : juce::String (count) + " clips";
     juce::Component::SafePointer<ProjectView> safeThis (this);
 
     auto panel = std::make_unique<ui::QuantizePanel> (
         ctx.theme, ui::QuantizeSettings::fromString (ctx.settings.get().getValue (quantizeKey)), what,
-        [safeThis, midiClips] (const ui::QuantizeSettings& settings)
+        [safeThis, midiClips, recordings] (const ui::QuantizeSettings& settings)
         {
             if (safeThis == nullptr)
                 return;
 
             safeThis->ctx.settings.get().setValue (quantizeKey, settings.toString());
-            edit::quantizeClips (safeThis->project, midiClips, settings.grid, settings.strength, settings.swing, settings.ends);
+
+            if (! midiClips.isEmpty())
+                edit::quantizeClips (safeThis->project, midiClips, settings.grid, settings.strength, settings.swing, settings.ends);
+
+            // Recordings: their hits, through warp markers (one more undo step if there were both).
+            if (! recordings.isEmpty())
+                edit::quantizeAudioClips (safeThis->project, recordings, safeThis->audioHits, settings.grid, settings.strength,
+                                          settings.swing);
         });
 
     juce::CallOutBox::launchAsynchronously (std::move (panel), screenArea, nullptr);
 }
 
-juce::StringArray ProjectView::midiClipsToEdit() const
+juce::StringArray ProjectView::clipsToTime() const
 {
     juce::StringArray result;
 
     for (const auto& id : timeline->getSelectedClips())
-        if (const auto clip = clips::findClip (project, id); clip.isValid() && clip.isMidi())
+        if (const auto clip = clips::findClip (project, id); clip.isValid())
             result.add (id);
 
     if (! result.isEmpty())
@@ -775,8 +823,7 @@ juce::StringArray ProjectView::midiClipsToEdit() const
 
     for (const auto& trackId : trackList.getSelectedTrackIds())
         for (const auto& clip : clips::clipsOnTrack (project.findTrack (trackId).getState()))
-            if (clip.isMidi())
-                result.add (clip.getId());
+            result.add (clip.getId());
 
     return result;
 }

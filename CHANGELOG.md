@@ -6,6 +6,36 @@ follow [Semantic Versioning](https://semver.org/) (0.x while Aether is in early 
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-11-13 - Milestone 17: stretching and audio timing
+
+### Added
+- **Audio that follows the tempo.** Right-click an audio clip and tick **Follow the song's
+  tempo**: it stays in its bars when the tempo changes, played faster or slower without its pitch
+  changing (time-stretching, by Signalsmith Stretch). It says "in time" on the clip. Its own tempo
+  is in the menu (**Its own tempo**: twice as fast, half as fast, or type it).
+  - **Recordings made with the metronome** follow the tempo by themselves.
+  - **Loops whose name says their tempo** ("Drums 90 BPM.wav", "Funk_Loop_96_Am.wav") follow it
+    when imported, so a 90 BPM loop plays in time in a 120 BPM song.
+  - **Sound effects** follow it too: change the tempo and a riser still rises into its bar.
+  - The stretched sound is made in the background ("stretching..." on the clip for a moment;
+    meanwhile it plays as it was). Export waits for it.
+- **Warp markers**: on a clip that follows the tempo, double-click its waveform (or right-click >
+  **Add a warp marker here**) to pin that moment of the recording; drag the marker's small
+  triangle to move that moment to another beat, and the audio either side stretches to fit.
+  Right-click a marker to remove it.
+- **Fix timing for recordings**: right-click an audio clip (or an audio track) > **Fix timing**.
+  Aether finds the hits in the recording (drums, plucked and struck notes, strums), then the same
+  window as for MIDI: make it steady (each beat stretched onto the grid) or make the song's tempo
+  follow it (the recording stays exactly as played). As with MIDI, each choice starts from how you
+  played, and **Put it back as I played it** undoes them.
+- **Quantize recordings** (Q, or right-click > **Quantize**): each hit moves towards the grid
+  (with strength and swing), the recording stretched between them.
+- **Pitch** for audio clips: right-click > **Pitch**: up or down a semitone or an octave, or type
+  any amount (to the cent), keeping the speed. It says "pitch +3" on the clip.
+
+### Changed
+- Third-party code: Signalsmith Stretch and Signalsmith Linear (both MIT licence), see CREDITS.md.
+
 ## [0.17.1] - 2026-11-13
 
 From your notes on the Kawai, timing and sound effects.

@@ -82,14 +82,9 @@ public:
     bool hasFades() const                    { return getFadeIn() > 0 || getFadeOut() > 0; }
     double getStartSeconds (const TempoMap& tempo) const   { return tempo.ticksToSeconds (getStart()); }
 
-    /** Where the clip ends on the timeline. */
-    Tick getEnd (const TempoMap& tempo) const
-    {
-        if (isMidi())
-            return getStart() + getLengthTicks();
-
-        return tempo.secondsToTicks (getStartSeconds (tempo) + getDurationSeconds());
-    }
+    /** Where the clip ends on the timeline (for audio clips, see warp::ClipTiming: a clip
+        following the tempo ends on a beat, the others after their duration in seconds). */
+    Tick getEnd (const TempoMap& tempo) const;
 
     /** The track this clip is on (its "Track" node). */
     juce::ValueTree getTrackState() const    { return state.getParent().getParent(); }

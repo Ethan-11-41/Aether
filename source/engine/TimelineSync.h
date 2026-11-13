@@ -10,6 +10,7 @@
 #include "AudioEngine.h"
 #include "AudioFileCache.h"
 #include "MixerResources.h"
+#include "StretchCache.h"
 #include "TimelineSnapshot.h"
 #include "io/ProjectFiles.h"
 #include "model/Project.h"
@@ -20,6 +21,10 @@ namespace aether
 /** Finds the decoded audio for a clip's file (a path relative to the project folder).
     Returns null if it isn't ready yet. */
 using AudioResolver = std::function<std::shared_ptr<const AudioData> (const juce::String& relativePath)>;
+
+/** Gives the stretched audio for a clip that needs stretching (see StretchCache), or null if
+    there's none yet (it then plays unstretched for a moment). */
+using StretchResolver = std::function<std::shared_ptr<const AudioData> (const StretchJob& job)>;
 
 /** Playing one part over and over while editing it (the drum editor's Space): the range loops
     instead of the project's loop, and (with `onlyThisTrack`) only that track is heard, as if it
@@ -44,13 +49,15 @@ struct PartLoop
     `resources` keeps the mixer's working objects (effect tails, fades) from one build to the
     next; without it, everything starts afresh. With no sample rate, only the tempo and loop are
     filled in. `partLoop`, if active, replaces the loop (and the solos), see PartLoop.
-    `projectFolder` is where samplers' SFZ files with relative paths are found. */
+    `projectFolder` is where samplers' SFZ files with relative paths are found. `stretcher` gives
+    the stretched audio of clips that need it (without it, they play unstretched). */
 std::unique_ptr<TimelineSnapshot> buildTimelineSnapshot (const Project& project, double sampleRate = 0.0,
                                                          const AudioResolver& resolver = {},
                                                          MixerResources* resources = nullptr,
                                                          const juce::String& focusedTrackId = {},
                                                          const PartLoop& partLoop = {},
-                                                         const juce::File& projectFolder = {});
+                                                         const juce::File& projectFolder = {},
+                                                         const StretchResolver& stretcher = {});
 
 /** Keeps the audio engine up to date with a project: whenever the tempo, loop or clips change,
     or an audio file finishes loading, a new TimelineSnapshot is built and handed to the engine.
@@ -88,6 +95,10 @@ public:
         the timer every few seconds; public for the tests). `now` is in seconds. */
     void releaseUnusedAudio (double now, double graceSeconds = 20.0);
 
+    /** The stretched audio of clips that follow the tempo or are transposed (e.g. to show
+        which are still being prepared). */
+    StretchCache& getStretchCache() noexcept   { return stretchCache; }
+
     /** Loops one part on its own (or with the song) until set back to an empty PartLoop. */
     void setPartLoop (const PartLoop& loop)   { if (! (partLoop == loop)) { partLoop = loop; update(); } }
     const PartLoop& getPartLoop() const noexcept   { return partLoop; }
@@ -111,6 +122,9 @@ private:
     PartLoop partLoop;
     std::set<juce::String> filesInUse;                  // asked for by the latest build
     std::map<juce::String, double> filesLastUsed;       // and when each file was last asked for
+    StretchCache stretchCache;
+    std::set<juce::String> stretchesInUse;              // the same, for stretched clips
+    std::map<juce::String, double> stretchesLastUsed;
     int timerTicks = 0;
 };
 

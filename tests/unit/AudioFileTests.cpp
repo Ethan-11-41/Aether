@@ -13,6 +13,8 @@
 #include "engine/Resampler.h"
 #include "io/AudioImport.h"
 #include "model/EditCommands.h"
+#include "model/TimelineEdits.h"
+#include "model/Warp.h"
 
 using namespace aether;
 using Catch::Matchers::WithinAbs;
@@ -231,6 +233,16 @@ TEST_CASE ("Importing copies files into the project and makes clips, in one undo
     // Importing the same file again doesn't overwrite the first copy.
     importAudioFiles (project, location, cache.getFormats(), { kick }, audioTrack, 0);
     CHECK (location.getAudioFolder().getNumberOfChildFiles (juce::File::findFiles, "Kick*.wav") == 2);
+    CHECK_FALSE (warp::followsTempo (clips::findClip (project, result.clipIds[0])));   // (not a loop)
+
+    // A loop whose name says its tempo follows the song's (2 bars at 96 BPM: 5 seconds).
+    const auto loop = writeWav (outside.getChildFile ("Funk 96 BPM.wav"), 48000.0, 1, 240000, [] (int, int i) { return sine (80.0, 48000.0, i); });
+    const auto loopResult = importAudioFiles (project, location, cache.getFormats(), { loop }, audioTrack, 0);
+    REQUIRE (loopResult.clipIds.size() == 1);
+    const auto loopClip = clips::findClip (project, loopResult.clipIds[0]);
+    CHECK (warp::followsTempo (loopClip));
+    CHECK (warp::bpmOf (loopClip) == 96.0);
+    CHECK (loopClip.getEnd (timeline::buildTempoMap (project)) == 8 * ticksPerQuarter);   // 2 bars at the song's 120 too
 }
 
 TEST_CASE ("Reversing a clip plays the same part of its recording backwards", "[audio][import]")

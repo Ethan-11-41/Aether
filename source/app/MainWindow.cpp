@@ -1123,11 +1123,11 @@ bool MainContent::perform (const InvocationInfo& invocation)
             return true;
 
         case commands::quantizeClips:
-            if (projectView != nullptr) projectView->showQuantizePanel (projectView->midiClipsToEdit());
+            if (projectView != nullptr) projectView->showQuantizePanel (projectView->clipsToTime());
             return true;
 
         case commands::fixTiming:
-            if (projectView != nullptr) projectView->showTimingWindow (projectView->midiClipsToEdit());
+            if (projectView != nullptr) projectView->showTimingWindow (projectView->clipsToTime());
             return true;
         case commands::moveTrackUp:        moveSelectedTrack (-1); return true;
         case commands::moveTrackDown:      moveSelectedTrack (+1); return true;

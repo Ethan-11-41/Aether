@@ -265,7 +265,7 @@ bool edit::clearRange (Project& project, const juce::String& trackId, Tick from,
     for (const auto& clip : clips::clipsOnTrack (track.getState()))
     {
         const auto start = clip.getStartSeconds (tempo);
-        const auto end = clip.isMidi() ? tempo.ticksToSeconds (clip.getEnd (tempo)) : start + clip.getDurationSeconds();
+        const auto end = tempo.ticksToSeconds (clip.getEnd (tempo));
 
         if (end <= fromSeconds || start >= toSeconds)
             continue;   // not in the range

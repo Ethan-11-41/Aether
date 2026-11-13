@@ -1,6 +1,8 @@
 // Aether - Copyright (C) 2026 The Aether authors. Licensed under the GNU AGPLv3 or later.
 #include "Clip.h"
 
+#include "Warp.h"
+
 #include <cmath>
 #include <numbers>
 
@@ -41,6 +43,14 @@ float fadeShape (FadeCurve curve, double fraction) noexcept
     }
 
     return (float) t;
+}
+
+Tick Clip::getEnd (const TempoMap& tempo) const
+{
+    if (isMidi())
+        return getStart() + getLengthTicks();
+
+    return warp::ClipTiming (*this).end (tempo);
 }
 
 } // namespace aether

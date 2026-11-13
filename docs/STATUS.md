@@ -4,7 +4,7 @@ An honest list of what works. Updated at the end of every milestone.
 
 **Legend:** ✅ Working · 🟡 Partial · 🧪 Stub/placeholder · ⬜ Not started
 
-Current version: **0.17.1** (Milestone 16: sound effects and cinematic sounds, with fixes)
+Current version: **0.18.0** (Milestone 17: stretching and audio timing)
 
 ## Milestone 0: skeleton and build pipeline
 
@@ -205,7 +205,7 @@ Current version: **0.17.1** (Milestone 16: sound effects and cinematic sounds, w
 | Held notes on strings, winds, brass and organ last as long as the key is held | ✅ | Loops made by the pack builder; a faint repeat may be audible on some notes every two seconds. Tell me which. |
 | Your own sounds: one recording (pitch found automatically), several or a folder (laid out by note names), SFZ instruments | ✅ | SFZ: the common opcodes (keys, velocities, round robin, tuning, volume, pan, loops, envelope). Release samples, crossfades and filters in SFZ files are left out. |
 | 808 bass lines from drum pads, with Slide | ✅ | Since 0.13.1 "Play it as notes..." moves the pad's hits onto the new track and opens the piano roll. |
-| Recordings played higher or lower are faster or slower (and shorter or longer) | ✅ (by design) | That's how samplers (and 808s) work. Changing pitch without changing speed is time-stretching, planned for M17. |
+| Recordings played higher or lower are faster or slower (and shorter or longer) | ✅ (by design) | That's how samplers (and 808s) work. Audio clips can be transposed without changing speed since M17 (the sampler's recordings still play like a sampler). |
 | Recordings let go when no track uses them | ✅ | After 20 seconds. |
 | Editing zones by hand (dragging key ranges) | ⬜ | Recordings are laid out by their names or the SFZ file. Tell me if you need it. |
 | Streaming long recordings from disk | ⬜ | Everything is held in memory (see above). |
@@ -251,13 +251,13 @@ Current version: **0.17.1** (Milestone 16: sound effects and cinematic sounds, w
 | Picture of the playing with the beats and bars found; half / twice as fast; a tempo you type; moving bar 1 | ✅ | |
 | Make it steady (at the tempo played or the song's), with a strength | ✅ | Within a beat, notes keep their place (Quantize tightens that too). Choosing the tempo played gives the whole song that one tempo (its tempo changes are replaced). |
 | Make the song's tempo follow the playing, every bar or every beat | ✅ | The notes keep their exact timing. Before the playing, one tempo change (a "lead-in") makes bar 1 of the playing start on a bar line; that empty bar can be fast or slow (you only notice it in the tempo lane and the metronome). If you started playing within about a quarter of a second of the song's start, bar 1 starts at the song's start instead, and its first beat is that little bit longer. |
-| Several clips fixed together (e.g. piano and bass) | ✅ | Other clips keep their place in the bars, as with any tempo change. Audio clips don't follow tempo changes until M17. |
+| Several clips fixed together (e.g. piano and bass) | ✅ | Other clips keep their place in the bars, as with any tempo change (audio clips too, if they follow the tempo: M17). Recordings can be fixed together with MIDI clips. |
 | Music with two good answers | 🟡 | A slow ballad with fast arpeggios may be found at twice its tempo, and music in 6/8 or 12/8 at the speed of two eighth notes: use Half as fast, or type the tempo. Bar 1 is guessed from bass notes and long chords; check it in the picture. |
 | Each fix starting from how it was played; "Put it back as I played it" | ✅ | Since 0.17.1. The clips remember when each note was played and the song's tempo before the fix (saved with the song). A clip moved by hand afterwards is taken as it is now; notes moved by hand keep their place among the others. |
 | Offering it after recording without the metronome | ✅ | Off at first: tick the box in the window. |
 | Quantize whole clips or tracks from the timeline (Q, grid, strength, swing, note ends) | ✅ | On the song's grid (bars from their start), so clips that don't start on a grid line still end up on it. |
 | Repeating patterns (drum patterns) | ⬜ (by design) | They're already in time: Fix timing leaves them out (Quantize works on them). |
-| Tempo and timing of recorded audio | ⬜ | M17 (with time-stretching). |
+| Tempo and timing of recorded audio | ✅ | Since 0.18.0: see Milestone 17. |
 
 ## Milestone 16: sound effects and cinematic sounds
 
@@ -266,8 +266,20 @@ Current version: **0.17.1** (Milestone 16: sound effects and cinematic sounds, w
 | Sound effects from the timeline (right-click a lane > Add a sound effect here) | ✅ | Riser (noise), Riser (synth), Reverse swell (end on the nearest bar line, 1 to 8 bars at the song's tempo), Downlifter, Impact, Boom, Whoosh. Made by Aether's code, saved once in the song's Audio/Sound effects folder. Tested automatically on their sound (rising, falling, clean ends) and placement; how they sound to you is in the M16 checklist. |
 | Cinematic drum kit and 13 cinematic drum sounds | ✅ | Taiko, big toms, big snare, stomp, impact, boom, metal hit, gong, ticker, reverse cymbal, whoosh. |
 | Swapping a sound effect for another, changing its length, making it again at the song's tempo | ✅ | Since 0.17.1, from the clip's right-click menu; it stays on its bar line. |
-| A riser that changes length by itself when the tempo changes | ⬜ | It's an audio clip made at the tempo it was added at: after a tempo change, right-click it > Make it again at the song's tempo (audio that follows the tempo comes with M17). |
+| A riser that changes length by itself when the tempo changes | ✅ | Since 0.18.0 sound effects follow the tempo (stretched). Make it again at the song's tempo gives a fresh one, unstretched. |
 | More effects (braams, hits with pitch, glitches, vinyl stops...) | ⬜ | Tell me which you'd use; recorded sounds come with the sound library (M21). |
+
+## Milestone 17: stretching and audio timing
+
+| Feature | Status | Notes |
+|---|---|---|
+| Time-stretching and pitch-shifting | ✅ | Signalsmith Stretch (MIT). Tested automatically: pitch kept when stretched, pitch shifted when transposed, every hit within 6 ms of where it should be, the same result every time. It sounds best for modest changes (about 0.75 to 1.5 times the speed); much bigger changes smear drum hits a little. |
+| Audio clips that follow the tempo (stay in their bars) | ✅ | Clip menu. Recordings made with the metronome, loops with a tempo in their name, and sound effects follow it by themselves. Made in the background; a long clip takes a moment (it plays unstretched meanwhile). Held in memory, like the recordings. |
+| Warp markers you can drag | ✅ | On clips that follow the tempo and don't loop. A looping clip follows the tempo through its own tempo only. |
+| Transposing audio clips | ✅ | Up to 2 octaves either way. Voices shifted a long way sound unnatural (no formant correction yet); pitch correction is M18. |
+| Finding the beat of a recording; Fix timing (steady or follow) for recordings | ✅ | Hits found automatically (tested on drums and plucked notes). Works best on clear hits (drums, guitar, piano); slow pads and vocals have few clear hits, so the beat may not be found. |
+| Quantize recordings | ✅ | Every clear hit moves towards the grid. |
+| The tempo of a loop without one in its name | 🟡 | Not guessed: type it (clip menu > Its own tempo), or use Fix timing. |
 
 ## Everything else
 

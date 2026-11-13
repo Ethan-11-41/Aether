@@ -8,6 +8,7 @@
 #include "model/EditCommands.h"
 #include "model/MidiClips.h"
 #include "model/TimelineEdits.h"
+#include "model/Warp.h"
 
 namespace aether
 {
@@ -109,6 +110,14 @@ ImportResult importAudioFiles (Project& project, const ProjectLocation& location
         {
             result.clipIds.add (clipId);
             result.trackIds.add (clipTrack);
+
+            // A loop whose name says its tempo ("Drums 90 BPM") plays in time with the song.
+            if (const auto bpm = warp::bpmFromFileName (info.name, (double) info.lengthInSamples / info.sampleRate); bpm > 0.0)
+            {
+                auto clip = clips::findClip (project, clipId).getState();
+                clip.setProperty (ids::warpBpm, bpm, &undo);
+                clip.setProperty (ids::followTempo, true, &undo);
+            }
         }
     }
 
@@ -284,6 +293,18 @@ juce::StringArray reverseClips (Project& project, const ProjectLocation& locatio
             state.removeProperty (ids::takeLength, &undo);
         }
 
+        // Warp markers run the other way too: sample s of the file is now length - s, and the beats
+        // between them are in reverse order.
+        if (const auto markers = warp::markersOf (clip); ! markers.empty())
+        {
+            std::vector<warp::Marker> flipped;
+            for (const auto& m : markers)
+                flipped.push_back ({ length - m.sample, -m.tick });
+
+            edit::setWarp (project, id, warp::bpmOf (clip), flipped, {}, false);
+            state.setProperty (ids::followTempo, warp::followsTempo (clip), &undo);
+        }
+
         const auto name = clip.getName();
         state.setProperty (ids::name, name.endsWith (reversedSuffix) ? name.dropLastCharacters ((int) std::strlen (reversedSuffix))
                                                                      : name + reversedSuffix, &undo);
@@ -420,7 +441,10 @@ SoundEffectResult addSoundEffect (Project& project, const ProjectLocation& locat
     result.clipId = edit::addAudioClip (project, result.trackId, made.source, place.start, false);
 
     if (result.clipId.isNotEmpty())
+    {
         rememberEffect (project, result.clipId, effectId, bars, place);
+        edit::followTempoFromNow (project, result.clipId, false);   // stays in its bars if the tempo changes
+    }
 
     return result;
 }
@@ -490,6 +514,7 @@ juce::String changeSoundEffect (Project& project, const ProjectLocation& locatio
     state.setProperty (ids::fadeOut, (juce::int64) std::min (clip.getFadeOut(), length - fadeIn), &undo);
 
     rememberEffect (project, clipId, effectId, bars, place);
+    edit::followTempoFromNow (project, clipId, false);
     return {};
 }
 

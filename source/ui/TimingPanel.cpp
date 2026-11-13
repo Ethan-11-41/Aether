@@ -135,9 +135,11 @@ private:
 };
 
 //==============================================================================
-TimingPanel::TimingPanel (const Theme& themeToUse, Project& projectToEdit, const juce::StringArray& clipIdsToFix, bool offeredAfterRecording)
+TimingPanel::TimingPanel (const Theme& themeToUse, Project& projectToEdit, const juce::StringArray& clipIdsToFix, bool offeredAfterRecording,
+                          miditiming::AudioHits audioHits)
     : theme (themeToUse),
       project (projectToEdit),
+      hits (std::move (audioHits)),
       clipIds (miditiming::usableClips (projectToEdit, clipIdsToFix)),
       nearField (themeToUse, 20.0, 400.0, 0, " BPM")
 {
@@ -168,9 +170,9 @@ TimingPanel::TimingPanel (const Theme& themeToUse, Project& projectToEdit, const
     nearLabel.setText ("Or a beat near", juce::dontSendNotification);
     barStartLabel.setText ("Bar 1 starts", juce::dontSendNotification);
     strengthLabel.setText ("Strength", juce::dontSendNotification);
-    steadyText.setText ("Your notes move onto a steady beat. Inside each beat they keep your feel (use Quantize afterwards "
+    steadyText.setText ("Your notes (or recording) move onto a steady beat. Inside each beat they keep your feel (use Quantize afterwards "
                         "to tighten that too).", juce::dontSendNotification);
-    followText.setText ("Your notes stay exactly as you played them. The song's bars and beats, the metronome and the other "
+    followText.setText ("Your notes (or recording) stay exactly as you played them. The song's bars and beats, the metronome and the other "
                         "tracks follow you instead.", juce::dontSendNotification);
 
     // Looking again.
@@ -273,11 +275,11 @@ TimingPanel::~TimingPanel()
 void TimingPanel::analyse (double hintBpm)
 {
     hint = hintBpm;
-    beat = miditiming::findBeat (project, clipIds, hintBpm);
+    beat = miditiming::findBeat (project, clipIds, hintBpm, hits);
     foundDownbeat = beat.downbeat;
     analysedAt = project.getChangeCount();
     nearField.setValue (beat.found ? std::round (beat.bpm) : 100.0);
-    picture->show (miditiming::playedNotes (project, clipIds), beat);
+    picture->show (miditiming::playedNotes (project, clipIds, hits), beat);
     refresh();
 }
 
@@ -292,7 +294,7 @@ void TimingPanel::moveBarStart (int beats)
         return;
 
     beat.downbeat = juce::jlimit (0, std::max (0, (int) beat.beats.size() - 2), beat.downbeat + beats);
-    picture->show (miditiming::playedNotes (project, clipIds), beat);
+    picture->show (miditiming::playedNotes (project, clipIds, hits), beat);
     refresh();
 }
 
@@ -323,7 +325,7 @@ void TimingPanel::setEveryBeat (bool shouldChangeEveryBeat)
 double TimingPanel::getSteadyTempo() const
 {
     if (useSongTempo || ! beat.found)
-        return miditiming::songTempoAt (project, clipIds);
+        return miditiming::songTempoAt (project, clipIds, hits);
 
     return juce::jlimit (TempoMap::minBpm, TempoMap::maxBpm, std::round (beat.bpm));
 }
@@ -331,10 +333,10 @@ double TimingPanel::getSteadyTempo() const
 juce::String TimingPanel::getSummary() const
 {
     if (clipIds.isEmpty())
-        return "These clips can't be changed here: choose MIDI clips that aren't repeating patterns.";
+        return "These clips can't be changed here: choose MIDI clips that aren't repeating patterns, or recordings that don't loop.";
 
     if (! beat.found)
-        return "There are too few notes to find a beat: it needs at least 6 notes or chords, over 2 seconds or more.";
+        return "There are too few notes (or hits, in a recording) to find a beat: it needs at least 6, over 2 seconds or more.";
 
     auto text = "You played at about " + bpmText (beat.bpm);
 
@@ -364,7 +366,7 @@ juce::String TimingPanel::getOutcome() const
         miditiming::SteadyOptions options;
         options.strength = strength;
         options.songBpm = useSongTempo ? 0.0 : getSteadyTempo();
-        const auto bar = miditiming::steadyStartBar (project, clipIds, beat, options);
+        const auto bar = miditiming::steadyStartBar (project, clipIds, beat, options, hits);
 
         if (bar < 0)
             return "This can't be done with these notes.";
@@ -375,14 +377,14 @@ juce::String TimingPanel::getOutcome() const
         {
             text << ", and the song's tempo will be " << bpmText (getSteadyTempo());
 
-            if (const auto changes = miditiming::songTempoChanges (project, clipIds); changes > 1)
+            if (const auto changes = miditiming::songTempoChanges (project, clipIds, hits); changes > 1)
                 text << " (instead of its " << changes << " tempo changes)";
         }
 
         return text + ". One Ctrl+Z puts it all back.";
     }
 
-    const auto bar = miditiming::followStartBar (project, clipIds, beat);
+    const auto bar = miditiming::followStartBar (project, clipIds, beat, hits);
 
     if (bar < 0)
         return "This can't be done with these notes.";
@@ -394,7 +396,7 @@ juce::String TimingPanel::getOutcome() const
 void TimingPanel::refresh()
 {
     const auto found = beat.found && ! clipIds.isEmpty();
-    const auto songTempo = miditiming::songTempoAt (project, clipIds);
+    const auto songTempo = miditiming::songTempoAt (project, clipIds, hits);
 
     summary.setText (getSummary(), juce::dontSendNotification);
     outcome.setText (getOutcome(), juce::dontSendNotification);
@@ -455,13 +457,13 @@ bool TimingPanel::apply()
         miditiming::SteadyOptions options;
         options.strength = strength;
         options.songBpm = useSongTempo ? 0.0 : getSteadyTempo();
-        changed = edit::makeTimingSteady (project, clipIds, beat, options);
+        changed = edit::makeTimingSteady (project, clipIds, beat, options, hits);
     }
     else
     {
         miditiming::FollowOptions options;
         options.everyBeat = everyBeat;
-        changed = edit::makeTempoFollow (project, clipIds, beat, options);
+        changed = edit::makeTempoFollow (project, clipIds, beat, options, hits);
     }
 
     if (changed && onClose)
@@ -472,12 +474,12 @@ bool TimingPanel::apply()
 
 bool TimingPanel::canPutBack() const
 {
-    return miditiming::wasFixed (project, clipIds);
+    return miditiming::wasFixed (project, clipIds, hits);
 }
 
 bool TimingPanel::putBack()
 {
-    if (! edit::putBackAsPlayed (project, clipIds))
+    if (! edit::putBackAsPlayed (project, clipIds, hits))
         return false;
 
     if (onClose)

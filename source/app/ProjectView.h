@@ -9,6 +9,7 @@
 #include "engine/Recorder.h"
 #include "engine/AutomationRecorder.h"
 #include "engine/TimelineSync.h"
+#include "model/MidiTiming.h"
 #include "model/Project.h"
 #include "ui/KeyboardPanel.h"
 #include "ui/MixerComponent.h"
@@ -102,9 +103,9 @@ public:
     /** The quantize pop-up for whole MIDI clips, pointing at `screenArea` (empty: the timeline). */
     void showQuantizePanel (const juce::StringArray& clipIds, juce::Rectangle<int> screenArea = {});
 
-    /** The MIDI clips the Edit menu's Quantize and Fix timing work on: the selected clips, or if
-        none are selected, the clips on the selected tracks. */
-    juce::StringArray midiClipsToEdit() const;
+    /** The clips the Edit menu's Quantize and Fix timing work on (MIDI clips and recordings): the
+        selected clips, or if none are selected, the clips on the selected tracks. */
+    juce::StringArray clipsToTime() const;
 
     static constexpr const char* gridKey = "gridSize";
     static constexpr const char* mixerVisibleKey = "mixerVisible";
@@ -153,6 +154,8 @@ private:
     AppContext& ctx;
     Project& project;
     TimelineSync timelineSync;
+    bool wasStretching = false;
+    miditiming::AudioHits audioHits;   // the hits in recordings (timing, quantize)
     AutomationRecorder automationRecorder;
     Tick lastAutomationTick = -1;
     std::unique_ptr<Recorder> recorder;
