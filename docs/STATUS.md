@@ -4,7 +4,7 @@ An honest list of what works. Updated at the end of every milestone.
 
 **Legend:** ✅ Working · 🟡 Partial · 🧪 Stub/placeholder · ⬜ Not started
 
-Current version: **0.16.0** (Milestone 15: timing for MIDI)
+Current version: **0.16.1** (Milestone 15: timing for MIDI, with fixes from your notes)
 
 ## Milestone 0: skeleton and build pipeline
 
@@ -184,7 +184,7 @@ Current version: **0.16.0** (Milestone 15: timing for MIDI)
 | Feature | Status | Notes |
 |---|---|---|
 | Drum tracks ("+ Drums", Ctrl+Shift+D) with a 16-pad drum kit | ✅ | Any MIDI track can switch to the drum kit (track menu > Instrument). |
-| 37 drum sounds and 5 kits (Tight kit, 808, Electronic, Lo-fi, Deep) | ✅ | Made by Aether's own code, so they're free to share. Recorded (sampled) acoustic kits come with the sampler and sound library (M12, M20). |
+| 49 drum sounds and 5 kits (Tight kit, 808, Electronic, Lo-fi, Deep) | ✅ | Made by Aether's own code, so they're free to share. Recorded (sampled) acoustic kits come with the sampler and sound library (M12, M20). The Lo-fi kit was rebuilt in 0.16.1 (warm instead of crunchy), with lo-fi versions of all its sounds. |
 | Your own sounds on pads (drop a file on a pad, or Choose sound > From an audio file) | ✅ | Copied into the project's Audio folder. |
 | Per-pad tune, volume, pan, attack, length, choke groups; kit volume | ✅ | |
 | Drum editor window: step sequencer (1/8, 1/16, 1/32 steps; 1 to 8 bars), accents, velocity lane, swing | ✅ | One drum editor window at a time. Space plays just the pattern (0.12.1), or with the song. |
@@ -198,8 +198,8 @@ Current version: **0.16.0** (Milestone 15: timing for MIDI)
 
 | Feature | Status | Notes |
 |---|---|---|
-| Sampler: key zones, velocity layers, round robin, loops, envelope, tone, tuning, Poly/Mono/Slide, glide | ✅ | 64 notes at once. |
-| 28 recorded instruments in the installer (pianos, strings, woodwinds, brass, mallets, harp, organ) | ✅ | Public-domain (CC0) recordings by Versilian Studios. A grand or upright piano takes about 130-145 MB of memory while a track uses it; most others 10-80 MB. Not there: guitars, bass guitar, electric pianos and choirs, which aren't in the public-domain libraries Aether uses (your own recordings or SFZ instruments can fill the gap). |
+| Sampler: key zones, velocity layers, round robin, loops, envelope, tone, tuning, Poly/Mono/Slide/Legato, glide | ✅ | 64 notes at once. Legato since 0.16.1 (the solo instruments start in it). Since 0.16.1, notes more than 3 semitones above a recording are filtered so they don't get a harsh edge. |
+| 28 recorded instruments in the installer (pianos, strings, woodwinds, brass, mallets, harp, organ) | ✅ | Public-domain (CC0) recordings by Versilian Studios. Since 0.16.1 all at the same safe level (until then most brass and winds were so loud that chords went over the maximum and distorted). A grand or upright piano takes about 130-145 MB of memory while a track uses it; most others 10-80 MB. Not there: guitars, bass guitar, electric pianos and choirs, which aren't in the public-domain libraries Aether uses (your own recordings or SFZ instruments can fill the gap). |
 | Held notes on strings, winds, brass and organ last as long as the key is held | ✅ | Loops made by the pack builder; a faint repeat may be audible on some notes every two seconds. Tell me which. |
 | Your own sounds: one recording (pitch found automatically), several or a folder (laid out by note names), SFZ instruments | ✅ | SFZ: the common opcodes (keys, velocities, round robin, tuning, volume, pan, loops, envelope). Release samples, crossfades and filters in SFZ files are left out. |
 | 808 bass lines from drum pads, with Slide | ✅ | Since 0.13.1 "Play it as notes..." moves the pad's hits onto the new track and opens the piano roll. |

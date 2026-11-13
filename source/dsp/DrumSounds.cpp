@@ -95,23 +95,30 @@ namespace
         double scale;
     };
 
-    /** Lower sample rate and fewer bits: the sound of old samplers. */
-    void lofi (juce::AudioBuffer<float>& b, double rate)
+    /** The warm, soft sound of old samplers and tape, as in lo-fi hip-hop: the top end rolled off
+        above `warmth` Hz, rounded by gentle tape saturation. It's filtered before it's saturated
+        and again after, so the saturation adds nothing harsh. (Until 0.16.1 this lowered the
+        sample rate and the number of bits instead, which folded the highs back as clashing tones
+        and made every sound's tail crackle.) */
+    void lofi (juce::AudioBuffer<float>& b, double rate, double warmth)
     {
         auto* d = b.getWritePointer (0);
-        const auto hold = std::max (1, (int) std::round (rate / 11025.0));
-        float held = 0.0f;
-        double smooth = 0.0;
-        const auto coefficient = 1.0 - std::exp (-twoPi * 6000.0 / rate);
+        const auto n = b.getNumSamples();
+        const auto loudest = b.getMagnitude (0, 0, n);
 
-        for (int i = 0; i < b.getNumSamples(); ++i)
-        {
-            if (i % hold == 0)
-                held = std::round (d[i] * 127.0f) / 127.0f;   // 8 bits
+        if (loudest <= 0.0f)
+            return;
 
-            smooth += (std::tanh (1.3 * held) - smooth) * coefficient;
-            d[i] = (float) smooth;
-        }
+        // Into the saturation at the same level whatever the recipe made, and out at about the
+        // same level (`finish` sets the final peak).
+        constexpr double drive = 1.6;
+        const auto in = drive / loudest;
+
+        // Two second-order low-passes on each side of the saturation: a fourth-order roll-off.
+        Biquad before (Biquad::lowPass, warmth, 0.7071, rate), after (Biquad::lowPass, warmth * 1.2, 0.7071, rate);
+
+        for (int i = 0; i < n; ++i)
+            d[i] = (float) after (std::tanh (before ((double) d[i] * in)));
     }
 
     //==============================================================================
@@ -329,9 +336,9 @@ namespace
         return out;
     }
 
-    juce::AudioBuffer<float> withLofi (juce::AudioBuffer<float> b, double rate, float peak)
+    juce::AudioBuffer<float> withLofi (juce::AudioBuffer<float> b, double rate, float peak, double warmth)
     {
-        lofi (b, rate);
+        lofi (b, rate, warmth);
         finish (b, rate, peak);
         return b;
     }
@@ -351,28 +358,31 @@ namespace
             { { "kick-808",      "Kick 808",        "Kicks" },   [] (double r) { return kick (r, 160.0, 48.0, 0.03, 0.45, 0.0, 1.4, 1.6); } },
             { { "kick-909",      "Kick 909",        "Kicks" },   [] (double r) { return kick (r, 230.0, 52.0, 0.018, 0.25, 0.7, 2.2, 0.8); } },
             { { "kick-deep",     "Kick (deep)",     "Kicks" },   [] (double r) { return kick (r, 110.0, 38.0, 0.04, 0.6, 0.15, 1.2, 1.8); } },
-            { { "kick-lofi",     "Kick (lo-fi)",    "Kicks" },   [] (double r) { return withLofi (kick (r, 120.0, 50.0, 0.015, 0.22, 0.4, 2.0, 0.7), r, 0.9f); } },
+            { { "kick-lofi",     "Kick (lo-fi)",    "Kicks" },   [] (double r) { return withLofi (kick (r, 120.0, 50.0, 0.015, 0.22, 0.4, 2.0, 0.7), r, 0.9f, 3000.0); } },
 
             { { "snare-tight",   "Snare (tight)",   "Snares" },  [] (double r) { return snare (r, 190.0, 330.0, 0.05, 0.13, 1800.0, 9000.0, 0.35, 0.5); } },
             { { "snare-808",     "Snare 808",       "Snares" },  [] (double r) { return snare (r, 238.0, 476.0, 0.05, 0.11, 2000.0, 12000.0, 0.45, 0.45); } },
             { { "snare-909",     "Snare 909",       "Snares" },  [] (double r) { return snare (r, 200.0, 400.0, 0.04, 0.16, 1500.0, 11000.0, 0.3, 0.55, 22); } },
             { { "snare-brush",   "Snare (brush)",   "Snares" },  [] (double r) { return snare (r, 180.0, 300.0, 0.02, 0.2, 1200.0, 6000.0, 0.1, 0.6, 23); } },
-            { { "snare-lofi",    "Snare (lo-fi)",   "Snares" },  [] (double r) { return withLofi (snare (r, 190.0, 330.0, 0.05, 0.15, 1500.0, 8000.0, 0.35, 0.5), r, 0.85f); } },
+            { { "snare-lofi",    "Snare (lo-fi)",   "Snares" },  [] (double r) { return withLofi (snare (r, 190.0, 330.0, 0.05, 0.15, 1500.0, 8000.0, 0.35, 0.5), r, 0.85f, 4000.0); } },
+            { { "snare-brush-lofi", "Snare (brush, lo-fi)", "Snares" }, [] (double r) { return withLofi (snare (r, 180.0, 300.0, 0.02, 0.2, 1200.0, 6000.0, 0.1, 0.6, 23), r, 0.8f, 3500.0); } },
 
             { { "clap",          "Clap",            "Claps and snaps" },   [] (double r) { return clap (r, 1300.0, 4, 0.011, 0.13, 0.6); } },
             { { "clap-808",      "Clap 808",        "Claps and snaps" },   [] (double r) { return clap (r, 1100.0, 3, 0.009, 0.18, 0.7); } },
             { { "snap",          "Finger snap",     "Claps and snaps" },   [] (double r) { return snap (r); } },
+            { { "clap-lofi",     "Clap (lo-fi)",    "Claps and snaps" },   [] (double r) { return withLofi (clap (r, 1300.0, 4, 0.011, 0.13, 0.6), r, 0.8f, 3500.0); } },
 
             { { "rim",           "Rim",             "Rims" },    [] (double r) { return rim (r, 1700.0, 820.0, 0.2); } },
             { { "rim-808",       "Rim 808",         "Rims" },    [] (double r) { return rim (r, 1667.0, 455.0, 0.15); } },
+            { { "rim-lofi",      "Rim (lo-fi)",     "Rims" },    [] (double r) { return withLofi (rim (r, 1700.0, 820.0, 0.2), r, 0.65f, 4000.0); } },
 
             { { "hat-closed",    "Hi-hat (closed)", "Hi-hats" }, [] (double r) { return hat (r, 0.03, 0.4, 1.0, 0.3); } },
             { { "hat-pedal",     "Hi-hat (pedal)",  "Hi-hats" }, [] (double r) { return hat (r, 0.02, 0.4, 0.85, 0.25, 42, 0.004); } },
             { { "hat-open",      "Hi-hat (open)",   "Hi-hats" }, [] (double r) { return hat (r, 0.25, 0.4, 1.0, 1.2); } },
             { { "hat-808-closed","Hi-hat 808 (closed)", "Hi-hats" }, [] (double r) { return hat (r, 0.025, 0.9, 0.95, 0.25, 43); } },
             { { "hat-808-open",  "Hi-hat 808 (open)",   "Hi-hats" }, [] (double r) { return hat (r, 0.2, 0.9, 0.95, 1.0, 43); } },
-            { { "hat-lofi-closed","Hi-hat lo-fi (closed)", "Hi-hats" }, [] (double r) { return withLofi (hat (r, 0.035, 0.5, 0.9, 0.3), r, 0.5f); } },
-            { { "hat-lofi-open", "Hi-hat lo-fi (open)", "Hi-hats" }, [] (double r) { return withLofi (hat (r, 0.22, 0.5, 0.9, 1.0), r, 0.5f); } },
+            { { "hat-lofi-closed","Hi-hat lo-fi (closed)", "Hi-hats" }, [] (double r) { return withLofi (hat (r, 0.035, 0.5, 0.9, 0.3), r, 0.5f, 5500.0); } },
+            { { "hat-lofi-open", "Hi-hat lo-fi (open)", "Hi-hats" }, [] (double r) { return withLofi (hat (r, 0.22, 0.5, 0.9, 1.0), r, 0.5f, 5500.0); } },
 
             { { "tom-low",       "Tom (low)",       "Toms" },    [] (double r) { return tom (r, 95.0, 0.28, 0.4, 0.3, 1.0); } },
             { { "tom-mid",       "Tom (mid)",       "Toms" },    [] (double r) { return tom (r, 140.0, 0.22, 0.4, 0.3, 0.8); } },
@@ -380,10 +390,15 @@ namespace
             { { "tom-808-low",   "Tom 808 (low)",   "Toms" },    [] (double r) { return tom (r, 90.0, 0.35, 0.15, 0.0, 1.2); } },
             { { "tom-808-mid",   "Tom 808 (mid)",   "Toms" },    [] (double r) { return tom (r, 130.0, 0.3, 0.15, 0.0, 1.0); } },
             { { "tom-808-high",  "Tom 808 (high)",  "Toms" },    [] (double r) { return tom (r, 190.0, 0.25, 0.15, 0.0, 0.9); } },
+            { { "tom-lofi-low",  "Tom lo-fi (low)", "Toms" },    [] (double r) { return withLofi (tom (r, 95.0, 0.28, 0.4, 0.3, 1.0), r, 0.8f, 2000.0); } },
+            { { "tom-lofi-mid",  "Tom lo-fi (mid)", "Toms" },    [] (double r) { return withLofi (tom (r, 140.0, 0.22, 0.4, 0.3, 0.8), r, 0.8f, 2200.0); } },
+            { { "tom-lofi-high", "Tom lo-fi (high)", "Toms" },   [] (double r) { return withLofi (tom (r, 200.0, 0.18, 0.4, 0.3, 0.7), r, 0.8f, 2500.0); } },
 
             { { "crash",         "Crash",           "Cymbals" }, [] (double r) { return cymbal (r, 0.75, 1.6, 1.0, 0.0, 3.0); } },
             { { "ride",          "Ride",            "Cymbals" }, [] (double r) { return cymbal (r, 0.6, 2.2, 0.8, 0.35, 2.5); } },
             { { "cymbal-808",    "Cymbal 808",      "Cymbals" }, [] (double r) { return cymbal (r, 0.5, 1.0, 0.9, 0.0, 2.5); } },
+            { { "crash-lofi",    "Crash (lo-fi)",   "Cymbals" }, [] (double r) { return withLofi (cymbal (r, 0.75, 1.6, 1.0, 0.0, 3.0), r, 0.45f, 5000.0); } },
+            { { "ride-lofi",     "Ride (lo-fi)",    "Cymbals" }, [] (double r) { return withLofi (cymbal (r, 0.6, 2.2, 0.8, 0.35, 2.5), r, 0.45f, 5000.0); } },
 
             { { "cowbell",       "Cowbell",         "Percussion" }, [] (double r) { return cowbell (r); } },
             { { "shaker",        "Shaker",          "Percussion" }, [] (double r) { return shaker (r, 0.015, 0.05, 0.25, 101); } },
@@ -391,6 +406,10 @@ namespace
             { { "conga-low",     "Conga (low)",     "Percussion" }, [] (double r) { return conga (r, 190.0); } },
             { { "conga-high",    "Conga (high)",    "Percussion" }, [] (double r) { return conga (r, 290.0); } },
             { { "clave",         "Clave",           "Percussion" }, [] (double r) { return clave (r); } },
+            { { "shaker-lofi",   "Shaker (lo-fi)",  "Percussion" }, [] (double r) { return withLofi (shaker (r, 0.015, 0.05, 0.25, 101), r, 0.4f, 5000.0); } },
+            { { "tambourine-lofi", "Tambourine (lo-fi)", "Percussion" }, [] (double r) { return withLofi (tambourine (r), r, 0.4f, 5500.0); } },
+            { { "conga-lofi-low", "Conga lo-fi (low)", "Percussion" }, [] (double r) { return withLofi (conga (r, 190.0), r, 0.75f, 2200.0); } },
+            { { "conga-lofi-high", "Conga lo-fi (high)", "Percussion" }, [] (double r) { return withLofi (conga (r, 290.0), r, 0.75f, 2500.0); } },
         };
 
         return list;
@@ -465,11 +484,11 @@ const std::vector<Kit>& kits()
             { "ride", 0, -8, 30 } }} },
 
         { "Lo-fi", {{
-            { "kick-lofi" }, { "rim", 0, -4 }, { "snare-lofi" }, { "clap", -2, -4 }, { "snare-brush", 0, -5 },
-            { "tom-low", -3, -4, -30 }, { "hat-lofi-closed", 0, -5, 10, 100, 1 }, { "tom-mid", -3, -4, -10 },
-            { "shaker", 0, -8, 20 }, { "tom-high", -3, -4, 10 }, { "hat-lofi-open", 0, -6, 10, 80, 1 },
-            { "conga-low", 0, -6, -20 }, { "conga-high", 0, -6, 20 }, { "crash", -2, -9, -25 }, { "tambourine", 0, -8, 30 },
-            { "ride", -2, -9, 30 } }} },
+            { "kick-lofi" }, { "rim-lofi", 0, -4 }, { "snare-lofi" }, { "clap-lofi", -2, -4 }, { "snare-brush-lofi", 0, -5 },
+            { "tom-lofi-low", -3, -4, -30 }, { "hat-lofi-closed", 0, -5, 10, 100, 1 }, { "tom-lofi-mid", -3, -4, -10 },
+            { "shaker-lofi", 0, -8, 20 }, { "tom-lofi-high", -3, -4, 10 }, { "hat-lofi-open", 0, -6, 10, 80, 1 },
+            { "conga-lofi-low", 0, -6, -20 }, { "conga-lofi-high", 0, -6, 20 }, { "crash-lofi", -2, -9, -25 },
+            { "tambourine-lofi", 0, -8, 30 }, { "ride-lofi", -2, -9, 30 } }} },
 
         { "Deep", {{
             { "kick-deep" }, { "rim", 0, -4 }, { "snare-808", -2 }, { "clap-808", -1, -3 }, { "snap", 0, -4 },

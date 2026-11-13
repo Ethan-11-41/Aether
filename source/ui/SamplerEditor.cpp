@@ -290,7 +290,9 @@ SamplerEditor::SamplerEditor (const Theme& t, Project& p, const juce::String& tr
     for (int i = 0; i < voices.choices.size(); ++i)
         voicesBox.addItem (voices.choices[i], i + 1);
     voicesBox.setTooltip ("Poly: chords. Mono: one note at a time. Slide: one note at a time, and a note that starts before "
-                          "the last one ends glides up or down to it (how 808 bass lines slide).");
+                          "the last one ends glides up or down to it (how 808 bass lines slide). Legato: a note that starts "
+                          "while another still sounds takes over from it smoothly (for trumpet, flute, sax, violin...), and "
+                          "notes played together still make a chord.");
     voicesBox.onChange = [this]
     {
         if (! refreshing && voicesBox.getSelectedId() > 0)

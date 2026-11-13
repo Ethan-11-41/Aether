@@ -168,10 +168,18 @@ Separate process:   plug-in scanner
   cached; recordings come from the audio file cache, at the engine's rate) and kept in
   `MixerResources` as the same object while nothing in it changes, because the sampler stops its
   notes when it's given another map. Interpolation is 4-point Hermite; pitch and glide are worked
-  out every 16 samples.
+  out every 16 samples. A voice reading its recording more than 3 semitones fast (since 0.16.1)
+  first passes it through an eighth-order Butterworth low-pass at 40% of the output rate (in the
+  recording's samples, following the pitch, carried on through loops), so nothing folds back.
+  Legato (0.16.1) hands a sounding note over to a later one with a 40 ms crossfade; notes within
+  30 ms of each other are a chord.
 - Recorded instruments live in a `Sounds` folder next to the program (`library.json` lists them;
   each is an SFZ file and Ogg Vorbis recordings), built by `tools/sounds/build_pack.py` from the
-  CC0 libraries at pinned commits. CI builds and caches it and Setup.exe installs it.
+  CC0 libraries at pinned commits. CI builds and caches it and Setup.exe installs it. Since 0.16.1
+  the builder sets every instrument's level from its recordings (the loudest note peaks at
+  -8 dBFS; softer layers are always quieter than louder ones; no note more than 4 dB above the
+  typical one), because the source mappings' own volumes made several instruments clip, and
+  marks solo instruments (`"solo": true`), which start in Legato.
 - `TimelineSync` remembers which audio files each build asked for and, every 5 seconds, tells the
   audio file cache to forget files not used for 20 seconds (`AudioFileCache::keepOnly`).
 - The drum editor's Space plays its pattern on its own without touching the project:

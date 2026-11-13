@@ -9,8 +9,10 @@ Both are released under CC0 1.0 (public domain).
 
 For each instrument it reads the library's own SFZ mapping, keeps what Aether's sampler plays
 (pedal-up piano recordings, no release noises), turns random alternatives into alternating takes,
-limits the loudness layers, trims and shortens long recordings (with a fade), and writes Ogg
-Vorbis files with an SFZ file Aether reads, plus library.json listing everything.
+limits the loudness layers, trims and shortens long recordings (with a fade), sets every
+instrument's level (the loudest note peaking at LOUDEST_PEAK_DB, softer layers always quieter than
+louder ones), and writes Ogg Vorbis files with an SFZ file Aether reads, plus library.json listing
+everything (with "solo" for instruments that play one note at a time).
 
 Usage:
   pip install soundfile numpy
@@ -33,6 +35,21 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import sfzlib  # noqa: E402
 
 PACK_VERSION = 1
+
+# How far (semitones) the outermost recordings of a section may be stretched past the notes
+# recorded, to cover the rest of its range.
+STRETCH = 7
+
+# The loudest note of every instrument (its loudest recording, played as hard as possible) peaks
+# at this level, so instruments are about as loud as each other and chords have room before they
+# reach the maximum. A softer layer is never louder than the layer above it less
+# LAYER_STEP_DB (some source mappings make soft recordings of high notes louder than loud ones).
+LOUDEST_PEAK_DB = -8.0
+LAYER_STEP_DB = 3.0
+
+# No note's loudest layer more than this much louder than the instrument's typical note (the
+# source mappings boost a few notes far above the rest).
+NOTE_SPREAD_DB = 4.0
 
 SOURCES = {
     'vsco': ('https://github.com/sgossner/VSCO-2-CE', '6dd651d55dde97fd4028699be9d4481f26917891'),
@@ -92,24 +109,24 @@ INSTRUMENTS = [
          description='The string section playing short, bouncing notes (spiccato).',
          parts=ensemble([('ViolinEnsSpic', 62, 96, 'top'), ('ViolaEnsSpic', 55, 74, None),
                          ('CelloEnsSpic', 36, 64, None), ('ContrabassSpic', 21, 47, 'bottom')], '')),
-    dict(category='Strings', name='Solo violin', loop=True, roots=1, layers=2, seconds=8.0, attack=0.04,
+    dict(category='Strings', name='Solo violin', solo=True, loop=True, roots=1, layers=2, seconds=8.0, attack=0.04,
          description='One violin, long notes with vibrato.',
          parts=[dict(src='vsco', sfz='SViolinVib.sfz')]),
 
     # Woodwinds
-    dict(category='Woodwinds', name='Flute', loop=True, roots=1, layers=3, seconds=8.0, attack=0.03,
+    dict(category='Woodwinds', name='Flute', solo=True, loop=True, roots=1, layers=3, seconds=8.0, attack=0.03,
          description='A concert flute with vibrato.',
          parts=[dict(src='vsco', sfz='FluteSusVib.sfz')]),
-    dict(category='Woodwinds', name='Oboe', loop=True, roots=1, layers=2, seconds=8.0, attack=0.03,
+    dict(category='Woodwinds', name='Oboe', solo=True, loop=True, roots=1, layers=2, seconds=8.0, attack=0.03,
          description='An oboe with vibrato.',
          parts=[dict(src='vsco', sfz='OboeSusVib.sfz')]),
-    dict(category='Woodwinds', name='Clarinet', loop=True, roots=1, layers=3, seconds=8.0, attack=0.03,
+    dict(category='Woodwinds', name='Clarinet', solo=True, loop=True, roots=1, layers=3, seconds=8.0, attack=0.03,
          description='A clarinet, long notes.',
          parts=[dict(src='vsco', sfz='ClarinetSus.sfz')]),
-    dict(category='Woodwinds', name='Bassoon', loop=True, roots=1, layers=3, seconds=8.0, attack=0.03,
+    dict(category='Woodwinds', name='Bassoon', solo=True, loop=True, roots=1, layers=3, seconds=8.0, attack=0.03,
          description='A bassoon, long notes.',
          parts=[dict(src='vsco', sfz='BassoonSus.sfz')]),
-    dict(category='Woodwinds', name='Tenor saxophone', loop=True, roots=1, layers=1, seconds=8.0, attack=0.02,
+    dict(category='Woodwinds', name='Tenor saxophone', solo=True, loop=True, roots=1, layers=1, seconds=8.0, attack=0.02,
          description='A tenor saxophone with vibrato.',
          parts=[dict(src='vcsl', sfz='Aerophones/Reed Aerophones/Tenor Saxophone - Vibrato.sfz')]),
 
@@ -117,16 +134,16 @@ INSTRUMENTS = [
     dict(category='Brass', name='Brass section', loop=True, roots=1, layers=3, seconds=8.0, attack=0.02,
          description='Trumpet, French horn, trombone and tuba together.',
          parts=ensemble(BRASS_SECTIONS, '')),
-    dict(category='Brass', name='Trumpet', loop=True, roots=1, layers=2, seconds=8.0, attack=0.02,
+    dict(category='Brass', name='Trumpet', solo=True, loop=True, roots=1, layers=2, seconds=8.0, attack=0.02,
          description='A trumpet, long notes.',
          parts=[dict(src='vsco', sfz='TrumpetSus.sfz')]),
-    dict(category='Brass', name='French horn', loop=True, roots=1, layers=3, seconds=8.0, attack=0.03,
+    dict(category='Brass', name='French horn', solo=True, loop=True, roots=1, layers=3, seconds=8.0, attack=0.03,
          description='A French horn: warm and round.',
          parts=[dict(src='vsco', sfz='FHornSus.sfz')]),
-    dict(category='Brass', name='Trombone', loop=True, roots=1, layers=3, seconds=8.0, attack=0.02,
+    dict(category='Brass', name='Trombone', solo=True, loop=True, roots=1, layers=3, seconds=8.0, attack=0.02,
          description='A tenor trombone, long notes.',
          parts=[dict(src='vsco', sfz='TromboneSus.sfz')]),
-    dict(category='Brass', name='Tuba', loop=True, roots=1, layers=3, seconds=8.0, attack=0.02,
+    dict(category='Brass', name='Tuba', solo=True, loop=True, roots=1, layers=3, seconds=8.0, attack=0.02,
          description='A tuba: the bottom of the brass.',
          parts=[dict(src='vsco', sfz='TubaSus.sfz')]),
 
@@ -221,16 +238,18 @@ def read_regions(repo, sha, part):
         if r['lokey'] <= r['hikey']:
             kept.append(r)
 
+    # (At most STRETCH semitones from the recording: further than that, a recording played faster
+    # or slower stops sounding like the instrument.)
     if kept and part.get('extend') == 'top':
         top = max(r['hikey'] for r in kept)
         for r in kept:
             if r['hikey'] == top:
-                r['hikey'] = hi
+                r['hikey'] = max(r['hikey'], min(hi, r['root'] + STRETCH))
     if kept and part.get('extend') == 'bottom':
         bottom = min(r['lokey'] for r in kept)
         for r in kept:
             if r['lokey'] == bottom:
-                r['lokey'] = lo
+                r['lokey'] = min(r['lokey'], max(lo, r['root'] - STRETCH))
 
     return kept
 
@@ -298,10 +317,63 @@ def make_loop(data, rate, start_seconds=1.2, loop_seconds=2.0, crossfade_seconds
     return out, start, end
 
 
+def measure(data, rate):
+    """(peak, loudness) in dB: the highest sample in either channel (Aether plays them
+    separately), and the loudest 0.4 seconds (RMS over the channels)."""
+    peak = float(np.max(np.abs(data))) if len(data) else 0.0
+    power = np.mean(data.astype(np.float64) ** 2, axis=1)
+    window, hop = max(1, int(0.4 * rate)), max(1, int(0.1 * rate))
+    squares = np.concatenate([[0.0], np.cumsum(power)])
+    loudest = 0.0
+    for start in range(0, max(1, len(power) - window + 1), hop):
+        end = min(len(power), start + window)
+        loudest = max(loudest, (squares[end] - squares[start]) / max(1, end - start))
+    to_db = lambda v: 20 * np.log10(max(v, 1e-9))
+    return to_db(peak), to_db(np.sqrt(loudest))
+
+
+def level(regions):
+    """Sets each region's volume so that (1) for every note, a softer layer is quieter than the
+    layer above it by at least LAYER_STEP_DB, (2) no note is more than NOTE_SPREAD_DB louder than
+    the instrument's typical note, and (3) the loudest region peaks at LOUDEST_PEAK_DB.
+    Each region needs 'peak_db' and 'loudness_db' (of its recording, before its volume)."""
+    by_note = defaultdict(list)
+    for r in regions:
+        by_note[(r['root'], r['lokey'], r['hikey'])].append(r)
+
+    for group in by_note.values():
+        layers = sorted({(r['lovel'], r['hivel']) for r in group}, key=lambda v: v[1])
+        loudness = lambda layer: max(r['loudness_db'] + r['volume'] for r in group if (r['lovel'], r['hivel']) == layer)
+        for i in range(len(layers) - 2, -1, -1):
+            ceiling = loudness(layers[i + 1]) - LAYER_STEP_DB
+            excess = loudness(layers[i]) - ceiling
+            if excess > 0:
+                for r in group:
+                    if (r['lovel'], r['hivel']) == layers[i]:
+                        r['volume'] -= excess
+
+    # No note much louder than the instrument's typical note (its loudest layer, by the median).
+    tops = {}
+    for key, group in by_note.items():
+        top = max(r['hivel'] for r in group)
+        tops[key] = max(r['loudness_db'] + r['volume'] for r in group if r['hivel'] == top)
+    typical = float(np.median(list(tops.values())))
+    for key, group in by_note.items():
+        excess = tops[key] - (typical + NOTE_SPREAD_DB)
+        if excess > 0:
+            for r in group:
+                r['volume'] -= excess
+
+    offset = LOUDEST_PEAK_DB - max(r['peak_db'] + r['volume'] for r in regions)
+    for r in regions:
+        r['volume'] += offset
+    return offset
+
+
 def process_audio(source, destination, seconds, offset, loop=False):
     """Reads a recording, drops the start before `offset`, trims the quiet end, shortens it to
     `seconds` (with a fade), or makes a loop for held notes, and writes Ogg Vorbis.
-    Returns (frames, channels, rate, loop start, loop end)."""
+    Returns (frames, channels, rate, loop start, loop end, peak dB, loudness dB)."""
     data, rate = sf.read(source, dtype='float32', always_2d=True)
     data = data[offset:]
     looped = make_loop(data, rate) if loop else None
@@ -312,7 +384,7 @@ def process_audio(source, destination, seconds, offset, loop=False):
             data = data[:, :1]
         os.makedirs(os.path.dirname(destination), exist_ok=True)
         sf.write(destination, data, rate, format='OGG', subtype='VORBIS', compression_level=0.45)
-        return len(data), data.shape[1], rate, loop_start, loop_end
+        return (len(data), data.shape[1], rate, loop_start, loop_end) + measure(data, rate)
 
     # The end: after the last moment above -66 dB (plus a little), and at most `seconds`.
     level = np.max(np.abs(data), axis=1)
@@ -331,7 +403,7 @@ def process_audio(source, destination, seconds, offset, loop=False):
 
     os.makedirs(os.path.dirname(destination), exist_ok=True)
     sf.write(destination, data, rate, format='OGG', subtype='VORBIS', compression_level=0.45)
-    return len(data), data.shape[1], rate, -1, -1
+    return (len(data), data.shape[1], rate, -1, -1) + measure(data, rate)
 
 
 def seconds_for(inst, root):
@@ -416,7 +488,8 @@ def main():
         lines.append(' '.join(g))
 
         used_names = set()
-        for r in sorted(regions, key=lambda r: (r['root'], r['lovel'], r['seq_position'], r['volume'])):
+        regions = sorted(regions, key=lambda r: (r['root'], r['lovel'], r['seq_position'], r['volume']))
+        for r in regions:
             base = '%s v%d' % (note_name(r['root']), r['hivel'])
             if r['seq_length'] > 1:
                 base += ' rr%d' % r['seq_position']
@@ -427,11 +500,16 @@ def main():
 
             source = os.path.join(repos[r['_src']], r['sample'])
             destination = os.path.join(folder, stem + '.ogg')
-            frames, channels, rate, loop_start, loop_end = process_audio(source, destination, seconds_for(inst, r['root']),
-                                                                          max(0, r['offset']), inst.get('loop', False))
+            frames, channels, rate, loop_start, loop_end, r['peak_db'], r['loudness_db'] = process_audio(
+                source, destination, seconds_for(inst, r['root']), max(0, r['offset']), inst.get('loop', False))
             memory += frames * channels * 4 * 48000 / rate
             total_bytes += os.path.getsize(destination)
+            r['_stem'], r['_loop'] = stem, (loop_start, loop_end)
 
+        change = level(regions)
+
+        for r in regions:
+            stem, (loop_start, loop_end) = r['_stem'], r['_loop']
             region = ['<region>', 'lokey=%d' % r['lokey'], 'hikey=%d' % r['hikey'], 'pitch_keycenter=%d' % r['root']]
             if (r['lovel'], r['hivel']) != (1, 127):
                 region += ['lovel=%d' % r['lovel'], 'hivel=%d' % r['hivel']]
@@ -453,9 +531,12 @@ def main():
             f.write('\n'.join(lines) + '\n')
 
         total_memory += memory
-        library.append(dict(category=category, name=name, file='%s/%s.sfz' % (safe(category), safe(name)),
-                            description=inst['description']))
-        print('%-22s %3d recordings, %6.1f MB in memory' % (name, len(regions), memory / 1e6), flush=True)
+        entry = dict(category=category, name=name, file='%s/%s.sfz' % (safe(category), safe(name)),
+                     description=inst['description'])
+        if inst.get('solo'):
+            entry['solo'] = True   # plays one note at a time (Aether's sampler starts it in Legato)
+        library.append(entry)
+        print('%-22s %3d recordings, %6.1f MB in memory, level %+.1f dB' % (name, len(regions), memory / 1e6, change), flush=True)
 
     with open(os.path.join(args.out, 'library.json'), 'w', encoding='utf-8') as f:
         json.dump(dict(version=PACK_VERSION, instruments=library), f, indent=2)

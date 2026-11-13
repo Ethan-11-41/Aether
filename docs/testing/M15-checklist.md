@@ -72,6 +72,26 @@ speeding up and slowing down a little is exactly what this milestone is for.
 2. Record another take with the metronome off: when you stop, the window opens by itself.
 3. Record with the metronome on: it doesn't. Untick the box to stop it opening.
 
+## 7. The fixes in 0.16.1 (from your notes)
+
+Install **Aether-Setup-0.16.1.exe** for these.
+
+1. **Horns**: on a track with **Trumpet** (or French horn, Brass section), play chords and high
+   notes, hard. **You should hear** no crunch or distortion, and the master meter shouldn't go
+   red. The recorded instruments are quieter than before (the trumpet about 10 dB): turn the
+   track up if you need to.
+2. **Legato**: choose **Trumpet** again for a track (track menu > Instrument > Recorded
+   instruments > Brass), and play a melody where each note overlaps the next a little (or hold one
+   key and press the next). **You should hear** each new note take over smoothly, not two notes at
+   once getting louder. Press three keys together: still a chord. The instrument's window shows
+   **Voices: Legato**; Poly is still there if you want overlaps to ring together.
+3. **High and low notes**: play the Brass section and the String ensemble at the very top of
+   their range. No metallic grit; above about 7 semitones past their highest recording they're
+   silent now (as the real instruments can't go there).
+4. **Lo-fi kit**: open a drum track's kit, choose **Lo-fi** again (so the pads get the new
+   sounds), and play a beat. **You should hear** warm, soft drums: no crackle at the end of each
+   hit and no clashing tones. Every pad is lo-fi now, including the toms, congas and cymbals.
+
 ## Not there yet (so don't worry about these)
 
 - Audio recordings: finding their tempo and making them follow the song is M16 (with

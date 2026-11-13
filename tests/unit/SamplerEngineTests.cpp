@@ -174,16 +174,23 @@ TEST_CASE ("SFZ instruments and the built-in library", "[sampler][engine]")
     sounds.getChildFile ("Keys/Bell.sfz").replaceWithText (
         "<global> ampeg_release=0.6 ampeg_attack=0.005 amp_veltrack=0\n"
         "<region> sample=Bell/Bell C4.wav lokey=0 hikey=127 pitch_keycenter=60 loop_mode=loop_continuous loop_start=1000 loop_end=20000\n");
+    sounds.getChildFile ("Keys/Horn.sfz").replaceWithText ("<region> sample=Bell/Bell C4.wav pitch_keycenter=60\n");
     sounds.getChildFile ("library.json").replaceWithText (R"({ "version": 1, "instruments": [
         { "category": "Keys", "name": "Bell", "file": "Keys/Bell.sfz", "description": "A bell" },
+        { "category": "Keys", "name": "Horn", "file": "Keys/Horn.sfz", "description": "A horn", "solo": true },
         { "category": "Keys", "name": "Missing", "file": "Keys/Missing.sfz" } ] })");
 
     samplerlibrary::setBuiltInFolder (sounds);
     const auto entries = samplerlibrary::list();
-    REQUIRE (entries.size() == 1);   // the missing one isn't offered
+    REQUIRE (entries.size() == 2);   // the missing one isn't offered
     CHECK (entries[0].category == "Keys");
     CHECK (entries[0].name == "Bell");
     CHECK (entries[0].reference == samplersound::builtIn ("Keys/Bell"));
+    CHECK_FALSE (entries[0].solo);
+
+    // A solo instrument (one note at a time) starts in Legato.
+    CHECK (entries[1].solo);
+    CHECK (samplerlibrary::suggestedSettings (entries[1].reference, {}).at ("voiceMode") == (float) sm::legato);
 
     // Its suggested settings come from the SFZ's envelope; everything else back to the default.
     const auto settings = samplerlibrary::suggestedSettings (entries[0].reference, {});
@@ -426,5 +433,54 @@ TEST_CASE ("Held notes on the recorded strings, woodwinds and organ keep soundin
             CHECK (early > 0.005);
             CHECK (late > early * 0.4);
         }
+    }
+}
+
+TEST_CASE ("No recorded instrument goes over the maximum: hard notes and firm chords stay below 0 dB", "[sampler][pack]")
+{
+    // Until 0.16.1 the source libraries' own volumes made a trumpet chord peak at +5 dB (the
+    // sound card cuts that off: the crunch). The pack builder now sets every instrument's level:
+    // the loudest note, played as hard as possible, peaks at -8 dB.
+    const auto folder = samplerlibrary::builtInFolder();
+    if (! folder.getChildFile ("library.json").existsAsFile())
+        SKIP ("The sound pack isn't here (set AETHER_SOUNDS to its folder to check it).");
+
+    const auto peakOf = [] (const samplerlibrary::Entry& entry, const std::vector<NoteData>& notes)
+    {
+        Project project;
+        const auto track = edit::addTrack (project, TrackKind::midi).getId();
+        auto settings = samplerlibrary::suggestedSettings (entry.reference, {});
+        settings["voiceMode"] = (float) sm::poly;   // chords, even on a solo instrument
+        edit::setSamplerSound (project, track, entry.reference, {}, -1, settings);
+        edit::addMidiClip (project, track, "Notes", 0, 16 * q, notes);
+
+        AudioFileCache cache;
+        cache.setTargetSampleRate (rate);
+        const AudioResolver resolver = [&] (const juce::String& path) { return cache.getAudio (juce::File (path)); };
+        buildTimelineSnapshot (project, rate, resolver);   // starts the loading
+        cache.waitUntilIdle();
+
+        MixerResources resources;
+        const auto out = render (project, resolver, (int) (rate * 8.0), resources);
+        return std::max (*std::max_element (out.begin(), out.end()), -*std::min_element (out.begin(), out.end()));
+    };
+
+    for (const auto& entry : samplerlibrary::list())
+    {
+        INFO (entry.name);
+
+        // Single notes as hard as possible, low to high: none above -6 dB.
+        std::vector<NoteData> singles;
+        for (int i = 0; i < 6; ++i)
+            singles.push_back ({ 48 + i * 8, 127, i * 2 * q, q });
+
+        const auto single = peakOf (entry, singles);
+        CHECK (single > 0.02f);   // it plays
+        CHECK (single < 0.5f);
+
+        // Chords played firmly (velocity 100), in the middle and near the top: below 0 dB.
+        const auto chords = peakOf (entry, { { 60, 100, 0, 3 * q }, { 64, 100, 0, 3 * q }, { 67, 100, 0, 3 * q },
+                                             { 79, 100, 4 * q, 3 * q }, { 84, 100, 4 * q, 3 * q }, { 88, 100, 4 * q, 3 * q } });
+        CHECK (chords < 1.0f);
     }
 }

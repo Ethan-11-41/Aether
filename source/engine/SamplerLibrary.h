@@ -25,6 +25,7 @@ struct Entry
 {
     juce::String category, name, description;
     samplersound::Reference reference;
+    bool solo = false;   // an instrument that plays one note at a time (trumpet, flute...): starts in Legato
 };
 
 /** Every recorded instrument, in library order (empty if the Sounds folder isn't there). */
@@ -41,7 +42,8 @@ std::shared_ptr<const sfz::Instrument> readSfz (const juce::File& file);
     sounds. */
 std::vector<sfz::Region> regionsOf (const samplersound::Reference& sound, int rootKey, const juce::File& projectFolder);
 
-/** The settings a sound starts with: its SFZ envelope, and Slide for 808s and basses. */
+/** The settings a sound starts with: its SFZ envelope, Legato for the recorded solo instruments
+    (one note at a time: an overlapping note takes over smoothly), and Slide for 808s and basses. */
 std::map<juce::String, float> suggestedSettings (const samplersound::Reference& sound, const juce::File& projectFolder);
 
 /** Every audio file the project's samplers use (absolute), e.g. to load before exporting. */

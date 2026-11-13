@@ -204,7 +204,7 @@ The timeline's snap setting (in the settings file, not the project) can also be 
 ### Added in Aether 0.13.0 (still format version 1)
 
 - An `Instrument`'s `type` can be `"sampler"`. Its settings (`attack`, `decay`, `sustain`,
-  `release`, `tone`, `touch`, `tune`, `fine`, `voiceMode` (0 Poly, 1 Mono, 2 Slide), `glide`,
+  `release`, `tone`, `touch`, `tune`, `fine`, `voiceMode` (0 Poly, 1 Mono, 2 Slide, 3 Legato since 0.16.1), `glide`,
   `volume`, `pan`, `bendRange`; see `source/dsp/Sampler.cpp`) are stored like any instrument's.
 
 | Node | Property | Meaning |

@@ -463,7 +463,7 @@ TEST_CASE ("The sampler is real-time safe in every voice mode", "[realtime]")
     InstrumentSounds none;
     none.map = &empty;
 
-    for (const auto mode : { sampler::poly, sampler::mono, sampler::slide })
+    for (const auto mode : { sampler::poly, sampler::mono, sampler::slide, sampler::legato })
     {
         auto instrument = createInstrument (sampler::typeId);
         instrument->prepare (48000.0, 2048);

@@ -6,6 +6,42 @@ follow [Semantic Versioning](https://semver.org/) (0.x while Aether is in early 
 
 ## [Unreleased]
 
+## [0.16.1] - 2026-11-13
+
+From your M15 notes.
+
+### Fixed
+- **The horns and other recorded instruments distorted, more and more on high notes and
+  chords.** The original libraries' own settings make many of their recordings much louder than
+  they are (the trumpet up to 18 dB, the trombone up to 25 dB), so a single loud trumpet note
+  already went over the maximum the sound card can play, and a chord went 5 to 8 dB over: the
+  crunch you heard. On some high notes the *soft* recordings were even louder than the loud
+  ones. Every recorded instrument is now set to the same safe level (its loudest note peaks at
+  -8 dB, leaving room for chords), softer playing is always quieter than harder playing, and no
+  single note jumps out above the rest. Measured on the trumpet: a chord that peaked at +5.4 dB
+  now peaks at about -5 dB. Some instruments are now quieter than before (the trumpet and flute about
+  10 dB): turn their tracks up if you need to.
+- **Notes far above a recording got a harsh, metallic edge.** Played more than 3 semitones above
+  the recording, the sampler now filters out what would fold back into tones that aren't in the
+  sound. This helps your own recordings and 808s played high too. The highest notes of the
+  Violins, the Brass section and the other sections were stretched up to 30 semitones past their
+  last recording; now at most 7 (beyond that they're silent, as on the real instruments).
+- **The Lo-fi kit sounded crunchy and clashing.** Its "lo-fi" treatment lowered the sample rate
+  without filtering first, which folded the high sounds back as tones that clash, and cut the
+  sound to 8 bits, which made every hit's tail crackle; and most of its pads (rim, clap, toms,
+  congas, cymbals...) were the bright, clean sounds. It's now warm and soft (the top rolled off,
+  with gentle tape saturation), and every pad has a lo-fi sound: 12 new ones (rim, clap, brush
+  snare, three toms, shaker, two congas, crash, tambourine, ride). A kit you already chose keeps
+  its pads: choose **Lo-fi** again in the drum editor to get the new ones.
+
+### Added
+- **Legato**, a new choice in the sampler's **Voices**: when a note starts while another is still
+  sounding, it takes over smoothly (the old note fades out as the new one comes in, over 40 ms),
+  instead of the two playing together and getting louder. Notes played together still make a
+  chord. The solo instruments (trumpet, French horn, trombone, tuba, flute, oboe, clarinet,
+  bassoon, tenor saxophone, solo violin) start in Legato when you choose them; a track that
+  already has one keeps Poly until you change **Voices** (or choose the instrument again).
+
 ## [0.16.0] - 2026-11-12 - Milestone 15: timing for MIDI
 
 ### Added

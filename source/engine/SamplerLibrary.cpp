@@ -64,6 +64,7 @@ std::vector<Entry> list()
             e.category = item["category"].toString();
             e.name = item["name"].toString();
             e.description = item["description"].toString();
+            e.solo = (bool) item["solo"];
             const auto file = item["file"].toString();
             e.reference = samplersound::builtIn (file.upToLastOccurrenceOf (".sfz", false, true));
 
@@ -154,6 +155,12 @@ std::map<juce::String, float> suggestedSettings (const samplersound::Reference& 
             if (instrument->velocityTracking)
                 settings["touch"] = std::clamp (*instrument->velocityTracking, 0.0f, 100.0f) * 0.7f;
         }
+
+        // Solo instruments play one note at a time: an overlapping note takes over smoothly.
+        if (sound.kind == samplersound::Kind::builtIn)
+            for (const auto& entry : list())
+                if (entry.reference == sound && entry.solo)
+                    settings["voiceMode"] = (float) dsp::sampler::legato;
 
         return settings;
     }

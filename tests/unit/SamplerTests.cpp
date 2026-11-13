@@ -378,3 +378,86 @@ TEST_CASE ("Loudness layers blend, so playing harder changes the sound gradually
         previous = level;
     }
 }
+
+TEST_CASE ("A recording played far above its pitch doesn't fold back into harsh tones", "[sampler]")
+{
+    const auto rms = [] (const std::vector<float>& x, size_t from, size_t to)
+    {
+        double sum = 0.0;
+        for (auto i = from; i < to; ++i)
+            sum += (double) x[i] * x[i];
+        return std::sqrt (sum / (double) (to - from));
+    };
+
+    // A 9 kHz tone played two octaves up would be 36 kHz: more than the output can hold (24 kHz
+    // at 48 kHz). Without filtering it would come out as a 12 kHz tone that isn't in the
+    // recording; filtered, it's (almost) silent.
+    const auto high = sine (9000.0, 1.0);
+    Fixture f;
+    f.addZone (high, 60);
+    const auto folded = f.run (24000, { Fixture::on (84) });
+    CHECK (rms (folded, 4800, 24000) < 0.01 * 0.5 / std::sqrt (2.0));
+
+    // What fits is kept: a 500 Hz tone two octaves up is a 2 kHz tone at its full level.
+    const auto low = sine (500.0, 2.0);
+    Fixture g;
+    g.addZone (low, 60);
+    const auto up = g.run (24000, { Fixture::on (84) });
+    CHECK (std::abs (frequency (up, 4800, 24000) - 2000.0) < 20.0);
+    CHECK (rms (up, 4800, 24000) > 0.93 * 0.5 / std::sqrt (2.0));
+
+    // Within 3 semitones nothing changes: the recording is read exactly as before.
+    Fixture h, k;
+    h.addZone (high, 60);
+    k.addZone (high, 60);
+    const auto near = h.run (4800, { Fixture::on (62) });
+    CHECK (rms (near, 1000, 4800) > 0.3);
+
+    // A held note through a loop stays smooth when filtered (the filter carries on across the
+    // jump back to the loop's start).
+    const auto tone = sine (480.0, 0.5);
+    Fixture m;
+    auto& z = m.addZone (tone, 60);
+    z.loopStart = 4800;
+    z.loopEnd = tone.getNumSamples();
+    const auto held = m.run (96000, { Fixture::on (67) });   // 7 semitones up: filtered
+    float biggestStep = 0.0f;
+    for (size_t i = 2000; i < held.size(); ++i)
+        biggestStep = std::max (biggestStep, std::abs (held[i] - held[i - 1]));
+    CHECK (biggestStep < 0.033f * 1.5f + 0.002f);   // a 719 Hz sine at 0.5 moves up to 0.047 per sample
+    CHECK (*std::max_element (held.begin() + 90000, held.end()) > 0.45f);
+}
+
+TEST_CASE ("Legato: an overlapping note takes over smoothly, notes played together still make a chord", "[sampler]")
+{
+    const auto a440 = sine (440.0, 4.0, 0.4f);
+
+    // Two clip notes: the second starts while the first still plays.
+    Fixture f;
+    f.addZone (a440, 69);
+    f.set (sm::voiceMode, (float) sm::legato);
+    const auto out = f.run (48000, { Fixture::clipNote (69, 24000), Fixture::clipNote (76, 20000, 19200) });
+
+    // After the hand-over (40 ms), only the new note sounds, at its own pitch...
+    CHECK (f.instrument->getNumSounding() == 1);
+    CHECK (std::abs (frequency (out, 24000, 38000) - 659.3) < 8.0);
+
+    // ...and the two never add up to much more than one note.
+    CHECK (*std::max_element (out.begin() + 19200, out.begin() + 22000) < 0.4f * 1.45f);
+
+    // Played together, they're a chord.
+    Fixture g;
+    g.addZone (a440, 69);
+    g.set (sm::voiceMode, (float) sm::legato);
+    g.run (4800, { Fixture::on (60), Fixture::on (64, 100, 200), Fixture::on (67, 100, 400) });
+    CHECK (g.instrument->getNumSounding() == 3);
+
+    // A note after the chord takes over from all of it.
+    g.run (9600, { Fixture::on (72, 100, 4800) });
+    CHECK (g.instrument->getNumSounding() == 1);
+
+    // In the sampler's list of voice modes.
+    const auto voices = sm::parameters()[(size_t) sm::voiceMode];
+    CHECK (voices.choices[sm::legato] == "Legato");
+    CHECK (voices.maximum == (float) sm::legato);
+}

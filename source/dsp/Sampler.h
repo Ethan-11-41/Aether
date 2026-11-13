@@ -15,9 +15,14 @@
       ("round robin") so repeated notes don't sound mechanical, loops for held notes.
     - A volume envelope (attack, decay, sustain, release), a tone control (a low-pass filter),
       tuning, volume, pan and how much playing harder makes it louder.
-    - Voices: Poly (chords), Mono (one note at a time), or Slide: one note at a time, and when a
+    - Voices: Poly (chords), Mono (one note at a time), Slide: one note at a time, and when a
       note starts while the previous one is still held, the sound glides to the new pitch without
-      starting again (how 808 bass lines slide).
+      starting again (how 808 bass lines slide), or Legato (since 0.16.1, for solo instruments): a
+      note that starts while others still sound takes over from them, which fade out over 40 ms
+      instead of sounding together, while notes started together (within 30 ms) still make a
+      chord.
+    - A recording played well above its own pitch (more than 3 semitones) is filtered first, so
+      it doesn't get a harsh, metallic edge.
 
     Which recordings it plays isn't a setting: the Instrument node stores where they come from
     (see model/SamplerSounds.h) and the engine builds the map. */
@@ -32,7 +37,7 @@ enum Parameter : int
     numParameters
 };
 
-enum VoiceMode : int { poly, mono, slide };
+enum VoiceMode : int { poly, mono, slide, legato };
 
 constexpr int maxVoices = 64;
 

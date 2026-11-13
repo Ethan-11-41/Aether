@@ -18,7 +18,7 @@ std::vector<EffectParameter> parameters()
         { "touch",     "Touch",      0.0f, 100.0f, 70.0f,     "%",  {}, false },
         { "tune",      "Tune",       -24.0f, 24.0f, 0.0f,     "st", {}, false, true },
         { "fine",      "Fine",       -100.0f, 100.0f, 0.0f,   "cents", {}, false },
-        { "voiceMode", "Voices",     0.0f, 2.0f, 0.0f, {}, { "Poly", "Mono", "Slide" }, false },
+        { "voiceMode", "Voices",     0.0f, 3.0f, 0.0f, {}, { "Poly", "Mono", "Slide", "Legato" }, false },
         { "glide",     "Glide",      1.0f, 2000.0f, 80.0f,    "ms", {}, true },
         { "volume",    "Volume",     -40.0f, 12.0f, 0.0f,     "dB", {}, false },
         { "pan",       "Pan",        -100.0f, 100.0f, 0.0f,   "pan", {}, false },
@@ -36,6 +36,14 @@ namespace
     constexpr double layerCrossfade = 24.0; // velocities over which loudness layers blend
     constexpr int scratchSize = 1024;
 
+    /** A recording played more than 3 semitones above its own pitch is filtered first (see
+        Voice::AntiAlias); closer than that, nothing it holds can fold back where it's heard. */
+    constexpr double antiAliasFrom = 1.189;
+
+    /** Legato: notes starting this close together are a chord; a note starting later takes over
+        from the ones still sounding, which fade out over `handOverMs`. */
+    constexpr double chordWindowMs = 30.0, handOverMs = 40.0;
+
     /** Where to read sample `i`: past a loop's end it carries on from the loop's start (so the
         interpolation is smooth across the loop point); otherwise kept within the sound. */
     struct Reader
@@ -50,19 +58,20 @@ namespace
         }
     };
 
-    /** 4-point Hermite interpolation between d[i] and the next sample. */
-    inline float hermite (const float* d, std::int64_t i, float t, const Reader& reader) noexcept
+    /** 4-point Hermite interpolation between x0 and x1, `t` of the way. */
+    inline float hermite (float xm1, float x0, float x1, float x2, float t) noexcept
     {
-        const auto xm1 = d[reader.at (i - 1)];
-        const auto x0 = d[reader.at (i)];
-        const auto x1 = d[reader.at (i + 1)];
-        const auto x2 = d[reader.at (i + 2)];
         const auto c = (x1 - xm1) * 0.5f;
         const auto v = x0 - x1;
         const auto w = c + v;
         const auto a = w + v + (x2 - x0) * 0.5f;
         const auto b = w + a;
         return ((a * t - b) * t + c) * t + x0;
+    }
+
+    inline float hermite (const float* d, std::int64_t i, float t, const Reader& reader) noexcept
+    {
+        return hermite (d[reader.at (i - 1)], d[reader.at (i)], d[reader.at (i + 1)], d[reader.at (i + 2)], t);
     }
 
     struct Envelope
@@ -120,6 +129,7 @@ namespace
             pedal = false;
             bend = 0.0;
             roundRobin.fill (0);
+            time = eventTime = 0;
         }
 
         int getNumSounding() const noexcept override
@@ -147,7 +157,10 @@ namespace
             while (done < numSamples)
             {
                 while (next < numEvents && events[next].offset <= done)
+                {
+                    eventTime = time + done;
                     handle (events[next++]);
+                }
 
                 const auto until = next < numEvents ? std::clamp (events[next].offset, done + 1, numSamples) : numSamples;
 
@@ -157,8 +170,11 @@ namespace
                 done = until;
             }
 
+            eventTime = time + numSamples;
             while (next < numEvents)
                 handle (events[next++]);
+
+            time += numSamples;
         }
 
     private:
@@ -183,10 +199,28 @@ namespace
             double position = 0.0, step = 1.0, pitch = 60.0, targetPitch = 60.0;
             float gainLeft = 1.0f, gainRight = 1.0f;
             float fade = 1.0f, fadeStep = 0.0f;   // a quick fade-out when cut off
+            float rise = 1.0f, riseStep = 0.0f;   // Legato: a fade-in while the last note fades out
             Envelope amp;
             double ic1[2] {}, ic2[2] {};
             int control = 0;
             std::uint64_t startedAt = 0;
+            std::int64_t startTime = 0;           // in samples since the sampler started
+
+            /** Playing a recording faster than `antiAliasFrom` (well above its pitch), what's
+                above half the output's sample rate would fold back down as tones that aren't in
+                the recording (harsh, metallic grit). So the recording is first passed through a
+                steep low-pass (eighth-order Butterworth) below that, which follows the pitch,
+                and the interpolation reads the filtered samples. */
+            struct AntiAlias
+            {
+                bool on = false;
+                std::int64_t next = 0;            // the next sample to filter (counting on through loops)
+                std::int64_t shift = 0;           // how far loops have moved the position back
+                double forStep = 0.0;
+                double c[4][5] {};                // four sections: b0, b1, b2, a1, a2
+                double z[2][4][2] {};             // [channel][section][state]
+                float history[2][4] {};           // the last four filtered samples, per channel
+            } alias;
 
             void letGo() noexcept
             {
@@ -211,7 +245,7 @@ namespace
             s.tuneOffset = std::round ((double) p[tune]) + (double) p[fine] / 100.0;
             s.bendRange = std::clamp ((double) std::round (p[bendRange]), 1.0, 12.0);
             s.touch = std::clamp ((double) p[touch] / 100.0, 0.0, 1.0);
-            s.mode = std::clamp ((int) std::lround (p[voiceMode]), 0, 2);
+            s.mode = std::clamp ((int) std::lround (p[voiceMode]), 0, 3);
 
             const auto gain = juce::Decibels::decibelsToGain ((double) p[volume], -100.0);
             const auto angle = (std::clamp ((double) p[pan], -100.0, 100.0) / 100.0 + 1.0) * juce::MathConstants<double>::pi * 0.25;
@@ -267,6 +301,34 @@ namespace
         {
             if (currentMap == nullptr)
                 return;
+
+            // Legato: notes still sounding hand over to this one (they fade out as it comes in),
+            // unless they started just now: notes played together still make a chord.
+            if (settings.mode == legato)
+            {
+                bool handedOver = false;
+
+                for (auto& v : voices)
+                    if (v.active && (v.keyDown || v.sustained) && v.fadeStep <= 0.0f
+                        && (double) (eventTime - v.startTime) > perSample (chordWindowMs))
+                    {
+                        handOver (v);
+                        handedOver = true;
+                    }
+
+                startNote (note, velocity, fromClip, length, false);
+
+                // The new note comes in as the old one goes out, so the two never add up.
+                if (handedOver)
+                    for (auto& v : voices)
+                        if (v.active && v.startTime == eventTime && v.note == note && v.keyDown)
+                        {
+                            v.rise = 0.0f;
+                            v.riseStep = (float) (1.0 / perSample (handOverMs));
+                        }
+
+                return;
+            }
 
             if (settings.mode != poly)
             {
@@ -343,6 +405,7 @@ namespace
                 v.position = (double) zone.start;
                 v.pitch = v.targetPitch = note;
                 v.startedAt = ++clock;
+                v.startTime = eventTime;
                 v.amp.trigger();
 
                 const auto angle = (std::clamp ((double) zone.pan, -1.0, 1.0) + 1.0) * juce::MathConstants<double>::pi * 0.25;
@@ -420,6 +483,14 @@ namespace
             v.keyDown = false;
         }
 
+        /** Legato: a note fading out as the next one comes in. */
+        void handOver (Voice& v) noexcept
+        {
+            v.fadeStep = (float) (1.0 / perSample (handOverMs));
+            v.keyDown = false;
+            v.sustained = false;
+        }
+
         Voice& freeVoice() noexcept
         {
             for (auto& v : voices)
@@ -457,6 +528,85 @@ namespace
         {
             const auto semitones = v.pitch - v.zone->rootKey + v.zone->tune + settings.tuneOffset + bend * settings.bendRange;
             v.step = std::exp2 (semitones / 12.0);
+
+            auto& a = v.alias;
+
+            if (! a.on && v.step > antiAliasFrom)
+            {
+                // From here on, filtered: warmed up on the 32 samples before the position.
+                const auto shift = a.shift;
+                a = {};
+                a.on = true;
+                a.shift = shift;
+                a.next = (std::int64_t) v.position + shift - 33;
+                designAntiAlias (a, v.step);
+            }
+            else if (a.on && std::abs (v.step - a.forStep) > 0.005 * a.forStep)
+            {
+                designAntiAlias (a, v.step);
+            }
+        }
+
+        /** The low-pass for a voice playing `step` samples of the recording per sample out: an
+            eighth-order Butterworth at 40% of the output's sample rate (19.2 kHz at 48 kHz), in the
+            recording's samples (four sections; bilinear transform). A tone that would fold back
+            from far above comes out more than 40 dB quieter. */
+        static void designAntiAlias (Voice::AntiAlias& a, double step) noexcept
+        {
+            const auto cutoff = 0.40 / std::max (1.0, step);   // cycles per sample of the recording
+            const auto k = std::tan (juce::MathConstants<double>::pi * cutoff);
+            constexpr double qs[] { 0.5098, 0.6013, 0.9000, 2.5629 };
+
+            for (int section = 0; section < 4; ++section)
+            {
+                const auto q = qs[section];
+                const auto norm = 1.0 / (1.0 + k / q + k * k);
+                auto* c = a.c[section];
+                c[0] = k * k * norm;
+                c[1] = 2.0 * c[0];
+                c[2] = c[0];
+                c[3] = 2.0 * (k * k - 1.0) * norm;
+                c[4] = (1.0 - k / q + k * k) * norm;
+            }
+
+            a.forStep = step;
+        }
+
+        static float antiAlias (Voice::AntiAlias& a, int channel, float x) noexcept
+        {
+            double y = x;
+
+            for (int section = 0; section < 4; ++section)
+            {
+                const auto* c = a.c[section];
+                auto* z = a.z[channel][section];
+                const auto out = c[0] * y + z[0];
+                z[0] = c[1] * y - c[3] * out + z[1];
+                z[1] = c[2] * y - c[4] * out;
+                y = out;
+            }
+
+            return (float) y;
+        }
+
+        /** Filters the recording up to (and including) sample `until` (counting on through
+            loops), keeping the last four filtered samples. */
+        static void feedAntiAlias (Voice::AntiAlias& a, const float* l, const float* r, bool stereo, const Reader& reader,
+                                   std::int64_t until) noexcept
+        {
+            for (; a.next <= until; ++a.next)
+            {
+                const auto i = reader.at (a.next - a.shift);
+
+                for (int channel = 0; channel < (stereo ? 2 : 1); ++channel)
+                {
+                    auto* h = a.history[channel];
+                    h[0] = h[1];
+                    h[1] = h[2];
+                    h[2] = h[3];
+                    h[3] = antiAlias (a, channel, (channel == 0 ? l : r)[i]);
+                }
+            }
         }
 
         //==============================================================================
@@ -513,7 +663,10 @@ namespace
                 // A loop (held notes): back to its start when it reaches its end, which may be the
                 // very end of the recording. Without one, the note ends with the recording.
                 while (loops && v.position >= (double) zone.loopEnd)
+                {
                     v.position -= loopLength;
+                    v.alias.shift += zone.loopEnd - zone.loopStart;
+                }
 
                 const auto index = (std::int64_t) v.position;
                 if (! loops && index >= last)
@@ -523,10 +676,22 @@ namespace
                 }
 
                 const auto t = (float) (v.position - (double) index);
-                auto sl = hermite (l, index, t, reader);
-                auto sr = stereo ? hermite (r, index, t, reader) : sl;
+                float sl, sr;
 
-                const auto env = (float) v.amp.next (s.attackStep, s.decayCoefficient, s.sustainLevel, s.releaseCoefficient) * v.fade;
+                if (v.alias.on)
+                {
+                    auto& a = v.alias;
+                    feedAntiAlias (a, l, r, stereo, reader, index + a.shift + 2);
+                    sl = hermite (a.history[0][0], a.history[0][1], a.history[0][2], a.history[0][3], t);
+                    sr = stereo ? hermite (a.history[1][0], a.history[1][1], a.history[1][2], a.history[1][3], t) : sl;
+                }
+                else
+                {
+                    sl = hermite (l, index, t, reader);
+                    sr = stereo ? hermite (r, index, t, reader) : sl;
+                }
+
+                const auto env = (float) v.amp.next (s.attackStep, s.decayCoefficient, s.sustainLevel, s.releaseCoefficient) * v.fade * v.rise;
 
                 if (s.filtered)
                 {
@@ -541,6 +706,13 @@ namespace
 
                 if (v.fadeStep > 0.0f)
                     v.fade -= v.fadeStep;
+
+                if (v.riseStep > 0.0f)
+                {
+                    v.rise = std::min (1.0f, v.rise + v.riseStep);
+                    if (v.rise >= 1.0f)
+                        v.riseStep = 0.0f;
+                }
 
                 // Finished: the envelope has died away, or a cut has faded out.
                 if (v.fade <= 0.0f || v.amp.stage == Envelope::idle
@@ -575,6 +747,7 @@ namespace
         double bend = 0.0;
         const SampleMap* currentMap = nullptr;
         std::uint64_t clock = 0;
+        std::int64_t time = 0, eventTime = 0;   // samples since prepare(), and when the event being handled happens
     };
 }
 
