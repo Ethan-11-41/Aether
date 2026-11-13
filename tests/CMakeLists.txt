@@ -40,6 +40,7 @@ add_executable(aether_tests
     unit/SamplerTests.cpp
     unit/SfzTests.cpp
     unit/ShortcutListTests.cpp
+    unit/SoundEffectTests.cpp
     unit/SpscQueueTests.cpp
     unit/SynthEditorTests.cpp
     unit/SynthTests.cpp

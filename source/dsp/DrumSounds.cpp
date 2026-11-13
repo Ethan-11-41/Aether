@@ -6,9 +6,12 @@
 
 #include "DrumSounds.h"
 
+#include <algorithm>
 #include <cmath>
 #include <functional>
 #include <map>
+#include <utility>
+#include <vector>
 
 namespace aether::dsp::drums
 {
@@ -336,6 +339,228 @@ namespace
         return out;
     }
 
+    //==============================================================================
+    // Cinematic sounds (Milestone 16)
+
+    /** A big, dark room behind a sound: four feedback delays (with their highs damped) and two
+        all-passes, as in M. Schroeder's reverberator, mixed in. `seconds` is how long it takes
+        to die away (by 60 dB). */
+    void room (juce::AudioBuffer<float>& b, double rate, double seconds, double mix)
+    {
+        auto* d = b.getWritePointer (0);
+        const auto n = b.getNumSamples();
+        constexpr double combMs[] { 29.7, 37.1, 41.1, 43.7 };
+        constexpr double allPassMs[] { 5.0, 1.7 };
+
+        struct Line { std::vector<double> buffer; size_t at = 0; double feedback = 0.0, damped = 0.0; };
+        std::vector<Line> combs, allPasses;
+
+        for (const auto ms : combMs)
+        {
+            Line l;
+            l.buffer.assign ((size_t) std::max (1.0, ms * 0.001 * rate), 0.0);
+            l.feedback = std::pow (10.0, -3.0 * ms * 0.001 / seconds);
+            combs.push_back (std::move (l));
+        }
+
+        for (const auto ms : allPassMs)
+        {
+            Line l;
+            l.buffer.assign ((size_t) std::max (1.0, ms * 0.001 * rate), 0.0);
+            allPasses.push_back (std::move (l));
+        }
+
+        const auto damping = std::exp (-twoPi * 3500.0 / rate);
+
+        for (int i = 0; i < n; ++i)
+        {
+            const auto x = (double) d[i];
+            double wet = 0.0;
+
+            for (auto& c : combs)
+            {
+                const auto out = c.buffer[c.at];
+                c.damped = out * (1.0 - damping) + c.damped * damping;
+                c.buffer[c.at] = x + c.damped * c.feedback;
+                c.at = (c.at + 1) % c.buffer.size();
+                wet += out;
+            }
+
+            wet *= 0.25;
+
+            for (auto& a : allPasses)
+            {
+                const auto delayed = a.buffer[a.at];
+                const auto in = wet + 0.5 * delayed;
+                a.buffer[a.at] = in;
+                a.at = (a.at + 1) % a.buffer.size();
+                wet = delayed - 0.5 * in;
+            }
+
+            d[i] = (float) ((1.0 - mix) * x + mix * wet);
+        }
+    }
+
+    /** A taiko-like drum: a low, falling body with a short knock above it, and a big room. */
+    juce::AudioBuffer<float> taiko (double rate, double hz, double decayTau, double length)
+    {
+        double p1 = 0.0, p2 = 0.0;
+        juce::Random random (101);
+        Biquad skinFilter (Biquad::lowPass, 1500.0, 0.7, rate);
+
+        auto out = make (length, rate, [&] (double t)
+        {
+            const auto drop = 1.0 + 0.5 * envelope (t, 0.03);
+            p1 += hz * drop / rate;
+            p2 += hz * 1.6 * drop / rate;
+            const auto body = std::sin (twoPi * p1) * envelope (t, decayTau) + 0.35 * std::sin (twoPi * p2) * envelope (t, decayTau * 0.3);
+            const auto skin = 0.6 * skinFilter (random.nextDouble() * 2.0 - 1.0) * envelope (t, 0.015);
+            return std::tanh (1.6 * (body + skin)) * attack (t, 0.002);
+        });
+
+        room (out, rate, 1.8, 0.3);
+        finish (out, rate, 0.95f);
+        return out;
+    }
+
+    /** A big snare in a big room. */
+    juce::AudioBuffer<float> bigSnare (double rate)
+    {
+        auto out = snare (rate, 180.0, 310.0, 0.06, 0.3, 900.0, 7000.0, 0.35, 3.0, 24);
+        room (out, rate, 2.2, 0.4);
+        finish (out, rate, 0.9f);
+        return out;
+    }
+
+    /** A stomp: a heavy foot on a wooden floor, with a slap. */
+    juce::AudioBuffer<float> stomp (double rate)
+    {
+        double phase = 0.0;
+        juce::Random random (111);
+        Biquad slap (Biquad::bandPass, 1200.0, 0.9, rate);
+
+        auto out = make (1.5, rate, [&] (double t)
+        {
+            phase += 75.0 * (1.0 + 0.6 * envelope (t, 0.02)) / rate;
+            const auto thump = std::sin (twoPi * phase) * envelope (t, 0.12);
+            const auto wood = 0.8 * slap (random.nextDouble() * 2.0 - 1.0) * envelope (t, 0.03);
+            return std::tanh (1.4 * (thump + wood)) * attack (t, 0.001);
+        });
+
+        room (out, rate, 1.0, 0.3);
+        finish (out, rate, 0.9f);
+        return out;
+    }
+
+    /** An impact: a deep boom, a burst of noise and a metallic clang, dying away in a big space. */
+    juce::AudioBuffer<float> impact (double rate)
+    {
+        double phase = 0.0;
+        juce::Random random (121);
+        const Metal metal (0.45);
+        Biquad noiseFilter (Biquad::lowPass, 4000.0, 0.7, rate), clang (Biquad::bandPass, 1800.0, 1.2, rate);
+
+        auto out = make (4.0, rate, [&] (double t)
+        {
+            phase += (32.0 + 26.0 * envelope (t, 0.15)) / rate;
+            const auto boom = std::sin (twoPi * phase) * envelope (t, 0.9);
+            const auto burst = noiseFilter (random.nextDouble() * 2.0 - 1.0) * envelope (t, 0.08);
+            const auto ring = 0.35 * clang (metal (t)) * envelope (t, 0.6);
+            return std::tanh (1.5 * (boom + burst + ring)) * attack (t, 0.001);
+        });
+
+        room (out, rate, 3.0, 0.35);
+        finish (out, rate, 0.95f);
+        return out;
+    }
+
+    /** A sub drop: a deep sine falling in pitch, with a little drive so small speakers hear it. */
+    juce::AudioBuffer<float> boom (double rate)
+    {
+        double phase = 0.0;
+
+        auto out = make (3.5, rate, [&] (double t)
+        {
+            phase += (28.0 + 42.0 * envelope (t, 0.5)) / rate;
+            return std::tanh (1.5 * std::sin (twoPi * phase)) * envelope (t, 1.1) * attack (t, 0.005);
+        });
+
+        finish (out, rate, 0.95f);
+        return out;
+    }
+
+    /** Partials at given ratios of `hz`, each with its own decay: bells, anvils, gongs. */
+    juce::AudioBuffer<float> partials (double rate, double hz, std::vector<std::pair<double, double>> ratiosAndDecays, double bloom,
+                                       double length, float peak, double roomSeconds)
+    {
+        juce::Random random (131);
+        Biquad strike (Biquad::highPass, 2000.0, 0.7, rate);
+
+        auto out = make (length, rate, [&] (double t)
+        {
+            double v = 0.0;
+            for (size_t k = 0; k < ratiosAndDecays.size(); ++k)
+            {
+                const auto [ratio, decay] = ratiosAndDecays[k];
+                // Upper partials can swell in a moment after the strike (a gong's "bloom").
+                const auto swell = bloom > 0.0 && k > 0 ? std::min (1.0, t / bloom) : 1.0;
+                v += std::sin (twoPi * hz * ratio * t) * envelope (t, decay) * swell / (1.0 + 0.4 * (double) k);
+            }
+
+            return (v + 0.5 * strike (random.nextDouble() * 2.0 - 1.0) * envelope (t, 0.006)) * attack (t, 0.001);
+        });
+
+        room (out, rate, roomSeconds, 0.25);
+        finish (out, rate, peak);
+        return out;
+    }
+
+    /** A clock-like tick: the heartbeat of a tense scene. */
+    juce::AudioBuffer<float> ticker (double rate)
+    {
+        auto out = make (0.15, rate, [&] (double t)
+        {
+            return (std::sin (twoPi * 3100.0 * t) + 0.5 * std::sin (twoPi * 6300.0 * t)) * envelope (t, 0.004) * attack (t, 0.0003);
+        });
+        finish (out, rate, 0.6f);
+        return out;
+    }
+
+    /** A crash cymbal backwards: it swells up into where it would be struck. */
+    juce::AudioBuffer<float> reverseCymbal (double rate)
+    {
+        auto out = cymbal (rate, 0.75, 1.6, 1.0, 0.0, 2.5);
+        auto* d = out.getWritePointer (0);
+        std::reverse (d, d + out.getNumSamples());
+        finish (out, rate, 0.5f);
+        return out;
+    }
+
+    /** A whoosh: noise sweeping up and back down through a band, as something rushes past. */
+    juce::AudioBuffer<float> whoosh (double rate)
+    {
+        juce::Random random (141);
+        constexpr double length = 1.2;
+        double low = 0.0, band = 0.0;
+
+        auto out = make (length, rate, [&] (double t)
+        {
+            const auto shape = std::sin (juce::MathConstants<double>::pi * t / length);
+            const auto centre = 300.0 * std::pow (10.0, shape);   // 300 Hz to 3 kHz and back
+            const auto f = 2.0 * std::sin (juce::MathConstants<double>::pi * centre / rate);
+
+            // A state-variable band-pass that can follow the moving centre smoothly.
+            const auto x = random.nextDouble() * 2.0 - 1.0;
+            const auto high = x - low - 0.7 * band;
+            band += f * high;
+            low += f * band;
+            return band * shape * shape;
+        });
+
+        finish (out, rate, 0.6f);
+        return out;
+    }
+
     juce::AudioBuffer<float> withLofi (juce::AudioBuffer<float> b, double rate, float peak, double warmth)
     {
         lofi (b, rate, warmth);
@@ -406,6 +631,20 @@ namespace
             { { "conga-low",     "Conga (low)",     "Percussion" }, [] (double r) { return conga (r, 190.0); } },
             { { "conga-high",    "Conga (high)",    "Percussion" }, [] (double r) { return conga (r, 290.0); } },
             { { "clave",         "Clave",           "Percussion" }, [] (double r) { return clave (r); } },
+
+            { { "taiko-low",     "Taiko (low)",     "Cinematic" }, [] (double r) { return taiko (r, 62.0, 0.5, 3.0); } },
+            { { "taiko-high",    "Taiko (high)",    "Cinematic" }, [] (double r) { return taiko (r, 118.0, 0.35, 2.5); } },
+            { { "tom-big-low",   "Big tom (low)",   "Cinematic" }, [] (double r) { auto b = tom (r, 72.0, 0.6, 0.5, 0.4, 2.5); room (b, r, 1.6, 0.3); finish (b, r, 0.9f); return b; } },
+            { { "tom-big-high",  "Big tom (high)",  "Cinematic" }, [] (double r) { auto b = tom (r, 108.0, 0.45, 0.5, 0.4, 2.5); room (b, r, 1.6, 0.3); finish (b, r, 0.9f); return b; } },
+            { { "snare-big",     "Big snare",       "Cinematic" }, [] (double r) { return bigSnare (r); } },
+            { { "stomp",         "Stomp",           "Cinematic" }, [] (double r) { return stomp (r); } },
+            { { "impact",        "Impact",          "Cinematic" }, [] (double r) { return impact (r); } },
+            { { "boom",          "Boom (sub drop)", "Cinematic" }, [] (double r) { return boom (r); } },
+            { { "metal-hit",     "Metal hit",       "Cinematic" }, [] (double r) { return partials (r, 220.0, { { 1.0, 0.9 }, { 2.76, 0.6 }, { 5.40, 0.4 }, { 8.93, 0.25 }, { 13.34, 0.15 } }, 0.0, 3.0, 0.7f, 1.5); } },
+            { { "gong",          "Gong",            "Cinematic" }, [] (double r) { return partials (r, 92.0, { { 1.0, 1.4 }, { 1.48, 1.2 }, { 2.06, 1.0 }, { 2.56, 0.9 }, { 3.22, 0.7 }, { 4.01, 0.6 } }, 0.35, 4.0, 0.6f, 2.5); } },
+            { { "ticker",        "Ticker",          "Cinematic" }, [] (double r) { return ticker (r); } },
+            { { "reverse-cymbal", "Reverse cymbal", "Cinematic" }, [] (double r) { return reverseCymbal (r); } },
+            { { "whoosh",        "Whoosh",          "Cinematic" }, [] (double r) { return whoosh (r); } },
             { { "shaker-lofi",   "Shaker (lo-fi)",  "Percussion" }, [] (double r) { return withLofi (shaker (r, 0.015, 0.05, 0.25, 101), r, 0.4f, 5000.0); } },
             { { "tambourine-lofi", "Tambourine (lo-fi)", "Percussion" }, [] (double r) { return withLofi (tambourine (r), r, 0.4f, 5500.0); } },
             { { "conga-lofi-low", "Conga lo-fi (low)", "Percussion" }, [] (double r) { return withLofi (conga (r, 190.0), r, 0.75f, 2200.0); } },
@@ -489,6 +728,13 @@ const std::vector<Kit>& kits()
             { "shaker-lofi", 0, -8, 20 }, { "tom-lofi-high", -3, -4, 10 }, { "hat-lofi-open", 0, -6, 10, 80, 1 },
             { "conga-lofi-low", 0, -6, -20 }, { "conga-lofi-high", 0, -6, 20 }, { "crash-lofi", -2, -9, -25 },
             { "tambourine-lofi", 0, -8, 30 }, { "ride-lofi", -2, -9, 30 } }} },
+
+        { "Cinematic", {{
+            { "taiko-low" }, { "ticker", 0, -6 }, { "snare-big", 0, -1 }, { "stomp", 0, -2 }, { "metal-hit", 0, -6 },
+            { "tom-big-low", 0, -2, -30 }, { "hat-closed", 0, -8, 10, 80, 1 }, { "tom-big-high", 0, -2, -10 },
+            { "whoosh", 0, -6, 0 }, { "taiko-high", 0, -1, 20 }, { "hat-open", 0, -9, 10, 70, 1 },
+            { "boom", 0, -2 }, { "impact", 0, -1 }, { "reverse-cymbal", 0, -5, -20 }, { "gong", 0, -4, 25 },
+            { "crash", 0, -7, 30 } }} },
 
         { "Deep", {{
             { "kick-deep" }, { "rim", 0, -4 }, { "snare-808", -2 }, { "clap-808", -1, -3 }, { "snap", 0, -4 },

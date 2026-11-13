@@ -4,7 +4,7 @@ An honest list of what works. Updated at the end of every milestone.
 
 **Legend:** ✅ Working · 🟡 Partial · 🧪 Stub/placeholder · ⬜ Not started
 
-Current version: **0.16.2** (Milestone 15: timing for MIDI, with fixes and requests from your notes)
+Current version: **0.17.0** (Milestone 16: sound effects and cinematic sounds)
 
 ## Milestone 0: skeleton and build pipeline
 
@@ -186,7 +186,7 @@ Current version: **0.16.2** (Milestone 15: timing for MIDI, with fixes and reque
 | Feature | Status | Notes |
 |---|---|---|
 | Drum tracks ("+ Drums", Ctrl+Shift+D) with a 16-pad drum kit | ✅ | Any MIDI track can switch to the drum kit (track menu > Instrument). |
-| 49 drum sounds and 5 kits (Tight kit, 808, Electronic, Lo-fi, Deep) | ✅ | Made by Aether's own code, so they're free to share. Recorded (sampled) acoustic kits come with the sampler and sound library (M12, M21). The Lo-fi kit was rebuilt in 0.16.1 (warm instead of crunchy), with lo-fi versions of all its sounds. |
+| 62 drum sounds and 6 kits (Tight kit, 808, Electronic, Lo-fi, Cinematic, Deep) | ✅ | Made by Aether's own code, so they're free to share. Recorded (sampled) acoustic kits come with the sampler and sound library (M12, M21). The Lo-fi kit was rebuilt in 0.16.1 (warm instead of crunchy), with lo-fi versions of all its sounds. |
 | Your own sounds on pads (drop a file on a pad, or Choose sound > From an audio file) | ✅ | Copied into the project's Audio folder. |
 | Per-pad tune, volume, pan, attack, length, choke groups; kit volume | ✅ | |
 | Drum editor window: step sequencer (1/8, 1/16, 1/32 steps; 1 to 8 bars), accents, velocity lane, swing | ✅ | One drum editor window at a time. Space plays just the pattern (0.12.1), or with the song. |
@@ -257,6 +257,15 @@ Current version: **0.16.2** (Milestone 15: timing for MIDI, with fixes and reque
 | Quantize whole clips or tracks from the timeline (Q, grid, strength, swing, note ends) | ✅ | On the song's grid (bars from their start), so clips that don't start on a grid line still end up on it. |
 | Repeating patterns (drum patterns) | ⬜ (by design) | They're already in time: Fix timing leaves them out (Quantize works on them). |
 | Tempo and timing of recorded audio | ⬜ | M17 (with time-stretching). |
+
+## Milestone 16: sound effects and cinematic sounds
+
+| Feature | Status | Notes |
+|---|---|---|
+| Sound effects from the timeline (right-click a lane > Add a sound effect here) | ✅ | Riser (noise), Riser (synth), Reverse swell (end on the nearest bar line, 1 to 8 bars at the song's tempo), Downlifter, Impact, Boom, Whoosh. Made by Aether's code, saved once in the song's Audio/Sound effects folder. Tested automatically on their sound (rising, falling, clean ends) and placement; how they sound to you is in the M16 checklist. |
+| Cinematic drum kit and 13 cinematic drum sounds | ✅ | Taiko, big toms, big snare, stomp, impact, boom, metal hit, gong, ticker, reverse cymbal, whoosh. |
+| A riser that changes length when the tempo changes | ⬜ | It's an audio clip made at the tempo it was added at: after a tempo change, add it again (audio that follows the tempo comes with M17). |
+| More effects (braams, hits with pitch, glitches, vinyl stops...) | ⬜ | Tell me which you'd use; recorded sounds come with the sound library (M21). |
 
 ## Everything else
 

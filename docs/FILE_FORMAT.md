@@ -265,6 +265,12 @@ A lane with no points changes nothing. Lanes for an effect or send that's gone a
 A reversed audio clip refers to a reversed copy of its recording, `<name> (reversed).wav`, in the
 same folder (a 32-bit float WAV); nothing else about it is new.
 
+### Added in Aether 0.17.0 (still format version 1)
+
+Nothing new in the file. Sound effects are ordinary audio clips playing WAV files in the project's
+`Audio/Sound effects` folder; the drum kit's new sounds are referred to like the others
+(`"builtin:taiko-low"`; the names are in `source/dsp/DrumSounds.cpp`).
+
 ## Rules for changing the format
 
 1. Never rename or reuse a node type or property name (see `source/model/Ids.h`).

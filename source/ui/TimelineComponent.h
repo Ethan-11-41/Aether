@@ -111,6 +111,10 @@ public:
     bool pasteClips();
     bool canPaste() const noexcept   { return ! clipboard.empty(); }
 
+    /** Adds one of Aether's sound effects (see aether::addSoundEffect) and selects it. Returns
+        its clip's id (empty if it couldn't, after saying why). */
+    juce::String addSoundEffect (const juce::String& effectId, int bars, const juce::String& trackId, Tick position);
+
     /** Reverses audio clips (see aether::reverseClips); problems are shown in a message. */
     void reverseClips (const juce::StringArray& clipIds);
 

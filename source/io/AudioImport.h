@@ -45,6 +45,22 @@ juce::String relativePathInProject (const ProjectLocation& location, const juce:
 /** The file a clip refers to. */
 juce::File resolveClipFile (const ProjectLocation& location, const juce::String& relativePath);
 
+/** Where a sound effect went (addSoundEffect). */
+struct SoundEffectResult
+{
+    juce::String clipId, trackId, problem;
+};
+
+/** Adds one of Aether's sound effects (dsp/SoundEffects) to the song, as one undo step
+    (Milestone 16). Build-ups (risers, swells) last `bars` bars and end on the bar line nearest
+    `position` (they rise into it); a downlifter lasts `bars` bars from there; hits (impact, boom,
+    whoosh) start there. The sound is made at the song's tempo there and `sampleRate`, saved in
+    the project's "Audio/Sound effects" folder (once: the same effect at the same length is
+    reused), and goes on `trackId` if that's an audio track, otherwise on a new audio track
+    ("Sound effects") below it. */
+SoundEffectResult addSoundEffect (Project& project, const ProjectLocation& location, const juce::String& effectId, int bars,
+                                  const juce::String& trackId, Tick position, double sampleRate);
+
 /** Reverses audio clips (plays them backwards), as one undo step: each clip then plays a reversed
     copy of its recording, "<name> (reversed).wav" (32-bit float, at the recording's rate) in the
     project's Audio folder, made once and reused; reversing it again goes back to the original.

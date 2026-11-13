@@ -9,7 +9,7 @@ A free, open-source digital audio workstation (DAW) for Windows: record, arrange
 music, in the spirit of GarageBand, FL Studio, LMMS and Reaper. Beginner-friendly on the surface,
 with deep customisation underneath.
 
-> **Status: early development (Milestone 15 of 32; Phase 1, the core, is complete).** Aether
+> **Status: early development (Milestone 16 of 32; Phase 1, the core, is complete).** Aether
 > can create, save and open projects with full undo/redo, autosave and crash recovery; play with
 > tempo changes, time signatures, looping and a metronome; record audio (with latency
 > compensation, punch in/out and loop takes) and MIDI from a keyboard (or the on-screen one)
@@ -24,8 +24,8 @@ with deep customisation underneath.
 > picture, presets and ready-made chains for vocals, instruments and the whole song; automate
 > any of it (draw lanes under the tracks, or record your knob moves); find the tempo of MIDI you
 > played without the metronome, then make it steady or make the song's tempo follow it, and
-> quantize whole clips; and export the mix and stems to WAV, FLAC or MP3. Next (M16): sound
-> effects and cinematic sounds (risers, impacts, cinematic drums); then (M17) time-stretching,
+> quantize whole clips; add risers, impacts and other sound effects made to the song's tempo, and
+> cinematic drums; and export the mix and stems to WAV, FLAC or MP3. Next (M17): time-stretching,
 > and tempo and timing for recorded audio. See
 > [docs/STATUS.md](docs/STATUS.md) for exactly what works, and
 > [docs/ROADMAP.md](docs/ROADMAP.md) for what's coming.
@@ -91,6 +91,7 @@ See [docs/FILE_FORMAT.md](docs/FILE_FORMAT.md).
 | Fade a clip in or out (audio or MIDI) | drag the small dot at its top left or top right corner |
 | Play an audio clip backwards | right-click it > Reverse |
 | Rename the song | File > Rename song (or right-click it on the start screen) |
+| Add a riser, impact or other sound effect | right-click an empty part of a track's lane > Add a sound effect here |
 | Add a drum track / edit a drum pattern | Ctrl+Shift+D / double-click the pattern |
 | Drum editor: step on or off / accent (again: normal) / remove a hit | click (drag for several) / Shift+click / right-click |
 | Drum editor: play just the pattern / stop | Space |

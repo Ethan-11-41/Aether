@@ -4,9 +4,10 @@
 #include <algorithm>
 #include <cstring>
 
-#include "model/MidiClips.h"
-
+#include "dsp/SoundEffects.h"
 #include "model/EditCommands.h"
+#include "model/MidiClips.h"
+#include "model/TimelineEdits.h"
 
 namespace aether
 {
@@ -289,6 +290,97 @@ juce::StringArray reverseClips (Project& project, const ProjectLocation& locatio
     }
 
     return problems;
+}
+
+SoundEffectResult addSoundEffect (Project& project, const ProjectLocation& location, const juce::String& effectId, int bars,
+                                  const juce::String& trackId, Tick position, double sampleRate)
+{
+    SoundEffectResult result;
+    const auto* info = dsp::soundfx::find (effectId);
+
+    if (info == nullptr)
+    {
+        result.problem = "There's no sound effect called " + effectId + ".";
+        return result;
+    }
+
+    const auto rate = sampleRate > 0.0 ? sampleRate : 48000.0;
+    const auto tempo = timeline::buildTempoMap (project);
+    bars = std::clamp (bars, 1, 64);
+
+    // Where it goes: build-ups end on the nearest bar line; the rest start where asked (a
+    // downlifter on the nearest bar line too).
+    auto nearestBar = [&tempo] (Tick tick)
+    {
+        const auto bar = tempo.ticksToBarBeat (std::max<Tick> (0, tick)).bar;
+        return tick - tempo.barToTicks (bar) <= tempo.barToTicks (bar + 1) - tick ? bar : bar + 1;
+    };
+
+    Tick start = std::max<Tick> (0, position);
+    double seconds = 0.0;
+
+    if (info->buildsUp)
+    {
+        const auto endBar = std::max (1, nearestBar (position));
+        start = tempo.barToTicks (std::max (0, endBar - bars));
+        seconds = tempo.ticksToSeconds (tempo.barToTicks (endBar)) - tempo.ticksToSeconds (start);
+    }
+    else if (info->hasLength)
+    {
+        const auto startBar = nearestBar (position);
+        start = tempo.barToTicks (startBar);
+        seconds = tempo.ticksToSeconds (tempo.barToTicks (startBar + bars)) - tempo.ticksToSeconds (start);
+    }
+
+    // The sound, made once per length (and sample rate).
+    const auto folder = location.getAudioFolder().getChildFile ("Sound effects");
+    const auto fileName = juce::String (info->name) + (info->hasLength ? " " + juce::String (seconds, 2) + " s" : juce::String())
+                          + " " + juce::String (juce::roundToInt (rate / 100.0) / 10.0) + " kHz.wav";
+    const auto file = folder.getChildFile (projectfiles::safeFileName (fileName));
+    juce::int64 length = 0;
+
+    {
+        juce::AudioFormatManager formats;
+        formats.registerBasicFormats();
+
+        if (std::unique_ptr<juce::AudioFormatReader> reader (formats.createReaderFor (file)); reader != nullptr)
+            length = reader->lengthInSamples;
+    }
+
+    if (length <= 0)
+    {
+        const auto sound = dsp::soundfx::render (effectId, seconds, rate);
+        folder.createDirectory();
+        file.deleteFile();
+
+        juce::WavAudioFormat wav;
+        std::unique_ptr<juce::OutputStream> stream = std::make_unique<juce::FileOutputStream> (file);
+        auto writer = wav.createWriterFor (stream, juce::AudioFormatWriterOptions{}.withSampleRate (rate)
+                                                                                 .withNumChannels (sound.getNumChannels())
+                                                                                 .withBitsPerSample (24));
+        if (writer == nullptr || ! writer->writeFromAudioSampleBuffer (sound, 0, sound.getNumSamples()))
+        {
+            result.problem = "Aether couldn't write " + file.getFullPathName() + " (is the disk full?).";
+            return result;
+        }
+
+        length = sound.getNumSamples();
+    }
+
+    // On the audio track asked for, or a new one below it.
+    project.getUndoManager().beginNewTransaction (juce::String ("Add ") + info->name);
+    auto track = project.findTrack (trackId);
+
+    if (! track.isValid() || track.getKind() != TrackKind::audio)
+    {
+        const auto below = project.indexOfTrack (trackId);
+        track = edit::addTrack (project, TrackKind::audio, below >= 0 ? below + 1 : -1, false, "Sound effects");
+    }
+
+    result.trackId = track.getId();
+    result.clipId = edit::addAudioClip (project, result.trackId, { relativePathInProject (location, file), info->name, rate, length },
+                                        start, false);
+    return result;
 }
 
 juce::File copyIntoAudioFolder (const ProjectLocation& location, const juce::File& file, const juce::String& subfolder)

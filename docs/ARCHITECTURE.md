@@ -206,6 +206,14 @@ Separate process:   plug-in scanner
   whole tempo list. `edit::quantizeClips` quantizes notes against the song's grid, counted from
   each bar's start (the piano roll's quantize counts from the clip's start).
 
+- Sound effects (M16, `dsp/SoundEffects`): risers, a reverse swell and a downlifter are made to
+  any length (so they last whole bars at the song's tempo), from seeded noise through a sweeping
+  state-variable filter, or polyBLEP saws (no aliasing); impacts, booms and whooshes are the
+  cinematic drum sounds in stereo. `addSoundEffect` (`io/AudioImport`) works out the length from
+  the tempo map, writes a WAV into the project's "Audio/Sound effects" folder once per length and
+  rate, and adds an ordinary audio clip (build-ups ending on a bar line). The cinematic drum sounds
+  use a small Schroeder room (four damped combs, two all-passes) for their tails.
+
 ### Mixer
 - Tracks → buses → master, with pre- or post-fader sends. Feedback loops are refused when
   editing, and broken if a hand-edited file contains one (`engine/MixerRouting`).

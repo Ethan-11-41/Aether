@@ -18,6 +18,8 @@ add_library(aether_core STATIC
     dsp/Eq.h
     dsp/Presets.h
     dsp/SpaceEffects.h
+    dsp/SoundEffects.cpp
+    dsp/SoundEffects.h
     dsp/PitchDetect.cpp
     dsp/PitchDetect.h
     dsp/Sampler.cpp

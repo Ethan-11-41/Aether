@@ -6,6 +6,27 @@ follow [Semantic Versioning](https://semver.org/) (0.x while Aether is in early 
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-11-13 - Milestone 16: sound effects and cinematic sounds
+
+### Added
+- **Sound effects for your arrangements**: right-click an empty part of a track's lane (on the
+  timeline) and choose **Add a sound effect here**:
+  - **Build-ups**, made to the song's tempo and lasting 1, 2, 4 or 8 bars, which **end on the bar
+    line** nearest where you clicked, so they rise right into it: **Riser (noise)** (rushing noise
+    opening up, the classic build before a drop or chorus), **Riser (synth)** (a synth chord rising
+    an octave) and **Reverse swell** (a cymbal backwards).
+  - Starting where you clicked: a **Downlifter** (noise falling away from the bar, 1 to 8 bars),
+    an **Impact** (a big hit with a deep boom), a **Boom** (a sub drop) and a **Whoosh**.
+  - They go on the track you clicked if it's an audio track, otherwise on a new "Sound effects"
+    track below it, as ordinary audio clips: move, trim, fade, reverse or turn them down like any
+    other. Each is made once and kept in the song's "Audio/Sound effects" folder. One Ctrl+Z takes
+    it away again.
+- **A Cinematic drum kit** (choose it in the drum editor, or add a drum track and pick it): taiko
+  drums (low and high), big toms, a big snare, a stomp, an impact, a boom, a metal hit, a gong, a
+  ticker, a reverse cymbal, a whoosh, hi-hats and a crash, with big rooms behind the drums. The 13
+  new sounds are also in every pad's sound menu, under **Cinematic**.
+- All of them are made by Aether's own code, so they're free to use in anything.
+
 ## [0.16.2] - 2026-11-13
 
 ### Added

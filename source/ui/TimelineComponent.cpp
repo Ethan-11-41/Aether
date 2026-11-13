@@ -9,6 +9,7 @@
 #include "io/AudioImport.h"
 #include "io/FileTypes.h"
 #include "io/MidiImport.h"
+#include "dsp/SoundEffects.h"
 #include "model/DrumPatterns.h"
 #include "model/ClipEdits.h"
 #include "model/MidiClips.h"
@@ -1389,6 +1390,41 @@ private:
                     safeOwner->createMidiClipAt (row, position);
             });
 
+        // Sound effects (Milestone 16): build-ups end on the nearest bar line, hits start here.
+        juce::PopupMenu effects;
+        effects.addSectionHeader ("Build-ups end on the nearest bar line");
+
+        for (const auto& info : dsp::soundfx::all())
+        {
+            if (juce::String (info.id) == "downlifter")
+                effects.addSectionHeader ("These start here");
+
+            const auto id = juce::String (info.id);
+
+            if (info.hasLength)
+            {
+                juce::PopupMenu lengths;
+                for (const auto bars : { 1, 2, 4, 8 })
+                    lengths.addItem (juce::String (bars) + (bars == 1 ? " bar" : " bars"), [safeOwner, id, bars, trackId, position]
+                    {
+                        if (safeOwner != nullptr)
+                            safeOwner->addSoundEffect (id, bars, trackId, position);
+                    });
+
+                effects.addSubMenu (info.name, lengths);
+            }
+            else
+            {
+                effects.addItem (info.name, [safeOwner, id, trackId, position]
+                {
+                    if (safeOwner != nullptr)
+                        safeOwner->addSoundEffect (id, 1, trackId, position);
+                });
+            }
+        }
+
+        menu.addSeparator();
+        menu.addSubMenu ("Add a sound effect here", effects);
         menu.showMenuAsync (juce::PopupMenu::Options().withMousePosition());
     }
 
@@ -1416,6 +1452,21 @@ private:
 };
 
 //==============================================================================
+juce::String TimelineComponent::addSoundEffect (const juce::String& effectId, int bars, const juce::String& trackId, Tick position)
+{
+    const auto rate = engine.getCurrentSampleRate() > 0.0 ? engine.getCurrentSampleRate() : 48000.0;
+    const auto result = aether::addSoundEffect (project, location(), effectId, bars, trackId, position, rate);
+
+    if (result.problem.isNotEmpty())
+    {
+        juce::AlertWindow::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon, "Couldn't add the sound effect", result.problem, "OK", this);
+        return {};
+    }
+
+    selectClips ({ result.clipId });
+    return result.clipId;
+}
+
 void TimelineComponent::reverseClips (const juce::StringArray& clipIds)
 {
     const auto problems = aether::reverseClips (project, location(), audioFiles.getFormats(), clipIds);
