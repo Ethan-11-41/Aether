@@ -232,3 +232,121 @@ TEST_CASE ("Importing copies files into the project and makes clips, in one undo
     importAudioFiles (project, location, cache.getFormats(), { kick }, audioTrack, 0);
     CHECK (location.getAudioFolder().getNumberOfChildFiles (juce::File::findFiles, "Kick*.wav") == 2);
 }
+
+TEST_CASE ("Reversing a clip plays the same part of its recording backwards", "[audio][import]")
+{
+    juce::ScopedJuceInitialiser_GUI juceInit;
+    TempFolder temp;
+    const ProjectLocation location (temp.folder.getChildFile ("Song.aether"));
+    location.getAudioFolder().createDirectory();
+
+    // A recording that rises steadily: sample i is i / 100000 (left) and its negative (right).
+    constexpr int length = 100000;
+    const auto file = writeWav (location.getAudioFolder().getChildFile ("Rise.wav"), 48000.0, 2, length,
+                                [] (int c, int i) { return (c == 0 ? 1.0f : -1.0f) * (float) i / (float) length; });
+
+    Project project;
+    const auto track = edit::addTrack (project, TrackKind::audio).getId();
+    const auto clipId = edit::addAudioClip (project, track, { "Audio/Rise.wav", "Rise", 48000.0, length }, 0);
+    auto clip = clips::findClip (project, clipId);
+
+    // It plays samples 20000 to 50000 of the recording.
+    edit::trimClipStart (project, clipId, clip.getStart() + ticksPerQuarter / 4);
+    clip = clips::findClip (project, clipId);
+    auto state = clip.getState();
+    state.setProperty (ids::offset, (juce::int64) 20000, nullptr);
+    state.setProperty (ids::contentLength, (juce::int64) 30000, nullptr);
+    state.setProperty (ids::duration, (juce::int64) 30000, nullptr);
+
+    juce::AudioFormatManager formats;
+    formats.registerBasicFormats();
+    CHECK (reverseClips (project, location, formats, { clipId }).isEmpty());
+    CHECK (project.getUndoManager().getUndoDescription() == "Reverse clip");
+
+    // The reversed copy: the recording backwards, exactly, in both channels.
+    const auto reversedFile = location.getAudioFolder().getChildFile ("Rise (reversed).wav");
+    REQUIRE (reversedFile.existsAsFile());
+    {
+        std::unique_ptr<juce::AudioFormatReader> reader (formats.createReaderFor (reversedFile));
+        REQUIRE (reader != nullptr);
+        CHECK (reader->lengthInSamples == length);
+        juce::AudioBuffer<float> b (2, length);
+        reader->read (&b, 0, length, 0, true, true);
+        for (const int i : { 0, 1, 777, 65535, 65536, 99999 })
+        {
+            CHECK_THAT (b.getSample (0, i), WithinAbs ((float) (length - 1 - i) / (float) length, 1.0e-6));
+            CHECK_THAT (b.getSample (1, i), WithinAbs (-(float) (length - 1 - i) / (float) length, 1.0e-6));
+        }
+    }
+
+    // The clip plays the same part, backwards: 50000 down to 20000 of the original is 50000 to
+    // 80000 of the reversed copy.
+    clip = clips::findClip (project, clipId);
+    CHECK (clip.getFile() == "Audio/Rise (reversed).wav");
+    CHECK (clip.getOffset() == length - 20000 - 30000);
+    CHECK (clip.getContentLength() == 30000);
+    CHECK (clip.getName() == "Rise (reversed)");
+
+    // Undo puts the original back (the copy stays, for redo).
+    project.getUndoManager().undo();
+    CHECK (clips::findClip (project, clipId).getFile() == "Audio/Rise.wav");
+    CHECK (clips::findClip (project, clipId).getOffset() == 20000);
+    CHECK (reversedFile.existsAsFile());
+
+    // Reversed twice is the original again: no new file, the copy is reused the first time too.
+    CHECK (reverseClips (project, location, formats, { clipId }).isEmpty());
+    CHECK (reverseClips (project, location, formats, { clipId }).isEmpty());
+    clip = clips::findClip (project, clipId);
+    CHECK (clip.getFile() == "Audio/Rise.wav");
+    CHECK (clip.getOffset() == 20000);
+    CHECK (clip.getName() == "Rise");
+    CHECK (location.getAudioFolder().findChildFiles (juce::File::findFiles, false).size() == 2);
+    CHECK (file.existsAsFile());
+}
+
+TEST_CASE ("Reversing a looping clip keeps its loop in step; a loop-recorded one keeps its take", "[audio][import]")
+{
+    juce::ScopedJuceInitialiser_GUI juceInit;
+    TempFolder temp;
+    const ProjectLocation location (temp.folder.getChildFile ("Song.aether"));
+    location.getAudioFolder().createDirectory();
+    writeWav (location.getAudioFolder().getChildFile ("Loop.wav"), 48000.0, 1, 1000, [] (int, int i) { return (float) i / 1000.0f; });
+
+    Project project;
+    const auto track = edit::addTrack (project, TrackKind::audio).getId();
+    const auto clipId = edit::addAudioClip (project, track, { "Audio/Loop.wav", "Loop", 48000.0, 1000 }, 0);
+    auto state = clips::findClip (project, clipId).getState();
+    state.setProperty (ids::loop, true, nullptr);
+    state.setProperty (ids::phase, (juce::int64) 300, nullptr);
+    state.setProperty (ids::duration, (juce::int64) 2500, nullptr);
+    state.setProperty (ids::takes, 3, nullptr);
+    state.setProperty (ids::take, 1, nullptr);
+    state.setProperty (ids::takeLength, (juce::int64) 300, nullptr);
+
+    // What the clip plays at each moment, read from its file through its offset, loop and phase.
+    const auto played = [&] (int at)
+    {
+        const auto clip = clips::findClip (project, clipId);
+        juce::AudioFormatManager formats;
+        formats.registerBasicFormats();
+        std::unique_ptr<juce::AudioFormatReader> reader (formats.createReaderFor (resolveClipFile (location, clip.getFile())));
+        juce::AudioBuffer<float> b (1, 1);
+        reader->read (&b, 0, 1, clip.getOffset() + (clip.getPhase() + at) % clip.getContentLength(), true, true);
+        return b.getSample (0, 0);
+    };
+
+    std::vector<float> forwards;
+    for (int at = 0; at < 2500; at += 7)
+        forwards.push_back (played (at));
+
+    juce::AudioFormatManager formats;
+    formats.registerBasicFormats();
+    REQUIRE (reverseClips (project, location, formats, { clipId }).isEmpty());
+
+    // Backwards: the clip's moment `at` is what was at 2499 - at.
+    size_t k = 0;
+    for (int at = 0; at < 2500; at += 7, ++k)
+        CHECK_THAT (played (2499 - at), WithinAbs (forwards[k], 1.0e-4));
+
+    CHECK (clips::findClip (project, clipId).getNumTakes() == 1);
+}

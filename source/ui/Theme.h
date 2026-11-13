@@ -9,7 +9,7 @@ namespace aether::ui
 /** All colours used by Aether's interface, in one place.
 
     Components ask the theme for a colour by purpose ("panel", "accent") rather than hard-coding
-    values, which is what will make dark/light themes (milestone M26) a matter of adding a new
+    values, which is what will make dark/light themes (milestone M27) a matter of adding a new
     Theme rather than editing every component.
 */
 struct Theme

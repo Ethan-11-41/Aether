@@ -819,15 +819,17 @@ public:
 
             case Zone::fadeIn:
             {
-                const auto length = (tempo.ticksToSeconds (tick) - clip.getStartSeconds (tempo)) * clip.getSourceRate();
+                const auto length = clip.isMidi() ? (double) (tick - clip.getStart())
+                                                  : (tempo.ticksToSeconds (tick) - clip.getStartSeconds (tempo)) * clip.getSourceRate();
                 edit::setClipFades (proj, drag.clipId, (juce::int64) std::max (0.0, length), clip.getFadeOut(), false);
                 break;
             }
 
             case Zone::fadeOut:
             {
-                const auto endSeconds = clip.getStartSeconds (tempo) + clip.getDurationSeconds();
-                const auto length = (endSeconds - tempo.ticksToSeconds (tick)) * clip.getSourceRate();
+                const auto length = clip.isMidi() ? (double) (clip.getStart() + clip.getLengthTicks() - tick)
+                                                  : (clip.getStartSeconds (tempo) + clip.getDurationSeconds() - tempo.ticksToSeconds (tick))
+                                                        * clip.getSourceRate();
                 edit::setClipFades (proj, drag.clipId, clip.getFadeIn(), (juce::int64) std::max (0.0, length), false);
                 break;
             }
@@ -937,6 +939,14 @@ private:
         return (float) owner.view.tickToX (owner.tempoMap.secondsToTicks (seconds));
     }
 
+    /** Where a position in a clip's fade units is: samples of an audio clip's file, ticks of a
+        MIDI clip (see Clip::getFadeSpan). */
+    float xForFadePosition (const Clip& clip, double position) const
+    {
+        return clip.isMidi() ? (float) owner.view.tickToX (clip.getStart() + (Tick) std::llround (position))
+                             : xForClipPosition (clip, position);
+    }
+
     std::vector<ClipBox> layoutClips() const
     {
         std::vector<ClipBox> boxes;
@@ -981,17 +991,9 @@ private:
                 continue;
 
             const auto& clip = it->clip;
-
-            if (clip.isMidi())   // no fades on MIDI clips
-            {
-                if (p.x - r.getX() <= edgeGrabWidth)   return { clip, Zone::trimStart };
-                if (r.getRight() - p.x <= edgeGrabWidth) return { clip, Zone::trimEnd };
-                return { clip, Zone::body };
-            }
-
             const auto bodyTop = r.getY() + (float) clipHeaderHeight;
-            const auto fadeInX = xForClipPosition (clip, (double) clip.getFadeIn());
-            const auto fadeOutX = xForClipPosition (clip, (double) (clip.getDuration() - clip.getFadeOut()));
+            const auto fadeInX = xForFadePosition (clip, (double) clip.getFadeIn());
+            const auto fadeOutX = xForFadePosition (clip, (double) (clip.getFadeSpan() - clip.getFadeOut()));
             const auto nearTop = p.y >= bodyTop && p.y <= bodyTop + fadeHandleSize + 4.0f;
 
             if (nearTop && std::abs (p.x - fadeInX) <= fadeHandleSize && r.getWidth() > 30.0f)
@@ -1034,6 +1036,7 @@ private:
         if (clip.isMidi())
         {
             drawNotes (g, box, r);
+            drawFades (g, clip, r);
 
             // Where a repeating pattern starts again.
             if (clip.isLooping())
@@ -1172,13 +1175,13 @@ private:
         {
             const auto length = isFadeIn ? clip.getFadeIn() : clip.getFadeOut();
             const auto curve = isFadeIn ? clip.getFadeInCurve() : clip.getFadeOutCurve();
-            const auto from = isFadeIn ? 0.0 : (double) (clip.getDuration() - length);
+            const auto from = isFadeIn ? 0.0 : (double) (clip.getFadeSpan() - length);
 
             // The handle (a small dot where the fade ends or starts), only while the mouse is
             // over the clip or dragging its fade.
             if (clip.getId() == hoveredClipId || (drag.clipId == clip.getId() && (drag.zone == Zone::fadeIn || drag.zone == Zone::fadeOut)))
             {
-                const auto handleX = xForClipPosition (clip, isFadeIn ? (double) length : from);
+                const auto handleX = xForFadePosition (clip, isFadeIn ? (double) length : from);
                 const auto dot = juce::Rectangle<float> (7.0f, 7.0f)
                                      .withCentre ({ juce::jlimit (area.getX() + 5.0f, area.getRight() - 5.0f, handleX), area.getY() + 5.0f });
                 g.setColour (juce::Colours::black.withAlpha (0.45f));
@@ -1193,16 +1196,16 @@ private:
             // Darken the part that's quieter, above the fade curve.
             juce::Path shade;
             constexpr int steps = 24;
-            shade.startNewSubPath (xForClipPosition (clip, from), area.getY());
+            shade.startNewSubPath (xForFadePosition (clip, from), area.getY());
 
             for (int i = 0; i <= steps; ++i)
             {
                 const auto t = (double) i / steps;
                 const auto level = fadeShape (curve, isFadeIn ? t : 1.0 - t);
-                shade.lineTo (xForClipPosition (clip, from + t * (double) length), area.getBottom() - level * area.getHeight());
+                shade.lineTo (xForFadePosition (clip, from + t * (double) length), area.getBottom() - level * area.getHeight());
             }
 
-            shade.lineTo (xForClipPosition (clip, from + (double) length), area.getY());
+            shade.lineTo (xForFadePosition (clip, from + (double) length), area.getY());
             shade.closeSubPath();
             g.setColour (juce::Colours::black.withAlpha (0.35f));
             g.fillPath (shade);
@@ -1210,6 +1213,25 @@ private:
 
         drawFade (true);
         drawFade (false);
+    }
+
+    void addFadeShapeMenus (juce::PopupMenu& menu, const Clip& clip)
+    {
+        auto& proj = owner.project;
+        const auto id = clip.getId();
+
+        for (const auto isFadeIn : { true, false })
+        {
+            juce::PopupMenu shapes;
+            const auto current = isFadeIn ? clip.getFadeInCurve() : clip.getFadeOutCurve();
+
+            for (const auto& shape : { std::pair { "Smooth", FadeCurve::smooth }, std::pair { "Straight line", FadeCurve::linear },
+                                       std::pair { "Fast", FadeCurve::fast }, std::pair { "Slow", FadeCurve::slow } })
+                shapes.addItem (shape.first, true, current == shape.second,
+                                [&proj, id, isFadeIn, curve = shape.second] { edit::setClipFadeCurve (proj, id, isFadeIn, curve); });
+
+            menu.addSubMenu (isFadeIn ? "Fade-in shape (drag the dot at the top left)" : "Fade-out shape (drag the dot at the top right)", shapes);
+        }
     }
 
     void showClipMenu (const Clip& clip)
@@ -1269,6 +1291,8 @@ private:
             menu.addItem ("Duplicate (Ctrl+D)", [safeOwner] { if (safeOwner) safeOwner->duplicateSelectedClips(); });
             menu.addItem ("Delete (Delete)", [safeOwner] { if (safeOwner) safeOwner->deleteSelectedClips(); });
             menu.addSeparator();
+            addFadeShapeMenus (menu, clip);
+            menu.addSeparator();
             menu.addItem ("Rename...", [this, id] { askForClipName (id); });
             menu.showMenuAsync (juce::PopupMenu::Options().withMousePosition());
             return;
@@ -1313,6 +1337,22 @@ private:
         menu.addSeparator();
         menu.addItem ("Loop this clip", true, clip.isLooping(), [&proj, id, loop = ! clip.isLooping()] { edit::setClipLooping (proj, id, loop); });
 
+        // Reverse: this clip, or all the selected audio clips with it.
+        {
+            juce::StringArray targets;
+            for (const auto& selected : owner.selectedClips)
+                if (const auto c = clips::findClip (proj, selected); c.isValid() && ! c.isMidi())
+                    targets.add (selected);
+
+            if (! targets.contains (id))
+                targets = { id };
+
+            const auto reversed = clip.getName().endsWith (" (reversed)");
+            menu.addItem (juce::String (reversed ? "Play forwards again" : "Reverse (play backwards)")
+                              + (targets.size() > 1 ? " (the " + juce::String (targets.size()) + " selected clips)" : juce::String()),
+                          [safeOwner, targets] { if (safeOwner != nullptr) safeOwner->reverseClips (targets); });
+        }
+
         juce::PopupMenu volume;
         for (const auto& step : { std::pair { "Louder (+1.5 dB)", 1.5 }, std::pair { "Quieter (-1.5 dB)", -1.5 },
                                   std::pair { "Quieter (-6 dB)", -6.0 } })
@@ -1320,18 +1360,7 @@ private:
         volume.addItem ("Back to 0 dB", clip.getGainDb() != 0.0, false, [&proj, id] { edit::setClipGain (proj, id, 0.0); });
         menu.addSubMenu ("Volume (now " + juce::String (clip.getGainDb(), 1) + " dB)", volume);
 
-        for (const auto isFadeIn : { true, false })
-        {
-            juce::PopupMenu shapes;
-            const auto current = isFadeIn ? clip.getFadeInCurve() : clip.getFadeOutCurve();
-
-            for (const auto& shape : { std::pair { "Smooth", FadeCurve::smooth }, std::pair { "Straight line", FadeCurve::linear },
-                                       std::pair { "Fast", FadeCurve::fast }, std::pair { "Slow", FadeCurve::slow } })
-                shapes.addItem (shape.first, true, current == shape.second,
-                                [&proj, id, isFadeIn, curve = shape.second] { edit::setClipFadeCurve (proj, id, isFadeIn, curve); });
-
-            menu.addSubMenu (isFadeIn ? "Fade-in shape" : "Fade-out shape", shapes);
-        }
+        addFadeShapeMenus (menu, clip);
 
         menu.addSeparator();
         menu.addItem ("Rename...", [this, id] { askForClipName (id); });
@@ -1387,6 +1416,15 @@ private:
 };
 
 //==============================================================================
+void TimelineComponent::reverseClips (const juce::StringArray& clipIds)
+{
+    const auto problems = aether::reverseClips (project, location(), audioFiles.getFormats(), clipIds);
+
+    if (! problems.isEmpty())
+        juce::AlertWindow::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon, "Couldn't reverse",
+                                                problems.joinIntoString ("\n"), "OK", this);
+}
+
 TimelineComponent::TimelineComponent (const Theme& themeToUse, Project& projectToShow, AudioEngine& engineToUse,
                                       AudioFileCache& cache, std::function<ProjectLocation()> projectLocation,
                                       juce::Viewport& tracksViewport, TrackListComponent& tracks)

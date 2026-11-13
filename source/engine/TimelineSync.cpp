@@ -239,6 +239,50 @@ namespace
         std::sort (channel.notes.begin(), channel.notes.end(),
                    [] (const NotePlayback& a, const NotePlayback& b) { return a.start < b.start; });
 
+        // The clips' fades (only if one of them has any), and how long it stays silent after each
+        // fade-out: until the next clip starts, at most a few seconds.
+        {
+            std::vector<MidiFadePlayback> fades;
+            bool anyFade = false;
+
+            for (const auto& clip : clips::clipsOnTrack (track.getState()))
+            {
+                if (! clip.isMidi())
+                    continue;
+
+                const auto length = clip.getLengthTicks();
+                const auto fadeIn = std::clamp<Tick> ((Tick) clip.getFadeIn(), 0, length);
+                const auto fadeOut = std::clamp<Tick> ((Tick) clip.getFadeOut(), 0, length - fadeIn);
+                const auto end = clip.getStart() + length;
+
+                MidiFadePlayback f;
+                f.start = toSample (clip.getStart());
+                f.end = toSample (end);
+                f.fadeIn = fadeIn > 0 ? std::max<std::int64_t> (1, toSample (clip.getStart() + fadeIn) - f.start) : 0;
+                f.fadeOut = fadeOut > 0 ? std::max<std::int64_t> (1, f.end - toSample (end - fadeOut)) : 0;
+                f.fadeInCurve = clip.getFadeInCurve();
+                f.fadeOutCurve = clip.getFadeOutCurve();
+                fades.push_back (f);
+                anyFade = anyFade || fadeIn > 0 || fadeOut > 0;
+            }
+
+            if (anyFade)
+            {
+                std::sort (fades.begin(), fades.end(), [] (const auto& a, const auto& b) { return a.start < b.start; });
+                const auto longest = (std::int64_t) (MidiFadePlayback::quietSeconds * sampleRate);
+
+                for (auto& f : fades)
+                {
+                    f.quietUntil = f.end + longest;
+                    for (const auto& other : fades)
+                        if (other.start >= f.end)
+                            f.quietUntil = std::min (f.quietUntil, other.start);
+                }
+
+                channel.midiFades = std::move (fades);
+            }
+        }
+
         // What's played on a MIDI keyboard goes to armed or monitoring MIDI tracks, and to the
         // selected one (so you can just select a track and play).
         channel.liveInput = track.isArmed() || track.isMonitoring() || track.getId() == focusedTrackId;

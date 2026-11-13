@@ -287,8 +287,10 @@ TEST_CASE ("MIDI playback, the synth, live MIDI and MIDI recording are real-time
     for (int i = 0; i < 64; ++i)
         notes.push_back ({ 40 + i % 40, 100, i * ticksPerQuarter / 4, ticksPerQuarter });
     edit::addMidiClip (project, keys, "a", 0, 16 * ticksPerQuarter, notes);
-    edit::addMidiClip (project, pad, "b", 0, 16 * ticksPerQuarter, notes);
-    edit::setArmed (project, { keys }, true);
+    const auto padClip = edit::addMidiClip (project, pad, "b", 0, 16 * ticksPerQuarter, notes);
+    edit::setClipFades (project, padClip, 2 * ticksPerQuarter, 4 * ticksPerQuarter);   // MIDI clip fades (0.16.2)
+    edit::addMidiClip (project, keys, "c", 20 * ticksPerQuarter, 4 * ticksPerQuarter, notes);
+    edit::setArmed (project, { keys, pad }, true);
 
     // The pad's instrument settings automated (Milestone 14).
     {

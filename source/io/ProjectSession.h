@@ -44,6 +44,10 @@ public:
         and switches to the new copy. */
     juce::Result saveAs (const juce::File& parentFolder, const juce::String& name);
 
+    /** Renames the open project ("Rename song"): its folder and file (see projectfiles::rename),
+        and the name shown everywhere. Unsaved changes stay unsaved; nothing else changes. */
+    juce::Result rename (const juce::String& newName);
+
     /** Closes the project without saving. Any autosave is removed (the user chose this). */
     void close();
 

@@ -21,6 +21,9 @@ public:
     /** Puts a project at the top of the list. */
     void add (const juce::File& projectFile);
     void remove (const juce::File& projectFile);
+
+    /** A project was renamed: its entry follows it, keeping its place in the list. */
+    void replace (const juce::File& oldFile, const juce::File& newFile);
     void clear();
 
 private:

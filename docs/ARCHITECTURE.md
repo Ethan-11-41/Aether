@@ -65,7 +65,7 @@ Separate process:   plug-in scanner
   "canary" program proves the sanitizer is active.
 - A separate allocation alarm for Windows debug builds was planned for M8 but isn't needed: the
   engine code is the same on both systems, and the sanitizer checks every change in CI. (It may
-  come back with plug-in hosting in M18, where third-party code runs on the audio thread.)
+  come back with plug-in hosting in M19, where third-party code runs on the audio thread.)
 
 ### Performance budget
 - `tests/unit/PerformanceTests.cpp` builds a 50-track project and measures the engine (one
@@ -101,7 +101,7 @@ Separate process:   plug-in scanner
   out at the same time for drawing.
 - The engine's timeline snapshot lists every clip with all positions in samples at the engine's
   rate, plus shared pointers that keep its audio alive; snapshots are freed on the UI thread.
-- Streaming from disk for very large projects is planned for M30.
+- Streaming from disk for very large projects is planned for M31.
 - Recording (`engine/Recorder`, `engine/RecordingRing`): the audio thread copies the chosen
   inputs into a lock-free ring (`RecordingRing`, part of the engine snapshot so it can't be freed
   while in use); a writer thread saves one 24-bit WAV per armed track in the project's `Audio/`
@@ -214,7 +214,7 @@ Separate process:   plug-in scanner
   samples (a larger device block is split), so all mixer buffers are allocated in advance.
 - Each channel: effects → mute → pre-fader sends → volume and pan → post-fader sends → meter →
   output. Solo is worked out when the snapshot is built, as a gain on each connection.
-- Plug-in delay compensation (from M18) will delay the shorter signal paths so everything stays
+- Plug-in delay compensation (from M19) will delay the shorter signal paths so everything stays
   in time. Aether's own effects add no delay, except the limiter's 1.5 ms look-ahead.
 - Automation lanes are turned into points in samples when the snapshot is built
   (`AutomationPlayback`, values stored as heights on the lane 0..1 so the engine and the drawing
@@ -238,7 +238,7 @@ Separate process:   plug-in scanner
   blacklisted; the user can retry it.
 - Plug-ins run inside Aether (as in most DAWs). Before each plug-in call the engine records which
   plug-in is running; after a crash, the next launch names the plug-in, offers recovery from
-  autosave and offers to disable it. Running plug-ins in a separate process is a stretch goal (M30).
+  autosave and offers to disable it. Running plug-ins in a separate process is a stretch goal (M31).
 - Undo limitation: changes made inside a plug-in's own window are only undoable if the plug-in
   reports them as parameter changes (most do).
 
@@ -270,7 +270,7 @@ Separate process:   plug-in scanner
   right, and a bottom dock with Mixer and Editor tabs. Advanced panels are behind one-click
   "Advanced" toggles.
 - All commands are registered in one place, which provides menus, keyboard shortcuts, tooltips
-  that show the shortcut, and (M26) a shortcut editor.
+  that show the shortcut, and (M27) a shortcut editor.
 
 ## Code layout
 
@@ -284,10 +284,10 @@ source/
   engine/rt/  real-time toolkit: lock-free queues, annotations, snapshot swap
   io/         save/load, format upgrades, autosave, recovery, audio files (from M1)
   devices/    audio/MIDI device setup, latency calibration
-  plugins/    VST3/CLAP hosting, scanner process, blacklist, presets      (from M18)
+  plugins/    VST3/CLAP hosting, scanner process, blacklist, presets      (from M19)
   dsp/        built-in instruments and effects                            (from M4)
-  library/    sound library index, tags, search                           (from M20)
-  interop/    DAWproject, Reaper, LMMS, stems (MIDI file import is in io/)  (from M21)
+  library/    sound library index, tags, search                           (from M21)
+  interop/    DAWproject, Reaper, LMMS, stems (MIDI file import is in io/)  (from M22)
   ui/         timeline, mixer, piano roll, step sequencer, browser, themes
 tests/
   unit/       Catch2 tests for non-UI logic
@@ -312,12 +312,12 @@ under the AGPLv3 (or later), which is compatible with all of them.
 |---|---|---|---|
 | JUCE 9 | AGPLv3 | Framework | M0 |
 | ASIO SDK (in JUCE) | GPLv3 | ASIO drivers | M0 |
-| VST3 SDK 3.8 (in JUCE) | MIT | VST3 hosting | M18 |
+| VST3 SDK 3.8 (in JUCE) | MIT | VST3 hosting | M19 |
 | LAME 3.100 | LGPL-2.0+ (separate DLL) | MP3 export | M7 |
 | r8brain-free-src | MIT | High-quality sample-rate conversion | M7 |
-| Signalsmith Stretch | MIT | Time-stretching, pitch-shifting | M16 |
-| CLAP SDK | MIT | CLAP hosting | M29 |
-| VCSL (curated subset) | CC0 | Sampled instruments | M20 |
+| Signalsmith Stretch | MIT | Time-stretching, pitch-shifting | M17 |
+| CLAP SDK | MIT | CLAP hosting | M30 |
+| VCSL (curated subset) | CC0 | Sampled instruments | M21 |
 | Inter font, Lucide icons | OFL-1.1, ISC | Interface | M8 |
 | Catch2 (tests only) | BSL-1.0 | Tests | M0 |
 

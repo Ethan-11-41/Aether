@@ -75,6 +75,11 @@ public:
     juce::int64 getTakeLength() const        { return (juce::int64) state[ids::takeLength]; }
 
     double getDurationSeconds() const        { return (double) getDuration() / getSourceRate(); }
+
+    /** What fades are measured in: an audio clip's samples of its file, a MIDI clip's ticks (so
+        a MIDI clip's fades follow the bars when the tempo changes). Fades fit inside this. */
+    juce::int64 getFadeSpan() const          { return isMidi() ? (juce::int64) getLengthTicks() : getDuration(); }
+    bool hasFades() const                    { return getFadeIn() > 0 || getFadeOut() > 0; }
     double getStartSeconds (const TempoMap& tempo) const   { return tempo.ticksToSeconds (getStart()); }
 
     /** Where the clip ends on the timeline. */

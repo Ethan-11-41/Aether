@@ -172,4 +172,74 @@ juce::File whatToDelete (const juce::File& projectFile)
     return folder;
 }
 
+juce::Result rename (const juce::File& projectFile, const juce::String& newName, juce::File& renamedTo)
+{
+    if (newName.trim().isEmpty())
+        return juce::Result::fail ("Please type a name.");
+
+    const auto name = safeFileName (newName.trim()).trim();
+    const auto oldName = projectFile.getFileNameWithoutExtension();
+
+    if (! projectFile.existsAsFile())
+        return juce::Result::fail ("The project file isn't there any more: " + projectFile.getFullPathName());
+
+    if (name == oldName)
+    {
+        renamedTo = projectFile;
+        return juce::Result::ok();
+    }
+
+    // The whole folder, if it's the project's own; otherwise just the file.
+    const auto ownFolder = whatToDelete (projectFile).isDirectory();
+    const auto oldFolder = projectFile.getParentDirectory();
+    const auto newFolder = ownFolder ? oldFolder.getSiblingFile (name) : oldFolder;
+    const auto sameIgnoringCase = name.equalsIgnoreCase (oldName);
+
+    if (ownFolder && newFolder.exists() && ! sameIgnoringCase)
+        return juce::Result::fail ("There's already a folder called \"" + name + "\" next to this project's folder. "
+                                   "Please choose another name.");
+
+    const auto newFile = newFolder.getChildFile (name + projectformat::fileExtension);
+
+    if (! ownFolder && newFile.exists() && ! sameIgnoringCase)
+        return juce::Result::fail ("There's already a project called \"" + name + "\" in this folder. Please choose another name.");
+
+    // The folder first (a case-only change goes through a temporary name, which every system
+    // allows); then the files inside it.
+    auto folder = oldFolder;
+
+    if (ownFolder)
+    {
+        const auto step = sameIgnoringCase ? oldFolder.getSiblingFile (name + " (renaming)") : newFolder;
+
+        if (! oldFolder.moveFileTo (step) || (step != newFolder && ! step.moveFileTo (newFolder)))
+            return juce::Result::fail ("The project's folder couldn't be renamed. A file in it may be open in another "
+                                       "program (or in Explorer); close it and try again.");
+        folder = newFolder;
+    }
+
+    const auto currentFile = folder.getChildFile (projectFile.getFileName());
+
+    if (! currentFile.moveFileTo (newFile))
+    {
+        if (ownFolder)
+            folder.moveFileTo (oldFolder);   // put the folder back as it was
+
+        return juce::Result::fail ("The project file couldn't be renamed. It may be open in another program.");
+    }
+
+    // Its autosave and backups follow (they're found by name).
+    const ProjectLocation renamed (newFile);
+    const auto oldAutosave = renamed.getAutosaveFolder().getChildFile (oldName + ".autosave" + projectformat::fileExtension);
+
+    if (oldAutosave.existsAsFile())
+        oldAutosave.moveFileTo (renamed.getAutosaveFile());
+
+    for (const auto& backup : renamed.getBackupsFolder().findChildFiles (juce::File::findFiles, false, oldName + " *" + projectformat::fileExtension))
+        backup.moveFileTo (backup.getSiblingFile (name + backup.getFileName().substring (oldName.length())));
+
+    renamedTo = newFile;
+    return juce::Result::ok();
+}
+
 } // namespace aether::projectfiles

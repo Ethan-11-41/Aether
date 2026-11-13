@@ -378,6 +378,46 @@ void MainContent::saveAs()
     });
 }
 
+void MainContent::renameSong()
+{
+    if (! ctx.session.hasProject())
+        return;
+
+    // Files in the folder are written while recording or exporting.
+    if (projectView != nullptr && projectView->isRecording())
+    {
+        showError ("Can't rename the song yet", "Stop recording first.");
+        return;
+    }
+
+    if (exportWindow != nullptr)
+    {
+        showError ("Can't rename the song yet", "Close the Export window first (when it has finished).");
+        return;
+    }
+
+    const auto current = ctx.session.getLocation().getName();
+    auto* window = new juce::AlertWindow ("Rename song", "The song's folder and file are renamed too.",
+                                          juce::MessageBoxIconType::NoIcon, this);
+    window->addTextEditor ("name", current);
+    window->addButton ("Rename", 1, juce::KeyPress (juce::KeyPress::returnKey));
+    window->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+
+    juce::Component::SafePointer<MainContent> safeThis (this);
+    window->enterModalState (true, juce::ModalCallbackFunction::create ([safeThis, window] (int result)
+    {
+        if (safeThis == nullptr || result != 1 || ! safeThis->ctx.session.hasProject())
+            return;
+
+        const auto renamed = safeThis->ctx.session.rename (window->getTextEditorContents ("name"));
+
+        if (renamed.failed())
+            safeThis->showError ("Couldn't rename the song", renamed.getErrorMessage());
+
+        safeThis->updateStatus();
+    }), true);
+}
+
 void MainContent::closeProject()
 {
     juce::Component::SafePointer<MainContent> safeThis (this);
@@ -628,7 +668,8 @@ void MainContent::moveSelectedTrack (int delta)
 //==============================================================================
 void MainContent::getAllCommands (juce::Array<juce::CommandID>& list)
 {
-    list.addArray ({ commands::newProject, commands::openProject, commands::saveProject, commands::saveProjectAs, commands::exportAudio,
+    list.addArray ({ commands::newProject, commands::openProject, commands::saveProject, commands::saveProjectAs, commands::renameProject,
+                     commands::exportAudio,
                      commands::closeProject, commands::showProjectFolder, commands::quit,
                      commands::undo, commands::redo, commands::selectAll,
                      commands::copyClips, commands::cutClips, commands::pasteClips, commands::deselect,
@@ -677,6 +718,12 @@ void MainContent::getCommandInfo (juce::CommandID id, juce::ApplicationCommandIn
             info.setInfo ("Save as...", "Save a copy of the project under a new name and keep working on the copy",
                           commands::categories::file, 0);
             info.addDefaultKeypress ('s', ctrl | shift);
+            info.setActive (hasProject);
+            break;
+
+        case commands::renameProject:
+            info.setInfo ("Rename song...", "Give the song a new name (its folder and file are renamed too)",
+                          commands::categories::file, 0);
             info.setActive (hasProject);
             break;
 
@@ -1004,6 +1051,7 @@ bool MainContent::perform (const InvocationInfo& invocation)
         case commands::openProject:        chooseAndOpenProject(); return true;
         case commands::saveProject:        save(); return true;
         case commands::saveProjectAs:      saveAs(); return true;
+        case commands::renameProject:      renameSong(); return true;
         case commands::closeProject:       closeProject(); return true;
         case commands::quit:               requestQuit(); return true;
 
@@ -1210,6 +1258,7 @@ juce::PopupMenu MainContent::getMenuForIndex (int menuIndex, const juce::String&
         menu.addSeparator();
         menu.addCommandItem (cm, commands::saveProject);
         menu.addCommandItem (cm, commands::saveProjectAs);
+        menu.addCommandItem (cm, commands::renameProject);
         menu.addSeparator();
         menu.addCommandItem (cm, commands::exportAudio);
         menu.addCommandItem (cm, commands::closeProject);

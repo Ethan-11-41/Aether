@@ -233,9 +233,45 @@ void StartScreen::listBoxItemClicked (int row, const juce::MouseEvent& e)
     menu.addItem ("Open", [this, file] { if (onOpen) onOpen (file); });
     menu.addItem ("Show in folder", [file] { file.revealToUser(); });
     menu.addSeparator();
+    menu.addItem ("Rename...", file.existsAsFile(), false, [this, file] { askToRename (file); });
     menu.addItem ("Remove from this list", [this, file] { recent.remove (file); refresh(); });
     menu.addItem ("Delete project...", file.existsAsFile(), false, [this, file] { askToDelete (file); });
     menu.showMenuAsync (juce::PopupMenu::Options().withMousePosition());
+}
+
+void StartScreen::askToRename (const juce::File& projectFile)
+{
+    auto* window = new juce::AlertWindow ("Rename song", "The song's folder and file are renamed too.",
+                                          juce::MessageBoxIconType::NoIcon, this);
+    window->addTextEditor ("name", projectFile.getFileNameWithoutExtension());
+    window->addButton ("Rename", 1, juce::KeyPress (juce::KeyPress::returnKey));
+    window->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+
+    juce::Component::SafePointer<StartScreen> safeThis (this);
+    window->enterModalState (true, juce::ModalCallbackFunction::create ([safeThis, window, projectFile] (int result)
+    {
+        if (safeThis == nullptr || result != 1)
+            return;
+
+        juce::File renamedTo;
+        const auto renamed = projectfiles::rename (projectFile, window->getTextEditorContents ("name"), renamedTo);
+
+        if (renamed.wasOk())
+        {
+            safeThis->recent.replace (projectFile, renamedTo);
+            safeThis->refresh();
+            return;
+        }
+
+        safeThis->messageBox = juce::AlertWindow::showScopedAsync (
+            juce::MessageBoxOptions()
+                .withIconType (juce::MessageBoxIconType::WarningIcon)
+                .withTitle ("Couldn't rename the song")
+                .withMessage (renamed.getErrorMessage())
+                .withButton ("OK", 0)
+                .withAssociatedComponent (safeThis.getComponent()),
+            nullptr);
+    }), true);
 }
 
 void StartScreen::askToDelete (const juce::File& projectFile)

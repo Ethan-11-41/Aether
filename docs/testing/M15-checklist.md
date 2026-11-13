@@ -92,9 +92,22 @@ Install **Aether-Setup-0.16.1.exe** for these.
    sounds), and play a beat. **You should hear** warm, soft drums: no crackle at the end of each
    hit and no clashing tones. Every pad is lo-fi now, including the toms, congas and cymbals.
 
+## 8. New in 0.16.2
+
+1. **Rename the song**: **File > Rename song...**, type a new name. The title changes, and in
+   Explorer (File > Show project folder) the folder and the `.aether` file have the new name. Your
+   recordings still play. On the start screen, right-click a song > **Rename...** works too.
+2. **Reverse**: right-click an audio clip (a cymbal or a vocal) > **Reverse (play backwards)**. It
+   plays backwards (the waveform is drawn backwards too, after a moment). **Play forwards again**
+   or Ctrl+Z puts it back.
+3. **MIDI fades**: on a MIDI clip (a pad or piano chord works best), hover it and drag the small dot
+   at its top right corner to the left: a fade-out, drawn as a shaded curve. Play it: the sound fades
+   to nothing at the clip's end, with no tail coming back after. Do the same at the top left for a
+   fade-in. Right-click > **Fade-out shape** changes the curve.
+
 ## Not there yet (so don't worry about these)
 
-- Audio recordings: finding their tempo and making them follow the song is M16 (with
+- Audio recordings: finding their tempo and making them follow the song is M17 (with
   time-stretching). If you make the song's tempo follow a MIDI take, audio clips keep their place
   in the bars and their own speed.
 - Drum patterns (repeating clips) are left out of Fix timing: they're already in time.

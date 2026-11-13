@@ -35,7 +35,10 @@ namespace
     /** Keeps the fades inside the clip after its length changes. */
     void limitFades (Project& project, Clip& clip)
     {
-        const auto duration = clip.getDuration();
+        if (clip.isMidi() && ! clip.hasFades())
+            return;   // (MIDI clips usually have none: don't add the properties)
+
+        const auto duration = clip.getFadeSpan();
         auto fadeIn = std::clamp<juce::int64> (clip.getFadeIn(), 0, duration);
         auto fadeOut = std::clamp<juce::int64> (clip.getFadeOut(), 0, duration);
 
@@ -193,6 +196,7 @@ namespace
         set (project, clip, ids::contentStart, (juce::int64) contentStart);
         set (project, clip, ids::length, (juce::int64) (clip.getLengthTicks() - delta));
         set (project, clip, ids::start, (juce::int64) newStart);
+        limitFades (project, clip);
         return true;
     }
 
@@ -205,6 +209,7 @@ namespace
 
         startStep (project, "Trim clip", newUndoStep);
         set (project, clip, ids::length, (juce::int64) newLength);
+        limitFades (project, clip);
         return true;
     }
 
@@ -227,6 +232,10 @@ namespace
         rightState.setProperty (ids::length, (juce::int64) (clip.getLengthTicks() - leftLength), nullptr);
         auto left = clip.getState();
 
+        // A fade-in stays at the start of the left part, a fade-out at the end of the right one.
+        if (clip.hasFades())
+            rightState.setProperty (ids::fadeIn, (juce::int64) 0, nullptr);
+
         if (clip.isLooping())
         {
             // Both halves keep the whole pattern; the right one starts part-way through a repeat.
@@ -248,8 +257,18 @@ namespace
 
         set (project, clip, ids::length, (juce::int64) leftLength);
 
+        if (clip.hasFades())
+        {
+            set (project, clip, ids::fadeOut, (juce::int64) 0);
+            limitFades (project, clip);
+        }
+
         auto clipsNode = left.getParent();
         clipsNode.addChild (rightState, clipsNode.indexOf (left) + 1, &undo);
+
+        if (Clip right (rightState); right.hasFades())
+            limitFades (project, right);
+
         return rightId;
     }
 }
@@ -503,7 +522,7 @@ bool edit::setClipFades (Project& project, const juce::String& clipId, juce::int
     if (! clip.isValid())
         return false;
 
-    const auto duration = clip.getDuration();
+    const auto duration = clip.getFadeSpan();
     fadeIn = std::clamp<juce::int64> (fadeIn, 0, duration);
     fadeOut = std::clamp<juce::int64> (fadeOut, 0, duration - fadeIn);
 

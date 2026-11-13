@@ -75,6 +75,12 @@ namespace projectfiles
         Backups, Autosave and Exports), otherwise just the project file, so nothing else that
         happens to be in the same folder is ever deleted. */
     juce::File whatToDelete (const juce::File& projectFile);
+
+    /** Renames a project ("Rename song"): its file, and its folder too when the folder is laid
+        out the way Aether makes projects (see whatToDelete), with its autosave and backups. On
+        success `renamedTo` is the project file's new path. Fails, changing nothing, if the name is
+        empty or taken, or the system refuses (e.g. a file in the folder is open elsewhere). */
+    juce::Result rename (const juce::File& projectFile, const juce::String& newName, juce::File& renamedTo);
 }
 
 } // namespace aether

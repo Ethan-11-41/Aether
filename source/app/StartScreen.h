@@ -48,6 +48,7 @@ private:
     void create();
     void openSelected();
     void askToDelete (const juce::File& projectFile);
+    void askToRename (const juce::File& projectFile);
     void chooseFolder();
     void updateLocationText();
 

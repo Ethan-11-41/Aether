@@ -45,4 +45,14 @@ juce::String relativePathInProject (const ProjectLocation& location, const juce:
 /** The file a clip refers to. */
 juce::File resolveClipFile (const ProjectLocation& location, const juce::String& relativePath);
 
+/** Reverses audio clips (plays them backwards), as one undo step: each clip then plays a reversed
+    copy of its recording, "<name> (reversed).wav" (32-bit float, at the recording's rate) in the
+    project's Audio folder, made once and reused; reversing it again goes back to the original.
+    The original recording is never changed. The part of the recording a clip plays is the same
+    part, backwards; its fades stay where they are on the timeline. A loop-recorded clip keeps
+    only the take it plays. Returns what went wrong, if anything, in plain words (one line per
+    clip that couldn't be reversed). */
+juce::StringArray reverseClips (Project& project, const ProjectLocation& location, juce::AudioFormatManager& formats,
+                                const juce::StringArray& clipIds);
+
 } // namespace aether

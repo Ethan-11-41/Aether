@@ -82,6 +82,7 @@ private:
     void chooseAndOpenProject();
     void save (std::function<void (bool saved)> then = {});
     void saveAs();
+    void renameSong();
     void closeProject();
     void showAudioSettings();
     void showAbout();

@@ -25,6 +25,7 @@ namespace commands
         showProjectFolder   = 0x1006,
         quit                = 0x1007,
         exportAudio         = 0x1008,
+        renameProject       = 0x1009,
 
         // Edit
         undo                = 0x2001,

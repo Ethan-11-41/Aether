@@ -6,6 +6,27 @@ follow [Semantic Versioning](https://semver.org/) (0.x while Aether is in early 
 
 ## [Unreleased]
 
+## [0.16.2] - 2026-11-13
+
+### Added
+- **Rename a song**: **File > Rename song...**, or right-click it on the start screen and choose
+  **Rename...**. Its folder and file are renamed too (with its recordings, backups and autosave),
+  so everything stays together; unsaved changes stay unsaved.
+- **Reverse audio clips**: right-click an audio clip (or several selected) and choose **Reverse
+  (play backwards)**, for reverse cymbals, swells and backwards vocals. The clip plays a reversed
+  copy of its recording, made once in the song's Audio folder; your recording itself is never
+  changed. **Play forwards again** (or Ctrl+Z) puts it back.
+- **Fades on MIDI clips**, like on audio clips: drag the small dot at a MIDI clip's top left or top
+  right corner. The instrument's sound fades (also notes already playing, and the end of a held
+  chord), and the fade's length follows the bars if the tempo changes. After a fade-out, the notes'
+  release and echoes stay silent too (until the next clip on the track, at most 4 seconds; playing
+  live is always heard). The fade shapes (smooth, straight, fast, slow) are in the clip's menu.
+
+### Changed
+- The roadmap: **sound effects and cinematic sounds** (risers, impacts, booms, cinematic drums)
+  come next, as Milestone 16; stretching and audio timing move to M17, and the later milestones
+  one number on.
+
 ## [0.16.1] - 2026-11-13
 
 From your M15 notes.

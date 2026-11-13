@@ -785,6 +785,7 @@ void AudioEngine::playInstruments (const TimelineSnapshot& timeline, int chunkSt
             continue;
 
         int count = 0;
+        bool playedLive = false;
         auto add = [this, &count] (const dsp::NoteEvent& e)
         {
             if (count < maxNoteEvents)
@@ -854,6 +855,7 @@ void AudioEngine::playInstruments (const TimelineSnapshot& timeline, int chunkSt
                     auto e = liveEvents[(size_t) i].event;
                     e.offset = offset;
                     add (e);
+                    playedLive = playedLive || e.type == dsp::NoteEvent::Type::noteOn;
                 }
             }
 
@@ -882,9 +884,61 @@ void AudioEngine::playInstruments (const TimelineSnapshot& timeline, int chunkSt
 
         track.instrument->process (track.state->input.getWritePointer (0), track.state->input.getWritePointer (1),
                                    numSamples, *parameters, noteEvents.data(), count, &track.sounds);
+
+        if (! track.midiFades.empty())
+            applyMidiFades (track, numSamples, playedLive);
     }
 
     stopClipNotes = false;
+}
+
+void AudioEngine::applyMidiFades (const TrackPlayback& track, int numSamples, bool playedLive) noexcept AETHER_NONBLOCKING
+{
+    // The level the clips' fades call for, worked out every 16 samples where the transport is,
+    // and followed smoothly (about 2 ms). Where the transport isn't playing, full level.
+    constexpr int step = 16;
+    auto& state = *track.state;
+    auto* left = state.input.getWritePointer (0);
+    auto* right = state.input.getWritePointer (1);
+    const auto smoothing = (float) (1.0 - std::exp (-1.0 / (0.002 * sampleRate)));
+
+    for (int i = 0; i < numSamples; i += step)
+    {
+        auto target = 1.0f;
+
+        for (int s = 0; s < numSegments; ++s)
+        {
+            const auto& segment = segments[(size_t) s];
+
+            if (i < segment.offset || i >= segment.offset + (int) (segment.to - segment.from))
+                continue;
+
+            const auto level = midiFadeLevel (track.midiFades, segment.from + (i - segment.offset));
+            target = level.gain;
+
+            // In the silence after a fade-out: playing live ends it.
+            if (level.quietUntil >= 0)
+            {
+                if (playedLive)
+                    state.quietBrokenUntil = level.quietUntil;
+
+                if (state.quietBrokenUntil == level.quietUntil)
+                    target = 1.0f;
+            }
+
+            break;
+        }
+
+        auto gain = state.midiFadeGain;
+        for (int j = i; j < std::min (numSamples, i + step); ++j)
+        {
+            gain += (target - gain) * smoothing;
+            left[j] *= gain;
+            right[j] *= gain;
+        }
+
+        state.midiFadeGain = gain;
+    }
 }
 
 void AudioEngine::recordMidi (int chunkStart, int recordFrom, int numSamples, std::int64_t recordBase) noexcept AETHER_NONBLOCKING

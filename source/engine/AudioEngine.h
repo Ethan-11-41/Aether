@@ -210,6 +210,7 @@ private:
                        float* const* outputs, int numOutputs, int numSamples, int chunkStart) noexcept AETHER_NONBLOCKING;
     void stopRecording() noexcept AETHER_NONBLOCKING;
     void collectLiveMidi (int numSamples) noexcept AETHER_NONBLOCKING;
+    void applyMidiFades (const TrackPlayback& track, int numSamples, bool playedLive) noexcept AETHER_NONBLOCKING;
     void playInstruments (const TimelineSnapshot& timeline, int chunkStart, int numSamples) noexcept AETHER_NONBLOCKING;
     void recordMidi (int chunkStart, int recordFrom, int numSamples, std::int64_t recordBase) noexcept AETHER_NONBLOCKING;
     void monitorInputs (const TimelineSnapshot& timeline, const float* const* inputs, int numInputs, int numSamples) noexcept AETHER_NONBLOCKING;

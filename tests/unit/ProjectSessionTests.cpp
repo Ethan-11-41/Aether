@@ -201,3 +201,93 @@ TEST_CASE ("Tempo, time signature and loop changes survive save, close and reope
     CHECK (timeline::getLoop (*session.getProject()).enabled);
     CHECK (timeline::getLoop (*session.getProject()).start == 4 * ticksPerQuarter);
 }
+
+TEST_CASE ("Renaming a song renames its folder and file, and keeps everything in them", "[session]")
+{
+    Fixture f;
+    ProjectSession session (f.settings, f.recent, 0);
+    REQUIRE (session.createNew (f.folder, "Old Name").wasOk());
+    auto& project = *session.getProject();
+    const auto oldFile = session.getLocation().getMainFile();
+
+    // A recording in the Audio folder, a backup and an autosave: they all come along.
+    session.getLocation().getAudioFolder().getChildFile ("Take 1.wav").replaceWithText ("audio");
+    REQUIRE (session.save().wasOk());   // makes a backup of the first version
+    edit::addTrack (project, TrackKind::audio);
+    session.getLocation().getAutosaveFile().replaceWithText ("autosaved");
+    CHECK (project.hasUnsavedChanges());
+
+    REQUIRE (session.rename ("New Name").wasOk());
+    const auto& renamed = session.getLocation();
+    CHECK (renamed.getName() == "New Name");
+    CHECK (renamed.getFolder() == f.folder.getChildFile ("New Name"));
+    CHECK (renamed.getMainFile() == f.folder.getChildFile ("New Name/New Name.aether"));
+    CHECK (renamed.getMainFile().existsAsFile());
+    CHECK_FALSE (oldFile.getParentDirectory().exists());
+    CHECK (renamed.getAudioFolder().getChildFile ("Take 1.wav").existsAsFile());
+    CHECK (renamed.getAutosaveFile().existsAsFile());
+    CHECK (renamed.getBackupsFolder().findChildFiles (juce::File::findFiles, false, "New Name *.aether").size() == 1);
+
+    // The name shown everywhere follows; the unsaved change is still unsaved.
+    CHECK (project.getName() == "New Name");
+    CHECK (project.hasUnsavedChanges());
+    CHECK (f.recent.getFiles().getFirst() == renamed.getMainFile());
+    CHECK (f.settings.getValue (ProjectSession::openProjectKey) == renamed.getMainFile().getFullPathName());
+
+    // Saved and opened again, it's the new name.
+    REQUIRE (session.save().wasOk());
+    const auto file = renamed.getMainFile();
+    session.close();
+    REQUIRE (session.open (file).wasOk());
+    CHECK (session.getProject()->getName() == "New Name");
+    CHECK (session.getProject()->getNumTracks() == 1);
+}
+
+TEST_CASE ("Renaming a saved song leaves nothing unsaved; a taken name is refused", "[session]")
+{
+    Fixture f;
+    ProjectSession session (f.settings, f.recent, 0);
+    REQUIRE (session.createNew (f.folder, "Other").wasOk());
+    session.close();
+    REQUIRE (session.createNew (f.folder, "Mine").wasOk());
+
+    REQUIRE (session.rename ("Mine, take 2").wasOk());
+    CHECK_FALSE (session.getProject()->hasUnsavedChanges());
+    CHECK (session.getProject()->getName() == "Mine, take 2");
+
+    // Another song's folder is in the way: nothing changes.
+    const auto before = session.getLocation().getMainFile();
+    CHECK (session.rename ("Other").failed());
+    CHECK (session.getLocation().getMainFile() == before);
+    CHECK (before.existsAsFile());
+    CHECK (session.rename ("  ").failed());
+
+    // Only the capitals change.
+    REQUIRE (session.rename ("MINE, TAKE 2").wasOk());
+    CHECK (session.getLocation().getMainFile().getFileName() == "MINE, TAKE 2.aether");
+    CHECK (session.getLocation().getFolder().getFileName() == "MINE, TAKE 2");
+}
+
+TEST_CASE ("A song saved in a folder with other things renames only its file", "[session]")
+{
+    Fixture f;
+    const auto shared = f.folder.getChildFile ("My music");
+    shared.createDirectory();
+    shared.getChildFile ("notes.txt").replaceWithText ("not Aether's");
+
+    ProjectSession session (f.settings, f.recent, 0);
+    REQUIRE (session.createNew (f.folder, "Temp").wasOk());
+    const auto file = shared.getChildFile ("Loose song.aether");
+    REQUIRE (session.getLocation().getMainFile().copyFileTo (file));
+    session.close();
+
+    f.recent.add (file);
+    juce::File renamedTo;
+    REQUIRE (projectfiles::rename (file, "Better song", renamedTo).wasOk());
+    CHECK (renamedTo == shared.getChildFile ("Better song.aether"));
+    CHECK (renamedTo.existsAsFile());
+    CHECK (shared.getChildFile ("notes.txt").existsAsFile());   // the folder stays as it was
+
+    f.recent.replace (file, renamedTo);
+    CHECK (f.recent.getFiles().getFirst() == renamedTo);
+}

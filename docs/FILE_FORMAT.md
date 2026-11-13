@@ -255,6 +255,16 @@ ranges); a setting that isn't there takes its default, so older files open uncha
 
 A lane with no points changes nothing. Lanes for an effect or send that's gone are ignored.
 
+### Added in Aether 0.16.2 (still format version 1)
+
+| Node | Property | Meaning |
+|---|---|---|
+| (MIDI clip) | `fadeIn`, `fadeOut` | Fade lengths, in ticks (for audio clips they're in samples of the file). Missing: no fade. |
+| | `fadeInCurve`, `fadeOutCurve` | As for audio clips. |
+
+A reversed audio clip refers to a reversed copy of its recording, `<name> (reversed).wav`, in the
+same folder (a 32-bit float WAV); nothing else about it is new.
+
 ## Rules for changing the format
 
 1. Never rename or reuse a node type or property name (see `source/model/Ids.h`).

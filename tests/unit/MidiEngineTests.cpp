@@ -329,3 +329,107 @@ TEST_CASE ("A previewed note plays only on its own track, and isn't recorded", "
     RecordedMidiMessage recorded;
     CHECK_FALSE (f.engine.takeRecordedMidi (recorded));
 }
+
+TEST_CASE ("MIDI clip fades are in musical time and stay inside the clip", "[midi][fades]")
+{
+    Project project;
+    const auto track = edit::addTrack (project, TrackKind::midi).getId();
+    const auto clipId = edit::addMidiClip (project, track, "Pad", 0, 8 * q, { { 60, 100, 0, 8 * q } });
+
+    REQUIRE (edit::setClipFades (project, clipId, 2 * q, 3 * q));
+    auto clip = clips::findClip (project, clipId);
+    CHECK (clip.getFadeIn() == 2 * q);
+    CHECK (clip.getFadeOut() == 3 * q);
+    CHECK (clip.getFadeSpan() == 8 * q);
+
+    // Never more than the clip.
+    edit::setClipFades (project, clipId, 20 * q, 20 * q);
+    clip = clips::findClip (project, clipId);
+    CHECK (clip.getFadeIn() + clip.getFadeOut() <= 8 * q);
+    edit::setClipFades (project, clipId, 2 * q, 3 * q);
+
+    // Split: the fade-in stays on the left part, the fade-out on the right.
+    const auto rightId = edit::splitClip (project, clipId, 4 * q);
+    REQUIRE (rightId.isNotEmpty());
+    CHECK (clips::findClip (project, clipId).getFadeIn() == 2 * q);
+    CHECK (clips::findClip (project, clipId).getFadeOut() == 0);
+    CHECK (clips::findClip (project, rightId).getFadeIn() == 0);
+    CHECK (clips::findClip (project, rightId).getFadeOut() == 3 * q);
+
+    // Trimmed shorter than its fade, the fade shrinks with it.
+    edit::trimClipEnd (project, rightId, 4 * q + q);
+    CHECK (clips::findClip (project, rightId).getFadeOut() <= q);
+
+    // A clip without fades doesn't get fade settings by being trimmed.
+    const auto plain = edit::addMidiClip (project, track, "Plain", 16 * q, 4 * q, {});
+    edit::trimClipEnd (project, plain, 18 * q);
+    CHECK_FALSE (clips::findClip (project, plain).getState().hasProperty (ids::fadeIn));
+}
+
+TEST_CASE ("A MIDI clip fades its instrument in and out, and its tails stay faded", "[midi][fades][engine]")
+{
+    const auto levels = [] (Fixture& f, int seconds)
+    {
+        // The loudest moment of each tenth of a second.
+        const auto out = f.render (48000 * seconds);
+        std::vector<float> each;
+        for (size_t from = 0; from + 4800 <= out.size(); from += 4800)
+            each.push_back (Fixture::loudest (out, from, from + 4800));
+        return each;
+    };
+
+    // An organ chord held for two bars (4 seconds at 120 BPM), fading in over the first beat
+    // (half a second) and out over the second bar (2 to 4 seconds).
+    Fixture f;
+    edit::setInstrumentPreset (f.project, f.keys, "Organ");
+    const auto clipId = edit::addMidiClip (f.project, f.keys, "Chord", 0, 8 * q, { { 60, 100, 0, 8 * q }, { 64, 100, 0, 8 * q } });
+    REQUIRE (edit::setClipFades (f.project, clipId, q, 4 * q));
+    f.update();
+    f.engine.play();
+    const auto faded = levels (f, 6);
+
+    // The same without fades, to compare.
+    Fixture g;
+    edit::setInstrumentPreset (g.project, g.keys, "Organ");
+    edit::addMidiClip (g.project, g.keys, "Chord", 0, 8 * q, { { 60, 100, 0, 8 * q }, { 64, 100, 0, 8 * q } });
+    g.update();
+    g.engine.play();
+    const auto plain = levels (g, 6);
+
+    // Fading in over the first half second: quieter at first, then as loud.
+    CHECK (faded[0] < 0.5f * plain[0]);
+    CHECK (faded[2] > faded[0]);
+    CHECK (std::abs (faded[10] - plain[10]) < 0.05f * plain[10]);
+
+    // Fading out from 2 to 4 seconds: falling, and nothing left at the end.
+    CHECK (std::abs (faded[19] - plain[19]) < 0.05f * plain[19]);
+    CHECK (faded[25] < plain[25]);
+    CHECK (faded[33] < faded[25]);
+    CHECK (faded[39] < 0.05f * plain[39]);
+
+    // After the clip (4 seconds on), the release that the plain one still has is silent.
+    CHECK (plain[40] > 0.0f);
+    CHECK (faded[40] < 1.0e-3f);
+    CHECK (faded[45] < 1.0e-4f);
+}
+
+TEST_CASE ("Playing live after a faded-out clip is heard", "[midi][fades][engine][live]")
+{
+    Fixture f;
+    edit::setInstrumentPreset (f.project, f.keys, "Organ");
+    const auto clipId = edit::addMidiClip (f.project, f.keys, "Chord", 0, 4 * q, { { 60, 100, 0, 4 * q } });
+    edit::setClipFades (f.project, clipId, 0, 2 * q);
+    f.update (f.keys);   // the selected track plays what's played live
+    f.engine.play();
+    f.render (96000 + 4800);   // past the clip's end (2 seconds): in the silence after its fade-out
+
+    f.engine.sendLiveMidi (juce::MidiMessage::noteOn (1, 67, (juce::uint8) 100));
+    const auto out = f.render (9600);
+    CHECK (Fixture::loudest (out, 2400, 9600) > 0.01f);
+
+    // And when stopped, fades don't apply at all.
+    f.engine.stop();
+    f.render (48000);
+    f.engine.sendLiveMidi (juce::MidiMessage::noteOn (1, 72, (juce::uint8) 100));
+    CHECK (Fixture::loudest (f.render (9600), 2400, 9600) > 0.01f);
+}

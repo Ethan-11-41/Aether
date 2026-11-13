@@ -1,6 +1,7 @@
 // Aether - Copyright (C) 2026 The Aether authors. Licensed under the GNU AGPLv3 or later.
 #pragma once
 
+#include <algorithm>
 #include <array>
 #include <atomic>
 #include <memory>
@@ -90,6 +91,11 @@ struct ChannelState
 
     juce::AudioBuffer<float> input;          // what plays into the channel during the current chunk
     GainRamp mute, left, right, output;
+
+    // MIDI clip fades (audio thread only): the level now, and a silence after a fade-out that
+    // playing live has ended (its `quietUntil`).
+    float midiFadeGain = 1.0f;
+    std::int64_t quietBrokenUntil = -1;
 
     /** Highest level (linear) per side since the UI last asked. */
     std::array<std::atomic<float>, 2> peaks {};
@@ -183,6 +189,65 @@ struct SendPlayback
     std::shared_ptr<SendState> state = std::make_shared<SendState>();
 };
 
+/** A MIDI clip's fades (0.16.2), in samples at the engine's rate: while it plays, its track's
+    instrument is turned down along them. After a fade-out the track stays silent until its next
+    clip starts (at most a few seconds), so notes' release and echo tails don't come back. */
+struct MidiFadePlayback
+{
+    std::int64_t start = 0, end = 0;          // the clip
+    std::int64_t fadeIn = 0, fadeOut = 0;     // lengths (0: none)
+    FadeCurve fadeInCurve = FadeCurve::smooth, fadeOutCurve = FadeCurve::smooth;
+    std::int64_t quietUntil = 0;              // after a fade-out: silent until here
+
+    static constexpr double quietSeconds = 4.0;
+};
+
+/** How loud a MIDI track's instrument is at a position, from its clips' fades: inside clips, the
+    loudest of the clips there; between clips, silent after a fade-out (`quietUntil` says until
+    when, else -1), otherwise full. `fades` is sorted by start. */
+struct MidiFadeLevel
+{
+    float gain = 1.0f;
+    std::int64_t quietUntil = -1;
+};
+
+inline MidiFadeLevel midiFadeLevel (const std::vector<MidiFadePlayback>& fades, std::int64_t position) noexcept AETHER_NONBLOCKING
+{
+    float inside = -1.0f;
+    const MidiFadePlayback* lastEnded = nullptr;
+
+    for (const auto& f : fades)
+    {
+        if (f.start > position)
+            break;
+
+        if (position < f.end)
+        {
+            auto gain = 1.0f;
+            const auto in = position - f.start, left = f.end - position;
+
+            if (in < f.fadeIn)
+                gain *= fadeShape (f.fadeInCurve, (double) in / (double) f.fadeIn);
+            if (left <= f.fadeOut)
+                gain *= fadeShape (f.fadeOutCurve, (double) (left - 1) / (double) f.fadeOut);
+
+            inside = std::max (inside, gain);
+        }
+        else if (lastEnded == nullptr || f.end > lastEnded->end)
+        {
+            lastEnded = &f;
+        }
+    }
+
+    if (inside >= 0.0f)
+        return { inside, -1 };
+
+    if (lastEnded != nullptr && lastEnded->fadeOut > 0 && position < lastEnded->quietUntil)
+        return { 0.0f, lastEnded->quietUntil };
+
+    return {};
+}
+
 /** One note from a MIDI clip, ready to play: in samples at the engine's rate. */
 struct NotePlayback
 {
@@ -222,6 +287,7 @@ struct TrackPlayback
     std::shared_ptr<dsp::Instrument> instrument;           // plays the notes into this channel
     dsp::EffectParameterValues instrumentParameters {};
     std::vector<NotePlayback> notes;                       // every note of its clips, sorted by start
+    std::vector<MidiFadePlayback> midiFades;               // its clips' fades (empty when none has any), by start
     bool liveInput = false;                                // plays what's played on a MIDI keyboard
     std::uint64_t idHash = 0;                              // the track's id, for notes previewed on it
 

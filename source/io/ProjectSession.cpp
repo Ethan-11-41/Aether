@@ -66,6 +66,10 @@ juce::Result ProjectSession::open (const juce::File& projectFile, bool fromAutos
     if (loaded.result.failed())
         return loaded.result;
 
+    // The name follows the file name (it may have been renamed while it had unsaved changes).
+    if (loaded.state.isValid())
+        loaded.state.setProperty (ids::name, newLocation.getName(), nullptr);
+
     auto newProject = Project::fromState (loaded.state);
 
     if (newProject == nullptr)
@@ -120,6 +124,35 @@ juce::Result ProjectSession::saveAs (const juce::File& parentFolder, const juce:
     auto moved = std::move (project);
     adopt (std::move (moved), newLocation);
     return juce::Result::ok();
+}
+
+juce::Result ProjectSession::rename (const juce::String& newName)
+{
+    if (! hasProject())
+        return juce::Result::fail ("No project is open.");
+
+    // The autosaver writes into the folder from another thread: stopped while it moves.
+    autosaver = nullptr;
+
+    juce::File renamedTo;
+    const auto oldFile = location.getMainFile();
+    const auto result = projectfiles::rename (oldFile, newName, renamedTo);
+
+    if (result.wasOk() && renamedTo != oldFile)
+    {
+        const auto wasSaved = ! project->hasUnsavedChanges();
+        location = ProjectLocation (renamedTo);
+        project->getState().setProperty (ids::name, location.getName(), nullptr);   // follows the file name; not an undo step
+
+        if (wasSaved)
+            project->markAsSaved();   // only the name changed, and the file is named so
+
+        settings.setValue (openProjectKey, location.getMainFile().getFullPathName());
+        recent.replace (oldFile, location.getMainFile());
+    }
+
+    autosaver = std::make_unique<Autosaver> (*project, location, autosaveInterval);
+    return result;
 }
 
 void ProjectSession::close()

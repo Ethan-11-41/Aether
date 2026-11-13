@@ -1,6 +1,8 @@
 // Aether - Copyright (C) 2026 The Aether authors. Licensed under the GNU AGPLv3 or later.
 #include "RecentProjects.h"
 
+#include <algorithm>
+
 namespace aether
 {
 
@@ -37,6 +39,22 @@ void RecentProjects::add (const juce::File& projectFile)
     while (paths.size() > maxEntries)
         paths.remove (paths.size() - 1);
 
+    store (paths);
+}
+
+void RecentProjects::replace (const juce::File& oldFile, const juce::File& newFile)
+{
+    auto paths = load();
+    const auto index = paths.indexOf (oldFile.getFullPathName(), ! juce::File::areFileNamesCaseSensitive());
+
+    if (index < 0)
+    {
+        add (newFile);
+        return;
+    }
+
+    paths.removeString (newFile.getFullPathName(), ! juce::File::areFileNamesCaseSensitive());
+    paths.set (std::min (index, paths.size()), newFile.getFullPathName());
     store (paths);
 }
 

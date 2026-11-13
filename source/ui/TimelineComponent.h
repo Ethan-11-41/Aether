@@ -111,6 +111,9 @@ public:
     bool pasteClips();
     bool canPaste() const noexcept   { return ! clipboard.empty(); }
 
+    /** Reverses audio clips (see aether::reverseClips); problems are shown in a message. */
+    void reverseClips (const juce::StringArray& clipIds);
+
     /** Moves the selected clips (or, if none, the playhead) one grid step, or 10 ms if `fine`. */
     void nudge (int direction, bool fine);
 
