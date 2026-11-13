@@ -1,6 +1,8 @@
 // Aether - Copyright (C) 2026 The Aether authors. Licensed under the GNU AGPLv3 or later.
 #include "DeviceSettingsPanel.h"
 
+#include "devices/MidiKeyboards.h"
+
 namespace aether::ui
 {
 
@@ -38,7 +40,8 @@ namespace
 DeviceSettingsPanel::DeviceSettingsPanel (AudioDeviceService& deviceService, const Theme& themeToUse)
     : devices (deviceService), manager (deviceService.getDeviceManager()), theme (themeToUse)
 {
-    for (auto* label : { &driverLabel, &outputLabel, &inputLabel, &rateLabel, &bufferLabel, &outputPairLabel, &inputsLabel })
+    for (auto* label : { &driverLabel, &outputLabel, &inputLabel, &rateLabel, &bufferLabel, &outputPairLabel, &inputsLabel,
+                         &touchLabel })
     {
         label->setFont (labelFont());
         label->setColour (juce::Label::textColourId, theme.text);
@@ -47,7 +50,7 @@ DeviceSettingsPanel::DeviceSettingsPanel (AudioDeviceService& deviceService, con
         addAndMakeVisible (*label);
     }
 
-    for (auto* hint : { &driverHint, &bufferNote, &inputsNote, &midiNote })
+    for (auto* hint : { &driverHint, &bufferNote, &inputsNote, &midiNote, &touchNote })
     {
         hint->setFont (hintFont());
         hint->setColour (juce::Label::textColourId, theme.textDim);
@@ -92,6 +95,23 @@ DeviceSettingsPanel::DeviceSettingsPanel (AudioDeviceService& deviceService, con
     bufferBox.setTextWhenNoChoicesAvailable ("(no device open)");
 
     addChildComponent (controlPanelButton);
+
+    // How hard the keyboards have to be played.
+    touchBox.addItemList (midikeyboards::touchNames(), 1);
+    touchBox.setSelectedItemIndex (devices.getKeyboardTouch(), juce::dontSendNotification);
+    touchBox.setTooltip ("How hard you have to play your MIDI keyboard. Light: soft playing comes out louder (good "
+                         "for weighted piano keys). Heavy: you have to play harder to be loud. It changes what is "
+                         "recorded too, so recordings play back as they sounded.");
+    touchBox.onChange = [this]
+    {
+        devices.setKeyboardTouch (touchBox.getSelectedItemIndex());
+
+        if (onKeyboardTouchChanged)
+            onKeyboardTouchChanged (devices.getKeyboardTouch());
+    };
+    addAndMakeVisible (touchBox);
+    touchNote.setText ("If your playing sounds too quiet, try Light. To make a whole track louder, raise its "
+                       "volume in the mixer (up to +6 dB).", juce::dontSendNotification);
 
     manager.addChangeListener (this);
     midiDevicesChanged = juce::MidiDeviceListConnection::make ([this] { refreshMidi(); });
@@ -320,7 +340,7 @@ void DeviceSettingsPanel::refreshMidi()
 
     bool same = (int) midiToggles.size() == midiDevices.size();
     for (int i = 0; same && i < midiDevices.size(); ++i)
-        same = midiToggles[(size_t) i]->getButtonText() == midiDevices[i].name;
+        same = midiToggles[(size_t) i]->getButtonText() == midikeyboards::displayName (midiDevices[i].name, midiDevices[i].identifier);
 
     if (! same)
     {
@@ -328,7 +348,7 @@ void DeviceSettingsPanel::refreshMidi()
 
         for (int i = 0; i < midiDevices.size(); ++i)
         {
-            auto toggle = std::make_unique<juce::ToggleButton> (midiDevices[i].name);
+            auto toggle = std::make_unique<juce::ToggleButton> (midikeyboards::displayName (midiDevices[i].name, midiDevices[i].identifier));
             toggle->setTooltip ("Ticked: Aether listens to this keyboard (you can play the selected MIDI track with it "
                                 "and record). Unticked: ignored. Aether remembers your choice.");
             toggle->onClick = [this, i, t = toggle.get()]
@@ -623,6 +643,10 @@ int DeviceSettingsPanel::layout (int width, bool apply)
         place (*toggle, { 0, y, width, rowHeight - 2 });
         y += rowHeight - 2;
     }
+
+    y += rowGap;
+    row (touchLabel, touchBox);
+    note (touchNote, controlX);
 
     return y + rowGap;
 }

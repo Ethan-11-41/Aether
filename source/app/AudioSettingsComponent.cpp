@@ -66,6 +66,7 @@ AudioSettingsComponent::AudioSettingsComponent (AudioDeviceService& deviceServic
 
     devicePanel = std::make_unique<ui::DeviceSettingsPanel> (devices, theme);
     devicePanel->midiActivity = [this] { return engine.getMidiActivity(); };
+    devicePanel->onKeyboardTouchChanged = [this] (int touch) { engine.setKeyboardTouch (touch); };
     devicePanel->onLayoutChanged = [this] { layOutDevicePanel(); };
     deviceViewport.setViewedComponent (devicePanel.get(), false);
     deviceViewport.setScrollBarsShown (true, false);

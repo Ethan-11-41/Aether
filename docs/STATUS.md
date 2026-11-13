@@ -4,7 +4,7 @@ An honest list of what works. Updated at the end of every milestone.
 
 **Legend:** ✅ Working · 🟡 Partial · 🧪 Stub/placeholder · ⬜ Not started
 
-Current version: **0.17.0** (Milestone 16: sound effects and cinematic sounds)
+Current version: **0.17.1** (Milestone 16: sound effects and cinematic sounds, with fixes)
 
 ## Milestone 0: skeleton and build pipeline
 
@@ -253,6 +253,7 @@ Current version: **0.17.0** (Milestone 16: sound effects and cinematic sounds)
 | Make the song's tempo follow the playing, every bar or every beat | ✅ | The notes keep their exact timing. Before the playing, one tempo change (a "lead-in") makes bar 1 of the playing start on a bar line; that empty bar can be fast or slow (you only notice it in the tempo lane and the metronome). If you started playing within about a quarter of a second of the song's start, bar 1 starts at the song's start instead, and its first beat is that little bit longer. |
 | Several clips fixed together (e.g. piano and bass) | ✅ | Other clips keep their place in the bars, as with any tempo change. Audio clips don't follow tempo changes until M17. |
 | Music with two good answers | 🟡 | A slow ballad with fast arpeggios may be found at twice its tempo, and music in 6/8 or 12/8 at the speed of two eighth notes: use Half as fast, or type the tempo. Bar 1 is guessed from bass notes and long chords; check it in the picture. |
+| Each fix starting from how it was played; "Put it back as I played it" | ✅ | Since 0.17.1. The clips remember when each note was played and the song's tempo before the fix (saved with the song). A clip moved by hand afterwards is taken as it is now; notes moved by hand keep their place among the others. |
 | Offering it after recording without the metronome | ✅ | Off at first: tick the box in the window. |
 | Quantize whole clips or tracks from the timeline (Q, grid, strength, swing, note ends) | ✅ | On the song's grid (bars from their start), so clips that don't start on a grid line still end up on it. |
 | Repeating patterns (drum patterns) | ⬜ (by design) | They're already in time: Fix timing leaves them out (Quantize works on them). |
@@ -264,7 +265,8 @@ Current version: **0.17.0** (Milestone 16: sound effects and cinematic sounds)
 |---|---|---|
 | Sound effects from the timeline (right-click a lane > Add a sound effect here) | ✅ | Riser (noise), Riser (synth), Reverse swell (end on the nearest bar line, 1 to 8 bars at the song's tempo), Downlifter, Impact, Boom, Whoosh. Made by Aether's code, saved once in the song's Audio/Sound effects folder. Tested automatically on their sound (rising, falling, clean ends) and placement; how they sound to you is in the M16 checklist. |
 | Cinematic drum kit and 13 cinematic drum sounds | ✅ | Taiko, big toms, big snare, stomp, impact, boom, metal hit, gong, ticker, reverse cymbal, whoosh. |
-| A riser that changes length when the tempo changes | ⬜ | It's an audio clip made at the tempo it was added at: after a tempo change, add it again (audio that follows the tempo comes with M17). |
+| Swapping a sound effect for another, changing its length, making it again at the song's tempo | ✅ | Since 0.17.1, from the clip's right-click menu; it stays on its bar line. |
+| A riser that changes length by itself when the tempo changes | ⬜ | It's an audio clip made at the tempo it was added at: after a tempo change, right-click it > Make it again at the song's tempo (audio that follows the tempo comes with M17). |
 | More effects (braams, hits with pitch, glitches, vinyl stops...) | ⬜ | Tell me which you'd use; recorded sounds come with the sound library (M21). |
 
 ## Everything else

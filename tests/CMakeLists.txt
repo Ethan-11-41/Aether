@@ -19,6 +19,7 @@ add_executable(aether_tests
     unit/KeyboardPanelTests.cpp
     unit/LatencyInfoTests.cpp
     unit/MidiEngineTests.cpp
+    unit/MidiKeyboardTests.cpp
     unit/MidiModelTests.cpp
     unit/MidiTimingTests.cpp
     unit/MixerEngineTests.cpp

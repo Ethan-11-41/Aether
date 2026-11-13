@@ -139,6 +139,11 @@ public:
     void setCountInBars (int bars) noexcept;
     int getCountInBars() const noexcept                    { return countInBars.load (std::memory_order_relaxed); }
 
+    /** How hard MIDI keyboards have to be played (a midikeyboards::Touch): applied to notes from
+        MIDI devices as they arrive, so it changes what you hear and what is recorded alike. */
+    void setKeyboardTouch (int touch) noexcept               { keyboardTouch.store (touch, std::memory_order_relaxed); }
+    int getKeyboardTouch() const noexcept                    { return keyboardTouch.load (std::memory_order_relaxed); }
+
     TransportStatus getTransportStatus() const noexcept;
 
     void setTestToneEnabled (bool shouldPlay) noexcept   { testToneRequested.store (shouldPlay, std::memory_order_relaxed); }
@@ -253,6 +258,7 @@ private:
     std::atomic<float> metronomeLevelDb { -6.0f };
     std::atomic<float> metronomeGain { 0.5f };
     std::atomic<int> countInBars { 0 };
+    std::atomic<int> keyboardTouch { 2 };   // midikeyboards::Touch::normal
     std::atomic<bool> testToneRequested { false };
 
     std::atomic<bool> reportPlaying { false }, reportCountingIn { false };

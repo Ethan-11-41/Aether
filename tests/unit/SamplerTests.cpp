@@ -461,3 +461,43 @@ TEST_CASE ("Legato: an overlapping note takes over smoothly, notes played togeth
     CHECK (voices.choices[sm::legato] == "Legato");
     CHECK (voices.maximum == (float) sm::legato);
 }
+
+TEST_CASE ("Letting go of a key stops its note in every voice mode, even after the mode changes", "[sampler]")
+{
+    // A held sound (looped), so a note that isn't let go would play on for ever.
+    const auto tone = sine (480.0, 0.5);
+    auto makeFixture = [&] (Fixture& f, int mode)
+    {
+        auto& z = f.addZone (tone, 60);
+        z.loopStart = 4800;
+        z.loopEnd = tone.getNumSamples();
+        f.set (sm::release, 10.0f);
+        f.set (sm::voiceMode, (float) mode);
+    };
+
+    // In each mode, a key played and let go stops.
+    for (int mode : { (int) sm::poly, (int) sm::mono, (int) sm::slide, (int) sm::legato })
+    {
+        INFO ("mode " << mode);
+        Fixture f;
+        makeFixture (f, mode);
+        f.run (9600, { Fixture::on (60), Fixture::off (60, 4800) });
+        f.run (9600);
+        CHECK (f.instrument->getNumSounding() == 0);
+    }
+
+    // Keys held while the voice mode changes stop when they're let go, whatever the change.
+    for (int from : { (int) sm::poly, (int) sm::mono, (int) sm::slide, (int) sm::legato })
+        for (int to : { (int) sm::poly, (int) sm::mono, (int) sm::slide, (int) sm::legato })
+        {
+            INFO ("from mode " << from << " to mode " << to);
+            Fixture f;
+            makeFixture (f, from);
+            f.run (4800, { Fixture::on (60) });
+            REQUIRE (f.instrument->getNumSounding() > 0);
+            f.set (sm::voiceMode, (float) to);
+            const auto out = f.run (19200, { Fixture::off (60, 100) });
+            CHECK (f.instrument->getNumSounding() == 0);
+            CHECK (*std::max_element (out.begin() + 9600, out.end()) < 1.0e-4f);
+        }
+}

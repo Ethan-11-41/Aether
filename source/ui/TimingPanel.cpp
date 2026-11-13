@@ -251,12 +251,17 @@ TimingPanel::TimingPanel (const Theme& themeToUse, Project& projectToEdit, const
     addAndMakeVisible (cancelButton);
     addAndMakeVisible (applyButton);
 
+    putBackButton.setTooltip ("Puts your notes back exactly as you played them, and the song's tempo as it was then (undoing "
+                              "the timing fixes made before). One Ctrl+Z redoes the fixes.");
+    putBackButton.onClick = [this] { putBack(); };
+    addChildComponent (putBackButton);
+
     steadyChoice.setToggleState (true, juce::dontSendNotification);
     playedTempoChoice.setToggleState (true, juce::dontSendNotification);
     everyBarChoice.setToggleState (true, juce::dontSendNotification);
 
     analyse (0.0);
-    setSize (880, 690);
+    setSize (880, 706);
 }
 
 TimingPanel::~TimingPanel()
@@ -340,6 +345,9 @@ juce::String TimingPanel::getSummary() const
 
     text << " The lines show the beats Aether found; numbered lines start bars.";
 
+    if (miditiming::remembersPlaying (project, clipIds))
+        text << " (This is how you played it, before the timing was fixed: each choice starts from your playing.)";
+
     if (beat.clarity < 0.6)
         text << " The beat wasn't very clear: check that the lines sit on your notes, or try the buttons below.";
 
@@ -367,7 +375,7 @@ juce::String TimingPanel::getOutcome() const
         {
             text << ", and the song's tempo will be " << bpmText (getSteadyTempo());
 
-            if (const auto changes = timeline::getNumTempoChanges (project); changes > 1)
+            if (const auto changes = miditiming::songTempoChanges (project, clipIds); changes > 1)
                 text << " (instead of its " << changes << " tempo changes)";
         }
 
@@ -402,6 +410,7 @@ void TimingPanel::refresh()
                                                             &followChoice, &applyButton })
         c->setEnabled (! clipIds.isEmpty() && (found || c == &findButton || c == &nearField));
 
+    putBackButton.setVisible (canPutBack());
     earlierButton.setEnabled (found && beat.downbeat > 0);
     laterButton.setEnabled (found && beat.downbeat < (int) beat.beats.size() - 2);
     halfButton.setEnabled (found && beat.bpm / 2.0 >= 20.0);
@@ -461,6 +470,22 @@ bool TimingPanel::apply()
     return changed;
 }
 
+bool TimingPanel::canPutBack() const
+{
+    return miditiming::wasFixed (project, clipIds);
+}
+
+bool TimingPanel::putBack()
+{
+    if (! edit::putBackAsPlayed (project, clipIds))
+        return false;
+
+    if (onClose)
+        onClose();
+
+    return true;
+}
+
 //==============================================================================
 void TimingPanel::paint (juce::Graphics& g)
 {
@@ -481,7 +506,7 @@ void TimingPanel::resized()
     auto area = getLocalBounds().reduced (20, 16);
 
     title.setBounds (area.removeFromTop (30));
-    summary.setBounds (area.removeFromTop (40));
+    summary.setBounds (area.removeFromTop (56));
     area.removeFromTop (4);
 
     auto row = area.removeFromTop (28);
@@ -508,7 +533,9 @@ void TimingPanel::resized()
     applyButton.setBounds (bottom.removeFromRight (110));
     bottom.removeFromRight (8);
     cancelButton.setBounds (bottom.removeFromRight (100));
-    offerToggle.setBounds (bottom.removeFromLeft (440));
+    bottom.removeFromRight (8);
+    putBackButton.setBounds (bottom.removeFromRight (190));
+    offerToggle.setBounds (bottom.removeFromLeft (std::min (440, bottom.getWidth() - 8)));
     area.removeFromBottom (6);
     outcome.setBounds (area.removeFromBottom (40));
     area.removeFromBottom (14);

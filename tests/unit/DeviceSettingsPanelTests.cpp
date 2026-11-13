@@ -172,3 +172,25 @@ TEST_CASE ("A device that won't open in the panel goes back to the previous one"
     CHECK (panel.getInputBox().getText() == "Mic");
     CHECK (f.service.getProblemMessage().isNotEmpty());
 }
+
+TEST_CASE ("The keyboards' touch setting is chosen in the panel and remembered", "[devices][ui][keyboard]")
+{
+    PanelFixture f;
+    auto& touch = f.panel.getTouchBox();
+    CHECK (itemsOf (touch) == juce::StringArray { "Very light", "Light", "Normal", "Heavy" });
+    CHECK (touch.getText() == "Normal");
+    CHECK (touch.getTooltip().isNotEmpty());
+    CHECK (touch.isVisible());
+    CHECK (touch.getBottom() <= f.panel.getHeight());
+
+    int told = -1;
+    f.panel.onKeyboardTouchChanged = [&told] (int value) { told = value; };
+    touch.setSelectedItemIndex (1, juce::sendNotificationSync);
+    CHECK (told == 1);
+    CHECK (f.service.getKeyboardTouch() == 1);
+    CHECK (f.settings.getIntValue ("keyboardTouch") == 1);
+
+    // A new panel (the settings window opened again) shows it.
+    DeviceSettingsPanel again { f.service, f.theme };
+    CHECK (again.getTouchBox().getText() == "Light");
+}

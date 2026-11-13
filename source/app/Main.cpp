@@ -89,6 +89,7 @@ public:
         devices->setDriverErrorSource ([log = appLog.get()] { return log->getRecentDriverError(); });
         devices->addAudioCallback (engine.get());
         devices->addMidiCallback (engine.get());
+        engine->setKeyboardTouch (devices->getKeyboardTouch());
         juce::Logger::writeToLog ("MIDI inputs: " + (devices->getEnabledMidiInputNames().isEmpty()
                                                         ? juce::String ("none")
                                                         : devices->getEnabledMidiInputNames().joinIntoString (", ")));

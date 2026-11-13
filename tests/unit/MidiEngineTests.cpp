@@ -7,6 +7,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include "devices/MidiKeyboards.h"
 #include "dsp/FastMath.h"
 #include "dsp/Instrument.h"
 #include "engine/AudioEngine.h"
@@ -289,6 +290,60 @@ TEST_CASE ("Recording MIDI from a keyboard makes a MIDI clip", "[midi][recording
 
     // No audio files for a MIDI recording.
     CHECK (folder.getChildFile ("Audio").findChildFiles (juce::File::findFiles, false).isEmpty());
+    folder.deleteRecursively();
+}
+
+TEST_CASE ("The keyboard touch setting changes keyboard notes as heard and as recorded", "[midi][recording][keyboard]")
+{
+    juce::ScopedJuceInitialiser_GUI juceInit;   // the audio file cache needs JUCE's message thread
+    Fixture f;
+    const auto folder = juce::File::getSpecialLocation (juce::File::tempDirectory).getChildFile ("aether-midi-touch-" + juce::Uuid().toString());
+    folder.createDirectory();
+    const ProjectLocation location (folder.getChildFile ("Song.aether"));
+
+    AudioFileCache cache;
+    TimelineSync sync (f.project, f.engine, cache, [location] { return location; });
+    Recorder recorder (f.project, f.engine, sync, [location] { return location; }, [] { return 0; }, [] { return 0; }, [] { return 0; });
+    edit::setArmed (f.project, { f.keys }, true);
+
+    juce::StringArray clipIds;
+    recorder.onFinished = [&] (const juce::StringArray& ids) { clipIds = ids; };
+    REQUIRE (recorder.start().isEmpty());
+
+    f.engine.setKeyboardTouch ((int) midikeyboards::Touch::light);
+    std::vector<float> l (256), r (256);
+    float* outputs[] = { l.data(), r.data() };
+
+    for (int block = 0; block < 200; ++block)
+    {
+        // A MIDI keyboard plays softly (velocity 50); the on-screen keyboard plays 50 too.
+        if (block == 40)  f.engine.handleIncomingMidiMessage (nullptr, juce::MidiMessage::noteOn (1, 62, (juce::uint8) 50));
+        if (block == 80)  f.engine.handleIncomingMidiMessage (nullptr, juce::MidiMessage::noteOff (1, 62));
+        if (block == 120) f.engine.sendLiveMidi (juce::MidiMessage::noteOn (1, 64, (juce::uint8) 50));
+        if (block == 160) f.engine.sendLiveMidi (juce::MidiMessage::noteOff (1, 64));
+
+        f.engine.process (nullptr, 0, outputs, 2, 256);
+        f.engine.collectGarbage();
+
+        if (block % 20 == 0)
+            recorder.poll();
+    }
+
+    recorder.stop();
+    f.engine.process (nullptr, 0, outputs, 2, 256);
+    recorder.poll();
+
+    REQUIRE (clipIds.size() == 1);
+    const auto notes = midi::audibleNotes (clips::findClip (f.project, clipIds[0]));
+    REQUIRE (notes.size() == 2);
+
+    // The keyboard's soft note came out (and was recorded) louder; the on-screen keyboard's as played.
+    CHECK (notes[0].pitch == 62);
+    CHECK (notes[0].velocity == midikeyboards::applyTouch (50, midikeyboards::Touch::light));
+    CHECK (notes[0].velocity > 50);
+    CHECK (notes[1].pitch == 64);
+    CHECK (notes[1].velocity == 50);
+
     folder.deleteRecursively();
 }
 

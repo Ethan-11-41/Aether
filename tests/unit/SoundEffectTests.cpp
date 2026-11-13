@@ -193,3 +193,74 @@ TEST_CASE ("A sound effect goes into the song at its tempo, on the bar", "[sound
 
     CHECK (addSoundEffect (project, location, "no such effect", 1, fx, 0, rate).problem.isNotEmpty());
 }
+
+TEST_CASE ("A sound effect in the song can be swapped, made longer or made again, in place", "[soundfx][import]")
+{
+    juce::ScopedJuceInitialiser_GUI juceInit;
+    TempFolder temp;
+    const ProjectLocation location (temp.folder.getChildFile ("Song.aether"));
+    Project project;   // 120 BPM, 4/4: a bar is 2 seconds
+    const auto fx = edit::addTrack (project, TrackKind::audio, -1, true, "FX").getId();
+    const auto bar = 4 * q;
+    auto& undo = project.getUndoManager();
+
+    // A 2-bar riser into bar 5, turned down and faded in.
+    const auto r = addSoundEffect (project, location, "riser-noise", 2, fx, 4 * bar, rate);
+    REQUIRE (r.problem.isEmpty());
+    const auto id = r.clipId;
+    REQUIRE (soundEffectOf (project, id) != nullptr);
+    CHECK (juce::String (soundEffectOf (project, id)->id) == "riser-noise");
+    CHECK (soundEffectBars (project, id) == 2);
+    edit::setClipGain (project, id, -4.0);
+    edit::setClipFades (project, id, 48000, 0);
+
+    auto clip = [&] { return clips::findClip (project, id); };
+    const auto end = [&] { return clip().getEnd (timeline::buildTempoMap (project)); };
+
+    // 4 bars instead: it still rises into bar 5 (so it starts at bar 1), keeping its volume and fade.
+    REQUIRE (changeSoundEffect (project, location, id, "riser-noise", 4, rate, "Make it 4 bars").isEmpty());
+    CHECK (undo.getUndoDescription() == "Make it 4 bars");
+    CHECK (clip().getStart() == 0);
+    CHECK (end() == 4 * bar);
+    CHECK (clip().getDuration() == 384000);
+    CHECK (clip().getGainDb() == Catch::Approx (-4.0));
+    CHECK (clip().getFadeIn() == 48000);
+    CHECK (soundEffectBars (project, id) == 4);
+
+    // Swapped for a reverse swell: the same bars, into the same bar line, on the same clip.
+    REQUIRE (changeSoundEffect (project, location, id, "reverse-swell", 4, rate).isEmpty());
+    CHECK (clip().getName() == "Reverse swell");
+    CHECK (end() == 4 * bar);
+    CHECK (project.getTrack (project.indexOfTrack (fx)).getState().getChildWithName (ids::Clips).getNumChildren() == 1);
+
+    // Swapped for an impact: it goes on the bar the build-up rose into (a hit starts there).
+    REQUIRE (changeSoundEffect (project, location, id, "impact", 1, rate).isEmpty());
+    CHECK (clip().getStart() == 4 * bar);
+    CHECK (clip().getName() == "Impact");
+    CHECK (clip().getFadeIn() <= clip().getDuration());
+
+    // And back to a riser: it rises into the bar the impact was on.
+    REQUIRE (changeSoundEffect (project, location, id, "riser-synth", 2, rate).isEmpty());
+    CHECK (clip().getStart() == 2 * bar);
+    CHECK (end() == 4 * bar);
+
+    // After a tempo change, made again at the new tempo: 2 bars at 60 BPM are 8 seconds, still
+    // ending on bar 5.
+    edit::setTempo (project, 0, 60.0);
+    REQUIRE (changeSoundEffect (project, location, id, "riser-synth", 2, rate).isEmpty());
+    CHECK (clip().getDuration() == 384000);
+    CHECK (end() == 4 * bar);
+
+    // Each change is one undo step.
+    undo.undo();
+    CHECK (clip().getDuration() == 192000);
+    undo.undo();   // the tempo
+    undo.undo();
+    CHECK (clip().getName() == "Impact");
+
+    // Only Aether's own sound effects can be changed like this.
+    const auto plain = edit::addAudioClip (project, fx, { "Audio/Guitar.wav", "Guitar", rate, 48000 }, 0);
+    CHECK (soundEffectOf (project, plain) == nullptr);
+    CHECK (changeSoundEffect (project, location, plain, "impact", 1, rate).isNotEmpty());
+    CHECK (changeSoundEffect (project, location, id, "no such effect", 1, rate).isNotEmpty());
+}

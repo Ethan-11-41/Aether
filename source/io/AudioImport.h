@@ -4,6 +4,7 @@
 #include <juce_audio_formats/juce_audio_formats.h>
 
 #include "ProjectFiles.h"
+#include "dsp/SoundEffects.h"
 #include "model/ClipEdits.h"
 
 namespace aether
@@ -60,6 +61,21 @@ struct SoundEffectResult
     ("Sound effects") below it. */
 SoundEffectResult addSoundEffect (Project& project, const ProjectLocation& location, const juce::String& effectId, int bars,
                                   const juce::String& trackId, Tick position, double sampleRate);
+
+/** The sound effect an audio clip plays, if Aether made it (addSoundEffect remembers it on
+    the clip); nullptr for anything else. */
+const dsp::soundfx::Info* soundEffectOf (const Project& project, const juce::String& clipId);
+
+/** How many bars long a sound effect clip was made (1 for hits). */
+int soundEffectBars (const Project& project, const juce::String& clipId);
+
+/** Changes a sound effect clip in place, as one undo step (0.17.1): another effect, another
+    length, or the same again at the song's tempo now. It stays on the bar line it belongs to:
+    where a build-up ends, or where anything else starts (so a riser swapped for an impact puts
+    the impact on the bar the riser rose into). The clip keeps its track, volume and fades (made
+    to fit). Returns what went wrong, in plain words, or nothing. */
+juce::String changeSoundEffect (Project& project, const ProjectLocation& location, const juce::String& clipId,
+                                const juce::String& effectId, int bars, double sampleRate, const juce::String& undoName = {});
 
 /** Reverses audio clips (plays them backwards), as one undo step: each clip then plays a reversed
     copy of its recording, "<name> (reversed).wav" (32-bit float, at the recording's rate) in the

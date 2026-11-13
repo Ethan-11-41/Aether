@@ -49,10 +49,16 @@ public:
         or out; public so the tests can call it. */
     void refreshMidiInputs();
 
-    /** The names of the MIDI inputs that are switched on. */
+    /** The names of the MIDI inputs that are switched on, as shown to the user (with the maker
+        added when Windows' name doesn't say it: see midikeyboards::displayName). */
     juce::StringArray getEnabledMidiInputNames() const;
 
     static constexpr const char* midiOffKey = "midiInputsSwitchedOff";
+
+    /** How hard MIDI keyboards have to be played (a midikeyboards::Touch), remembered in the
+        settings. The engine is told separately (AudioEngine::setKeyboardTouch). */
+    int getKeyboardTouch() const;
+    void setKeyboardTouch (int touch);
 
     /** Switches to another kind of driver (e.g. "Windows Audio (Exclusive Mode)"). If the usual
         setting doesn't open, it tries again without the microphone, then at other sample rates,

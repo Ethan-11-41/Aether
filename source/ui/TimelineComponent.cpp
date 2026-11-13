@@ -1282,6 +1282,9 @@ private:
                 if (safeOwner != nullptr && safeOwner->onFixTiming)
                     safeOwner->onFixTiming (targets);
             });
+            if (miditiming::wasFixed (proj, targets))
+                menu.addItem ("Put the timing back as I played it" + several, [&proj, targets] { edit::putBackAsPlayed (proj, targets); });
+
             menu.addItem ("Quantize" + several + "... (Q)", [safeOwner, targets]
             {
                 if (safeOwner != nullptr && safeOwner->onQuantize)
@@ -1318,6 +1321,50 @@ private:
             }
 
             menu.addSectionHeader (info);
+        }
+
+        // A sound effect Aether made: swap it, change its length, or make it again at the song's
+        // tempo, without removing it.
+        if (const auto* effect = soundEffectOf (proj, id))
+        {
+            const auto bars = soundEffectBars (proj, id);
+            const auto barsText = [] (int n) { return juce::String (n) + (n == 1 ? " bar" : " bars"); };
+
+            juce::PopupMenu swap;
+            for (const auto& other : dsp::soundfx::all())
+            {
+                const auto otherId = juce::String (other.id);
+                const auto otherBars = other.hasLength ? bars : 1;
+                swap.addItem (juce::String (other.name) + (other.hasLength ? " (" + barsText (otherBars) + ")" : juce::String()),
+                              otherId != effect->id, otherId == effect->id,
+                              [safeOwner, id, otherId, otherBars, name = juce::String (other.name)]
+                {
+                    if (safeOwner != nullptr)
+                        safeOwner->changeSoundEffect (id, otherId, otherBars, "Swap for " + name);
+                });
+            }
+
+            menu.addSubMenu (juce::String ("Swap for another sound effect"), swap);
+
+            if (effect->hasLength)
+            {
+                juce::PopupMenu lengths;
+                for (const auto n : { 1, 2, 4, 8 })
+                    lengths.addItem (barsText (n), n != bars, n == bars, [safeOwner, id, effectId = juce::String (effect->id), n, barsText]
+                    {
+                        if (safeOwner != nullptr)
+                            safeOwner->changeSoundEffect (id, effectId, n, "Make the sound effect " + barsText (n));
+                    });
+
+                menu.addSubMenu ("Length (now " + barsText (bars) + ")", lengths);
+                menu.addItem ("Make it again at the song's tempo", [safeOwner, id, effectId = juce::String (effect->id), bars]
+                {
+                    if (safeOwner != nullptr)
+                        safeOwner->changeSoundEffect (id, effectId, bars, "Make the sound effect again at the song's tempo");
+                });
+            }
+
+            menu.addSeparator();
         }
 
         // Loop recording: choose which pass plays.
@@ -1465,6 +1512,22 @@ juce::String TimelineComponent::addSoundEffect (const juce::String& effectId, in
 
     selectClips ({ result.clipId });
     return result.clipId;
+}
+
+bool TimelineComponent::changeSoundEffect (const juce::String& clipId, const juce::String& effectId, int bars,
+                                           const juce::String& undoName)
+{
+    const auto rate = engine.getCurrentSampleRate() > 0.0 ? engine.getCurrentSampleRate() : 48000.0;
+    const auto problem = aether::changeSoundEffect (project, location(), clipId, effectId, bars, rate, undoName);
+
+    if (problem.isNotEmpty())
+    {
+        juce::AlertWindow::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon, "Couldn't change the sound effect", problem, "OK", this);
+        return false;
+    }
+
+    selectClips ({ clipId });
+    return true;
 }
 
 void TimelineComponent::reverseClips (const juce::StringArray& clipIds)

@@ -205,6 +205,11 @@ Separate process:   plug-in scanner
   tempo map, so nothing moves in time. Both are one undo step; `edit::replaceTempo` replaces the
   whole tempo list. `edit::quantizeClips` quantizes notes against the song's grid, counted from
   each bar's start (the piano roll's quantize counts from the clip's start).
+  Since 0.17.1 a fix leaves a `PlayedTiming` record on each clip: a map from the clip's ticks to
+  the seconds they were played at (through every note's start and end, interpolated between), plus
+  the song's tempo before and after. The next fix reads note times through that map (and goes
+  back to the earlier tempo if nothing has changed it since), so fixes never stack; a clip whose
+  origin moved ignores its record. `edit::putBackAsPlayed` places the notes at those times again.
 
 - Sound effects (M16, `dsp/SoundEffects`): risers, a reverse swell and a downlifter are made to
   any length (so they last whole bars at the song's tempo), from seeded noise through a sweeping

@@ -115,6 +115,10 @@ public:
         its clip's id (empty if it couldn't, after saying why). */
     juce::String addSoundEffect (const juce::String& effectId, int bars, const juce::String& trackId, Tick position);
 
+    /** Changes a sound effect clip in place: another effect, another length, or made again at
+        the song's tempo (see aether::changeSoundEffect). False (after saying why) if it couldn't. */
+    bool changeSoundEffect (const juce::String& clipId, const juce::String& effectId, int bars, const juce::String& undoName);
+
     /** Reverses audio clips (see aether::reverseClips); problems are shown in a message. */
     void reverseClips (const juce::StringArray& clipIds);
 

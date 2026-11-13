@@ -27,6 +27,7 @@ namespace aether::ids
     inline const juce::Identifier Inserts        { "Inserts" };          // list of Insert (effects), inside a Track or Master
     inline const juce::Identifier Insert         { "Insert" };
     inline const juce::Identifier Note           { "Note" };             // inside a MIDI Clip
+    inline const juce::Identifier PlayedTiming   { "PlayedTiming" };     // inside a MIDI Clip whose timing was fixed: how it was played
     inline const juce::Identifier Instrument     { "Instrument" };       // inside a MIDI Track: what plays its notes
     inline const juce::Identifier Automation     { "Automation" };       // list of AutomationLane, inside a Track
     inline const juce::Identifier AutomationLane { "AutomationLane" };   // list of AutomationPoint
@@ -40,6 +41,10 @@ namespace aether::ids
 
     // Timeline (positions are ticks: 960000 per quarter note)
     inline const juce::Identifier tick        { "tick" };
+    inline const juce::Identifier origin      { "origin" };       // PlayedTiming: where the clip's notes are counted from (tick)
+    inline const juce::Identifier timeMap     { "timeMap" };      // PlayedTiming: "tick:seconds ..." when each moment was played
+    inline const juce::Identifier tempoBefore { "tempoBefore" };  // PlayedTiming: the song's tempo before the fix ("tick:bpm:curve ...")
+    inline const juce::Identifier tempoAfter  { "tempoAfter" };   // PlayedTiming: the song's tempo the fix left
     inline const juce::Identifier bpm         { "bpm" };
     inline const juce::Identifier curve       { "curve" };        // "jump" or "ramp"
     inline const juce::Identifier bar         { "bar" };          // counting from 0
@@ -69,6 +74,9 @@ namespace aether::ids
     inline const juce::Identifier fadeOut       { "fadeOut" };
     inline const juce::Identifier fadeInCurve   { "fadeInCurve" };    // "linear", "smooth", "fast" or "slow"
     inline const juce::Identifier fadeOutCurve  { "fadeOutCurve" };
+    inline const juce::Identifier soundEffect   { "soundEffect" };    // audio clips made by Aether: which sound effect (e.g. "riser-noise")
+    inline const juce::Identifier effectBars    { "effectBars" };     // ...and how many bars long it was made
+    inline const juce::Identifier effectBar     { "effectBar" };      // ...and ticks from its start to the bar line it belongs to
 
     // Mixer
     inline const juce::Identifier volume   { "volume" };     // dB; -100 or less means silent

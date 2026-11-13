@@ -404,3 +404,179 @@ TEST_CASE ("Replacing the tempo is one undo step", "[timing][model]")
     CHECK (timeline::getNumTempoChanges (project) == 2);
     CHECK (timeline::buildTempoMap (project).tempoAt (8 * q) == Catch::Approx (100.0));
 }
+
+//==============================================================================
+// Each fix starts from how it was played (0.17.1)
+
+namespace
+{
+    /** The song's tempo changes, as (tick, BPM). */
+    std::vector<std::pair<Tick, double>> tempoPointsOf (const Project& project)
+    {
+        std::vector<std::pair<Tick, double>> result;
+        const auto map = timeline::buildTempoMap (project);
+        for (const auto& point : map.getTempoPoints())
+            result.emplace_back (point.tick, point.bpm);
+        return result;
+    }
+
+    void checkSameTimes (const std::vector<std::pair<double, double>>& a, const std::vector<std::pair<double, double>>& b,
+                         double margin = 0.001)
+    {
+        REQUIRE (a.size() == b.size());
+        for (size_t i = 0; i < a.size(); ++i)
+        {
+            CHECK (a[i].first == Catch::Approx (b[i].first).margin (margin));
+            CHECK (a[i].second == Catch::Approx (b[i].second).margin (margin));
+        }
+    }
+
+    miditiming::SteadyOptions atBpm (double bpm)
+    {
+        miditiming::SteadyOptions options;
+        options.songBpm = bpm;
+        return options;
+    }
+}
+
+TEST_CASE ("A second timing fix starts from how the clip was played, not from the first fix", "[timing][model]")
+{
+    // What following the playing gives, done straight away...
+    Played reference (12, speedingUp (84.0, 100.0, 48.0, 1.3), 0.008);
+    const auto referenceBeat = miditiming::findBeat (reference.project, { reference.clipId });
+    REQUIRE (edit::makeTempoFollow (reference.project, { reference.clipId }, referenceBeat, {}));
+
+    // ...is what it gives after making it steady at 90 first.
+    Played p (12, speedingUp (84.0, 100.0, 48.0, 1.3), 0.008);
+    const auto asPlayed = p.soundingTimes();
+    const auto first = miditiming::findBeat (p.project, { p.clipId });
+    REQUIRE (edit::makeTimingSteady (p.project, { p.clipId }, first, atBpm (90.0)));
+    CHECK (miditiming::remembersPlaying (p.project, { p.clipId }));
+    CHECK (miditiming::wasFixed (p.project, { p.clipId }));
+
+    // Looking again finds the beat as played (speeding up), not the steady 90.
+    const auto again = miditiming::findBeat (p.project, { p.clipId });
+    REQUIRE (again.found);
+    CHECK (again.bpm == Catch::Approx (first.bpm).margin (0.01));
+    CHECK (again.fastestBpm - again.slowestBpm > 10.0);
+    CHECK (miditiming::playedNotes (p.project, { p.clipId }).size() == miditiming::playedNotes (reference.project, { reference.clipId }).size());
+
+    REQUIRE (edit::makeTempoFollow (p.project, { p.clipId }, again, {}));
+
+    // The same tempo changes, and the notes sound when they were played.
+    const auto expected = tempoPointsOf (reference.project), got = tempoPointsOf (p.project);
+    REQUIRE (got.size() == expected.size());
+    for (size_t i = 0; i < got.size(); ++i)
+    {
+        CHECK (std::abs (got[i].first - expected[i].first) <= 1);
+        CHECK (got[i].second == Catch::Approx (expected[i].second).margin (0.002));
+    }
+
+    checkSameTimes (p.soundingTimes(), asPlayed);
+
+    // Each fix is one undo step: back to steady, then to as played.
+    p.project.getUndoManager().undo();
+    CHECK (tempoPointsOf (p.project) == std::vector<std::pair<Tick, double>> { { 0, 90.0 } });
+    p.project.getUndoManager().undo();
+    CHECK (p.soundingTimes() == asPlayed);
+    CHECK_FALSE (miditiming::remembersPlaying (p.project, { p.clipId }));
+}
+
+TEST_CASE ("After following the playing, making it steady at the song's tempo uses the tempo from before", "[timing][model]")
+{
+    Played p (8, steady (96.0, 0.9), 0.01);
+    REQUIRE (edit::makeTempoFollow (p.project, { p.clipId }, miditiming::findBeat (p.project, { p.clipId }), {}));
+    REQUIRE (timeline::getNumTempoChanges (p.project) > 2);
+
+    // The window offers the song's tempo from before (120), not the tempo that followed.
+    CHECK (miditiming::songTempoAt (p.project, { p.clipId }) == Catch::Approx (120.0));
+    CHECK (miditiming::songTempoChanges (p.project, { p.clipId }) == 1);
+
+    const auto beat = miditiming::findBeat (p.project, { p.clipId });
+    REQUIRE (beat.found);
+    CHECK (beat.bpm == Catch::Approx (96.0).margin (1.0));
+    REQUIRE (edit::makeTimingSteady (p.project, { p.clipId }, beat, {}));
+
+    // The song is back at 120 and the chords are on its beats.
+    CHECK (tempoPointsOf (p.project) == std::vector<std::pair<Tick, double>> { { 0, 120.0 } });
+    const auto chords = p.positionsOf (60);
+    REQUIRE (chords.size() == 32);
+    CHECK (worstOffGrid (chords, chords.front(), q) < q / 100);
+}
+
+TEST_CASE ("Putting the timing back as played undoes every fix in one step", "[timing][model]")
+{
+    Played p (8, speedingUp (88.0, 98.0, 32.0, 0.7), 0.01);
+    const auto asPlayed = p.soundingTimes();
+    const auto positions = p.positionsOf (60);
+
+    CHECK_FALSE (miditiming::wasFixed (p.project, { p.clipId }));
+    CHECK_FALSE (edit::putBackAsPlayed (p.project, { p.clipId }));
+
+    REQUIRE (edit::makeTimingSteady (p.project, { p.clipId }, miditiming::findBeat (p.project, { p.clipId }), atBpm (90.0)));
+    REQUIRE (edit::makeTempoFollow (p.project, { p.clipId }, miditiming::findBeat (p.project, { p.clipId }), {}));
+    REQUIRE (edit::makeTimingSteady (p.project, { p.clipId }, miditiming::findBeat (p.project, { p.clipId }), {}));
+
+    REQUIRE (edit::putBackAsPlayed (p.project, { p.clipId }));
+    CHECK (p.project.getUndoManager().getUndoDescription() == "Put the timing back as played");
+
+    // The song's tempo and every note are exactly as they were.
+    CHECK (tempoPointsOf (p.project) == std::vector<std::pair<Tick, double>> { { 0, 120.0 } });
+    checkSameTimes (p.soundingTimes(), asPlayed, 1.0e-5);
+    const auto back = p.positionsOf (60);
+    REQUIRE (back.size() == positions.size());
+    for (size_t i = 0; i < back.size(); ++i)
+        CHECK (std::abs (back[i] - positions[i]) <= 1);
+
+    // Nothing more is remembered.
+    CHECK_FALSE (miditiming::wasFixed (p.project, { p.clipId }));
+    CHECK_FALSE (p.clip().getState().getChildWithName (ids::PlayedTiming).isValid());
+
+    // One undo: back to the last fix.
+    p.project.getUndoManager().undo();
+    CHECK (miditiming::wasFixed (p.project, { p.clipId }));
+}
+
+TEST_CASE ("Notes moved by hand after a fix keep their place; a clip moved by hand is taken as it is", "[timing][model]")
+{
+    Played p (8, speedingUp (88.0, 98.0, 32.0, 0.7), 0.0);
+    const auto asPlayed = p.soundingTimes();
+    REQUIRE (edit::makeTimingSteady (p.project, { p.clipId }, miditiming::findBeat (p.project, { p.clipId }), atBpm (90.0)));
+
+    // Move the 6th melody note (half way between beats 5 and 6) a sixteenth later, by hand.
+    NoteNodes melody;
+    for (const auto& n : notes::nodesOf (p.clip()))
+        if ((int) n[ids::pitch] == 72)
+            melody.push_back (n);
+
+    std::sort (melody.begin(), melody.end(), [] (const auto& a, const auto& b) { return (juce::int64) a[ids::tick] < (juce::int64) b[ids::tick]; });
+    REQUIRE (melody.size() == 32);
+    edit::moveNotes (p.project, { melody[5] }, q / 4, 0);
+
+    // Following the playing: the other notes are where they were played; the moved one sits
+    // between beats 5 and 6 as played, later than it was played.
+    REQUIRE (edit::makeTempoFollow (p.project, { p.clipId }, miditiming::findBeat (p.project, { p.clipId }), {}));
+    const auto map = p.tempo();
+    const auto clip = p.clip();
+    std::vector<double> melodyTimes;
+    for (const auto& n : midi::audibleNotes (clip))
+        if (n.pitch == 72)
+            melodyTimes.push_back (map.ticksToSeconds (clip.getStart() + n.start));
+
+    std::sort (melodyTimes.begin(), melodyTimes.end());
+    REQUIRE (melodyTimes.size() == 32);
+    const auto wasPlayed = 0.5 * (p.beatTime (5) + p.beatTime (6));
+    CHECK (melodyTimes[5] > wasPlayed + 0.05);
+    CHECK (melodyTimes[5] < p.beatTime (6));
+    CHECK (melodyTimes[4] == Catch::Approx (0.5 * (p.beatTime (4) + p.beatTime (5))).margin (0.001));
+    CHECK (melodyTimes[6] == Catch::Approx (0.5 * (p.beatTime (6) + p.beatTime (7))).margin (0.001));
+
+    // Moving the whole clip: it's taken as it is now (steady at the song's tempo after this).
+    REQUIRE (edit::makeTimingSteady (p.project, { p.clipId }, miditiming::findBeat (p.project, { p.clipId }), atBpm (90.0)));
+    REQUIRE (edit::setClipPosition (p.project, p.clipId, p.clip().getStart() + bar, p.track));
+    CHECK_FALSE (miditiming::remembersPlaying (p.project, { p.clipId }));
+    const auto moved = miditiming::findBeat (p.project, { p.clipId });
+    REQUIRE (moved.found);
+    CHECK (moved.fastestBpm - moved.slowestBpm < 1.0);
+    CHECK (moved.bpm == Catch::Approx (90.0).margin (0.5));
+}

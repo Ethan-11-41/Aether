@@ -34,6 +34,10 @@ public:
         every message). Lights the little light next to "MIDI keyboards". */
     std::function<std::uint32_t()> midiActivity;
 
+    /** Called when the keyboards' touch setting changes (a midikeyboards::Touch), after it has
+        been remembered, so the owner can tell the engine. */
+    std::function<void (int)> onKeyboardTouchChanged;
+
     /** Called when rows appear or disappear, so the owner can give the panel its new height. */
     std::function<void()> onLayoutChanged;
 
@@ -68,6 +72,7 @@ public:
     int getNumInputToggles() const noexcept       { return (int) inputToggles.size(); }
     juce::ToggleButton& getInputToggle (int index) { return *inputToggles[(size_t) index]; }
     int getNumMidiToggles() const noexcept        { return (int) midiToggles.size(); }
+    juce::ComboBox& getTouchBox() noexcept        { return touchBox; }
 
     void paint (juce::Graphics&) override;
     void resized() override;
@@ -120,6 +125,8 @@ private:
     juce::Label midiHeading { {}, "MIDI keyboards" }, midiNote;
     std::vector<std::unique_ptr<juce::ToggleButton>> midiToggles;
     juce::Array<juce::MidiDeviceInfo> midiDevices;   // in midiToggles order
+    juce::Label touchLabel { {}, "Touch" }, touchNote;
+    juce::ComboBox touchBox;
     juce::Rectangle<int> midiLightArea;
     bool midiLit = false;
     std::uint32_t lastMidiActivity = 0;

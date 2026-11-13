@@ -271,6 +271,19 @@ Nothing new in the file. Sound effects are ordinary audio clips playing WAV file
 `Audio/Sound effects` folder; the drum kit's new sounds are referred to like the others
 (`"builtin:taiko-low"`; the names are in `source/dsp/DrumSounds.cpp`).
 
+### Added in Aether 0.17.1 (still format version 1)
+
+| Node | Property | Meaning |
+|---|---|---|
+| `PlayedTiming` (inside a MIDI clip whose timing was fixed) | `origin` | Where the clip's notes were counted from (its `start` minus `contentStart`, in ticks) when it was fixed. If the clip has moved since, the record is ignored. |
+| | `timeMap` | When each moment of the clip was played: `"tick:seconds tick:seconds ..."`, ticks from `origin` rising, seconds from the start of the song. |
+| | `tempoBefore`, `tempoAfter` | The song's tempo before and after the fix, `"tick:bpm:curve ..."`. If the song's tempo is still `tempoAfter`, the next fix starts from `tempoBefore`. |
+| (audio clip made by Aether) | `soundEffect` | Which sound effect it plays (e.g. `"riser-noise"`; see `source/dsp/SoundEffects.cpp`). Missing: an ordinary audio clip. |
+| | `effectBars` | How many bars long it was made. |
+| | `effectBar` | Ticks from the clip's start to the bar line it belongs to (where a build-up ends). |
+
+Older versions of Aether keep these when they open and save a song, and ignore them.
+
 ## Rules for changing the format
 
 1. Never rename or reuse a node type or property name (see `source/model/Ids.h`).

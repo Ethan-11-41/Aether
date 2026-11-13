@@ -25,6 +25,12 @@
 
     Clips are changed as a group (e.g. a piano part and a bass part played over it); repeating
     patterns are left alone. Other clips keep their place in the bars, as with any tempo change.
+
+    Each fix starts from how the clips were played, not from the last fix: the first fix
+    remembers, on each clip, when each moment of it was played (and the song's tempo before),
+    so trying "steady" and then "follow" (or another tempo) gives the same as trying it first.
+    Notes moved by hand since keep their place among the notes around them; a clip moved by hand
+    is taken as it is now. putBackAsPlayed() undoes the fixes, however many there were.
 */
 namespace aether
 {
@@ -58,8 +64,18 @@ namespace miditiming
                         const SteadyOptions& options);
     int followStartBar (const Project& project, const juce::StringArray& clipIds, const tempodetect::Result& beat);
 
-    /** The song's tempo where the first of the clips starts. */
+    /** The song's tempo where the first of the clips starts (as it was before a timing fix
+        changed it, if one did: a new fix starts from that). */
     double songTempoAt (const Project& project, const juce::StringArray& clipIds);
+
+    /** How many tempo changes the song has, counted the same way. */
+    int songTempoChanges (const Project& project, const juce::StringArray& clipIds);
+
+    /** True if any of the clips remembers how it was played (an earlier timing fix). */
+    bool remembersPlaying (const Project& project, const juce::StringArray& clipIds);
+
+    /** True if a timing fix changed the clips or the song's tempo, and it can be put back. */
+    bool wasFixed (const Project& project, const juce::StringArray& clipIds);
 }
 
 namespace edit
@@ -72,6 +88,11 @@ namespace edit
     /** Makes the song's tempo follow the clips' playing (see above). */
     bool makeTempoFollow (Project& project, const juce::StringArray& clipIds, const tempodetect::Result& beat,
                           const miditiming::FollowOptions& options);
+
+    /** Puts the clips back as they were played, and the song's tempo as it was then (if the last
+        fix changed it and nothing has changed it since). One undo step; false if no fix is
+        remembered. */
+    bool putBackAsPlayed (Project& project, const juce::StringArray& clipIds);
 }
 
 } // namespace aether

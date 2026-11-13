@@ -2,6 +2,7 @@
 #include "AudioDeviceService.h"
 
 #include "DriverErrors.h"
+#include "MidiKeyboards.h"
 
 #include <cmath>
 
@@ -76,7 +77,8 @@ void AudioDeviceService::refreshMidiInputs()
         if (! switchedOff.contains (device.name) && ! deviceManager.isMidiInputDeviceEnabled (device.identifier))
         {
             deviceManager.setMidiInputDeviceEnabled (device.identifier, true);
-            juce::Logger::writeToLog ("MIDI input switched on: " + device.name);
+            juce::Logger::writeToLog ("MIDI input switched on: " + midikeyboards::displayName (device.name, device.identifier)
+                                      + " (Windows calls it \"" + device.name + "\", at " + device.identifier + ")");
         }
 }
 
@@ -103,9 +105,20 @@ juce::StringArray AudioDeviceService::getEnabledMidiInputNames() const
 
     for (const auto& device : juce::MidiInput::getAvailableDevices())
         if (deviceManager.isMidiInputDeviceEnabled (device.identifier))
-            names.add (device.name);
+            names.add (midikeyboards::displayName (device.name, device.identifier));
 
     return names;
+}
+
+int AudioDeviceService::getKeyboardTouch() const
+{
+    return (int) midikeyboards::touchFromInt (settings.getIntValue (midikeyboards::touchSettingKey,
+                                                                    (int) midikeyboards::Touch::normal));
+}
+
+void AudioDeviceService::setKeyboardTouch (int touch)
+{
+    settings.setValue (midikeyboards::touchSettingKey, (int) midikeyboards::touchFromInt (touch));
 }
 
 LatencyInfo AudioDeviceService::getLatencyInfo() const

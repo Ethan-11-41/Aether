@@ -1,6 +1,8 @@
 // Aether - Copyright (C) 2026 The Aether authors. Licensed under the GNU AGPLv3 or later.
 #include "AudioEngine.h"
 
+#include "devices/MidiKeyboards.h"
+
 #include "model/Mixer.h"
 
 #include <algorithm>
@@ -149,8 +151,17 @@ void AudioEngine::handleIncomingMidiMessage (juce::MidiInput*, const juce::MidiM
 {
     midiActivity.fetch_add (1, std::memory_order_relaxed);
 
-    if (wantedLive (message))
-        deviceMidi.tryPush (toLive (message));
+    if (! wantedLive (message))
+        return;
+
+    auto live = toLive (message);
+
+    // The keyboard's touch setting: how hard each note comes out.
+    if (live.size >= 3 && (live.data[0] & 0xf0) == 0x90 && live.data[2] > 0)
+        live.data[2] = (std::uint8_t) midikeyboards::applyTouch (live.data[2],
+                                                                 midikeyboards::touchFromInt (keyboardTouch.load (std::memory_order_relaxed)));
+
+    deviceMidi.tryPush (live);
 }
 
 void AudioEngine::startLatencyCapture (std::shared_ptr<LatencyCapture> capture)

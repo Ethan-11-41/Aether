@@ -29,6 +29,10 @@ namespace aether::ui
 
     A box at the bottom chooses whether the window opens by itself after recording MIDI without
     the metronome (the app keeps that setting).
+
+    It always starts from how the clips were played, not from an earlier fix (the clips remember:
+    see MidiTiming.h), so choices can be tried one after another; "Put it back as I played it"
+    undoes the fixes.
 */
 class TimingPanel final : public juce::Component
 {
@@ -61,6 +65,13 @@ public:
     /** Does it. Returns false if nothing could be changed. If the song was edited since the beat
         was found (the window doesn't block the main window), the beat is found again first. */
     bool apply();
+
+    /** Puts the clips back as they were played (and the song's tempo as it was then), undoing
+        earlier fixes, and closes. False if there was nothing to put back. */
+    bool putBack();
+
+    /** True if an earlier fix can be put back ("Put it back as I played it" shows). */
+    bool canPutBack() const;
 
     const tempodetect::Result& getBeat() const noexcept   { return beat; }
     Mode getMode() const noexcept                          { return mode; }
@@ -105,7 +116,7 @@ private:
     juce::Slider strengthSlider { juce::Slider::LinearHorizontal, juce::Slider::TextBoxRight };
     juce::ToggleButton everyBarChoice { "A tempo change every bar (smoother)" }, everyBeatChoice { "Every beat (closer)" };
     juce::ToggleButton offerToggle { "Offer this after recording without the metronome" };
-    juce::TextButton cancelButton { "Cancel" }, applyButton { "Apply" };
+    juce::TextButton cancelButton { "Cancel" }, applyButton { "Apply" }, putBackButton { "Put it back as I played it" };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TimingPanel)
 };

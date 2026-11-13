@@ -150,6 +150,34 @@ TEST_CASE ("Applying can make the song's tempo follow the playing", "[ui][timing
     CHECK (f.project.getUndoManager().getUndoDescription() == "Make the tempo follow the playing");
 }
 
+TEST_CASE ("The timing window starts from how it was played, and can put it back", "[ui][timing]")
+{
+    Fixture f;
+    const auto found = f.panel->getBeat().bpm;
+    CHECK_FALSE (f.panel->canPutBack());
+    REQUIRE (f.panel->apply());   // steady
+
+    // Opened again: the same beat as played (not the steady one), and it says so.
+    ui::TimingPanel again (f.theme, f.project, { f.clipId }, false);
+    again.onClose = [&f] { ++f.closed; };
+    CHECK (again.getBeat().bpm == Catch::Approx (found).margin (0.01));
+    CHECK (again.getSummary().contains ("how you played it"));
+    CHECK (again.canPutBack());
+
+    // Following after making it steady: the tempo follows the playing (it goes between tempos).
+    again.setMode (ui::TimingPanel::Mode::follow);
+    REQUIRE (again.apply());
+    CHECK (timeline::getNumTempoChanges (f.project) > 5);
+
+    // Put back: the song's tempo is as it was, in one undo step.
+    ui::TimingPanel last (f.theme, f.project, { f.clipId }, false);
+    REQUIRE (last.putBack());
+    CHECK (timeline::getNumTempoChanges (f.project) == 1);
+    CHECK (timeline::buildTempoMap (f.project).tempoAt (0) == Catch::Approx (120.0));
+    CHECK (f.project.getUndoManager().getUndoDescription() == "Put the timing back as played");
+    CHECK_FALSE (last.canPutBack());
+}
+
 TEST_CASE ("Applying after the song changed looks at the notes again", "[ui][timing]")
 {
     Fixture f;

@@ -6,6 +6,44 @@ follow [Semantic Versioning](https://semver.org/) (0.x while Aether is in early 
 
 ## [Unreleased]
 
+## [0.17.1] - 2026-11-13
+
+From your notes on the Kawai, timing and sound effects.
+
+### Fixed
+- **Notes kept playing after changing an instrument's Voices from Legato** (or playing it in
+  Legato at all, with a keyboard): letting go of a key was ignored in Legato, and for notes
+  started before the Voices setting changed. Every key you let go of now stops its note, in every
+  mode, whatever was changed while it was held.
+- **Fixing the timing again started from the last fix, not from your playing.** Choosing "make it
+  steady" at 90 and then "follow my playing" followed the steady 90, so it showed 90 everywhere.
+  Now each fix starts from how you played: the clips remember when every note was really played
+  (and the song's tempo before the fix), so you can try one choice after another and each gives
+  what it would have given first. Notes you move by hand after a fix keep their place among the
+  notes around them; a clip you move by hand is taken as it is.
+
+### Added
+- **Put it back as I played it**: a button in the Fix timing window (and in a MIDI clip's
+  right-click menu, once its timing has been fixed) puts the notes back exactly as you played them,
+  and the song's tempo as it was, undoing all the fixes in one step.
+- **Change a sound effect without removing it**: right-click a sound effect clip:
+  - **Swap for another sound effect**: the same clip becomes another effect, on the bar line it
+    belongs to (a riser swapped for an impact puts the impact on the bar the riser rose into, and
+    the other way round). Its volume and fades stay.
+  - **Length**: 1, 2, 4 or 8 bars, still ending (or starting) on its bar line.
+  - **Make it again at the song's tempo**: after a tempo change, so it fits the bars again.
+- **Keyboard touch** (Audio settings, under MIDI keyboards): **Very light**, **Light**, **Normal**
+  or **Heavy**. With Light, playing softly comes out louder: good for a weighted piano action like
+  the Kawai's, which sends softer notes than most keyboards. It changes what's recorded too, so a
+  recording plays back as it sounded. (A whole track can also be made louder with its volume in
+  the mixer, up to +6 dB.)
+
+### Changed
+- **MIDI keyboards Windows names just "MIDI device"** are named after their maker where the USB
+  connection says who it is (Kawai, Roland, Yamaha, Korg, Casio and others): "Kawai keyboard (MIDI
+  device)". Aether's log (Help > Open log folder) now also notes each keyboard's name as
+  Windows gives it, in case one still isn't recognised.
+
 ## [0.17.0] - 2026-11-13 - Milestone 16: sound effects and cinematic sounds
 
 ### Added

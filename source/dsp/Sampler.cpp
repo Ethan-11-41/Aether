@@ -437,19 +437,18 @@ namespace
 
         void noteOff (int note) noexcept
         {
-            if (settings.mode != poly)
-            {
-                removeHeld (note);
+            removeHeld (note);
 
+            // Mono and slide: letting go of the sounding key goes back to the key still held
+            // before it. Anything else (legato, poly, or notes started before the voice mode was
+            // changed) is simply let go below.
+            if (settings.mode == mono || settings.mode == slide)
+            {
                 bool playing = false;
                 for (auto& v : voices)
                     playing = playing || (v.active && v.mono && ! v.fromClip && v.note == note && v.keyDown);
 
-                if (! playing)
-                    return;
-
-                // Back to the key still held before it.
-                if (numHeld > 0)
+                if (playing && numHeld > 0)
                 {
                     const auto previous = held[(size_t) numHeld - 1];
 
